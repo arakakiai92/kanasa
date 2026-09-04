@@ -27,7 +27,7 @@ let bgConfig = {
 
 // Layer: イラスト
 let adjust = { src: null, processedSrc: null, scale: 1, ox: 0, oy: 0, rotation: 0 };
-let bgTransparent = false;
+let bgTransparent = true; // ★デフォルトで透過ON！
 let bgTolerance = 22;
 let protectWhite = true;
 let illustBorder = false;
@@ -67,6 +67,7 @@ function updateMode() {
   $("#spec").textContent = `切り抜き比率：${mode === "sticker" ? "370 : 320" : "1 : 1"} ／ 書き出し：${s.label}`;
   $("#total").textContent = $("#count").value;
   
+  // モード切替時にボタンスタイルを更新
   document.querySelectorAll(".switch button").forEach(btn => {
     if (btn.dataset.mode === mode) {
       btn.classList.add("bg-white", "shadow-sm", "text-gray-800");
@@ -424,13 +425,12 @@ function openAdjustNew() {
   $("#stampText").value = "";
 
   layerOrder = ["illust", "text", "bg"];
-  bgTransparent = false;
+  bgTransparent = true; // ★デフォルトで透過ON
   bgTolerance = 22;
   protectWhite = true;
   $("#bgToleranceSlider").value = 22;
   $("#bgToleranceVal").textContent = "22";
   $("#protectWhiteToggle").checked = true;
-  $("#transOptionsWrap").classList.add("hidden");
 
   illustBorder = false;
   illustBorderColor = "#ffffff";
@@ -491,7 +491,7 @@ function openAdjustForEdit(savedState) {
   };
 
   layerOrder = [...savedState.layerOrder];
-  bgTransparent = savedState.bgTransparent;
+  bgTransparent = savedState.bgTransparent !== undefined ? savedState.bgTransparent : true;
   bgTolerance = savedState.bgTolerance !== undefined ? savedState.bgTolerance : 22;
   protectWhite = savedState.protectWhite !== undefined ? savedState.protectWhite : true;
   illustBorder = savedState.illustBorder;
@@ -500,7 +500,6 @@ function openAdjustForEdit(savedState) {
   $("#bgToleranceSlider").value = bgTolerance;
   $("#bgToleranceVal").textContent = bgTolerance;
   $("#protectWhiteToggle").checked = protectWhite;
-  $("#transOptionsWrap").classList.toggle("hidden", !bgTransparent);
 
   $("#illustBorderToggle").checked = illustBorder;
   $("#illustBorderColorWrap").classList.toggle("hidden", !illustBorder);
@@ -619,11 +618,11 @@ function updateEraserCursorPos(clientX, clientY) {
   cursor.style.height = `${diameter}px`;
   cursor.style.left = `${x}px`;
   cursor.style.top = `${y}px`;
-  cursor.classList.add("hidden"); // 初期は非表示、動いたときに表示
+  cursor.classList.add("hidden");
 }
 
 // ==========================================
-// ② スタンプ調整画面：タブで選んだレイヤーを確実に操作 ＆ 透過処理の完全復旧
+// ② スタンプ調整画面
 // ==========================================
 let touchMode = null;
 let touchStartX = 0, touchStartY = 0;
@@ -833,23 +832,35 @@ function syncCommonScaleSlider() {
   const unit = $("#commonScaleUnit");
   const isEmoji = (mode === "emoji");
 
+  const rotSlider = $("#commonRotationSlider");
+  const rotVal = $("#commonRotationVal");
+
+  let currentRot = 0;
+
   if (currentLayer === "illust") {
     slider.min = 40; slider.max = 300;
     slider.value = Math.round(adjust.scale * 100);
     label.textContent = "大きさ：";
     val.textContent = slider.value; unit.textContent = "%";
+    currentRot = adjust.rotation;
   } else if (currentLayer === "text") {
     slider.min = isEmoji ? 10 : 16;
     slider.max = isEmoji ? 48 : 76;
     slider.value = textConfig.size;
     label.textContent = "大きさ：";
     val.textContent = slider.value; unit.textContent = "px";
+    currentRot = textConfig.rotation;
   } else if (currentLayer === "bg") {
     slider.min = 20; slider.max = 300;
     slider.value = Math.round(bgConfig.scale * 100);
     label.textContent = "大きさ：";
     val.textContent = slider.value; unit.textContent = "%";
+    currentRot = bgConfig.rotation;
   }
+
+  const deg = Math.round(currentRot * (180 / Math.PI));
+  rotSlider.value = deg;
+  rotVal.textContent = deg;
 }
 
 $("#commonScaleSlider").oninput = e => {
@@ -866,6 +877,22 @@ $("#commonScaleSlider").oninput = e => {
     textConfig.size = v;
   } else if (currentLayer === "bg") {
     bgConfig.scale = v / 100;
+  }
+  renderPreview();
+};
+
+// 傾き（回転）スライダーのイベント
+$("#commonRotationSlider").oninput = e => {
+  const deg = Number(e.target.value);
+  $("#commonRotationVal").textContent = deg;
+  const rad = deg * (Math.PI / 180);
+
+  if (currentLayer === "illust") {
+    adjust.rotation = rad;
+  } else if (currentLayer === "text") {
+    textConfig.rotation = rad;
+  } else if (currentLayer === "bg") {
+    bgConfig.rotation = rad;
   }
   renderPreview();
 };
@@ -969,7 +996,6 @@ function updateLayerStatus() {
   else if (bgConfig.style === "full") $("#stateBg").textContent = "全面";
 
   $("#transState").textContent = bgTransparent ? "透過 ON" : "透過 OFF";
-  $("#transparent").textContent = bgTransparent ? "↩️ 透過を解除" : "✨ 絵のまわりを透明にする";
 }
 
 function updateIllustCache() {
@@ -1081,12 +1107,6 @@ function drawTextLayer(ctx, w, h) {
 }
 
 // イベント設定
-$("#transparent").onclick = () => {
-  bgTransparent = !bgTransparent;
-  $("#transOptionsWrap").classList.toggle("hidden", !bgTransparent);
-  updateIllustCache(); renderPreview();
-};
-
 $("#protectWhiteToggle").onchange = e => {
   protectWhite = e.target.checked;
   updateIllustCache(); renderPreview();
@@ -1100,7 +1120,7 @@ $("#bgToleranceSlider").oninput = e => {
 
 $("#illustBorderToggle").onchange = e => {
   illustBorder = e.target.checked;
-  if (illustBorder && !bgTransparent) { bgTransparent = true; $("#transOptionsWrap").classList.remove("hidden"); }
+  if (illustBorder && !bgTransparent) { bgTransparent = true; }
   $("#illustBorderColorWrap").classList.toggle("hidden", !illustBorder);
   updateIllustCache(); renderPreview();
 };
