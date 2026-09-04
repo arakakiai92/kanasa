@@ -66,12 +66,21 @@ function updateMode() {
   const s = SPEC[mode];
   $("#spec").textContent = `切り抜き比率：${mode === "sticker" ? "370 : 320" : "1 : 1"} ／ 書き出し：${s.label}`;
   $("#total").textContent = $("#count").value;
+  
+  document.querySelectorAll(".switch button").forEach(btn => {
+    if (btn.dataset.mode === mode) {
+      btn.classList.add("bg-white", "shadow-sm", "text-gray-800");
+      btn.classList.remove("text-gray-500");
+    } else {
+      btn.classList.remove("bg-white", "shadow-sm", "text-gray-800");
+      btn.classList.add("text-gray-500");
+    }
+  });
+
   if (img) initOrAdjustSelection();
 }
 
 document.querySelectorAll(".switch button").forEach(b => b.onclick = () => {
-  document.querySelectorAll(".switch button").forEach(x => x.classList.remove("active"));
-  b.classList.add("active");
   mode = b.dataset.mode;
   updateMode();
 });
@@ -217,9 +226,7 @@ function getTouchPos(clientX, clientY) {
   };
 }
 
-// ==========================================
-// ① 切り出し画面のタッチ＆マウス操作（完全安定版）
-// ==========================================
+// ① 切り出し画面のタッチ＆マウス操作
 let cropDrag = null;
 
 wrap.addEventListener("touchstart", e => {
@@ -284,7 +291,6 @@ wrap.addEventListener("touchmove", e => {
 wrap.addEventListener("touchend", () => { cropDrag = null; });
 wrap.addEventListener("touchcancel", () => { cropDrag = null; });
 
-// マウス用（PC）
 wrap.addEventListener("mousedown", e => {
   if (!img) return;
   const p = getTouchPos(e.clientX, e.clientY);
@@ -613,11 +619,11 @@ function updateEraserCursorPos(clientX, clientY) {
   cursor.style.height = `${diameter}px`;
   cursor.style.left = `${x}px`;
   cursor.style.top = `${y}px`;
-  cursor.classList.remove("hidden");
+  cursor.classList.add("hidden"); // 初期は非表示、動いたときに表示
 }
 
 // ==========================================
-// ② スタンプ調整画面：タブで選んだレイヤーを確実に操作（スマートタッチ自動切り替え廃止）
+// ② スタンプ調整画面：タブで選んだレイヤーを確実に操作 ＆ 透過処理の完全復旧
 // ==========================================
 let touchMode = null;
 let touchStartX = 0, touchStartY = 0;
@@ -650,7 +656,6 @@ adjustArea.addEventListener("touchstart", e => {
     return;
   }
 
-  // ★文字を入れても勝手にレイヤーが変わらないよう、タブで選択中のレイヤーを直接操作する
   if (e.touches.length === 1 && !isEraserActive) {
     touchMode = 'drag';
     touchStartX = e.touches[0].clientX;
@@ -828,35 +833,23 @@ function syncCommonScaleSlider() {
   const unit = $("#commonScaleUnit");
   const isEmoji = (mode === "emoji");
 
-  const rotSlider = $("#commonRotationSlider");
-  const rotVal = $("#commonRotationVal");
-
-  let currentRot = 0;
-
   if (currentLayer === "illust") {
     slider.min = 40; slider.max = 300;
     slider.value = Math.round(adjust.scale * 100);
     label.textContent = "大きさ：";
     val.textContent = slider.value; unit.textContent = "%";
-    currentRot = adjust.rotation;
   } else if (currentLayer === "text") {
     slider.min = isEmoji ? 10 : 16;
     slider.max = isEmoji ? 48 : 76;
     slider.value = textConfig.size;
     label.textContent = "大きさ：";
     val.textContent = slider.value; unit.textContent = "px";
-    currentRot = textConfig.rotation;
   } else if (currentLayer === "bg") {
     slider.min = 20; slider.max = 300;
     slider.value = Math.round(bgConfig.scale * 100);
     label.textContent = "大きさ：";
     val.textContent = slider.value; unit.textContent = "%";
-    currentRot = bgConfig.rotation;
   }
-
-  const deg = Math.round(currentRot * (180 / Math.PI));
-  rotSlider.value = deg;
-  rotVal.textContent = deg;
 }
 
 $("#commonScaleSlider").oninput = e => {
@@ -873,22 +866,6 @@ $("#commonScaleSlider").oninput = e => {
     textConfig.size = v;
   } else if (currentLayer === "bg") {
     bgConfig.scale = v / 100;
-  }
-  renderPreview();
-};
-
-// 傾き（回転）スライダーのイベント
-$("#commonRotationSlider").oninput = e => {
-  const deg = Number(e.target.value);
-  $("#commonRotationVal").textContent = deg;
-  const rad = deg * (Math.PI / 180);
-
-  if (currentLayer === "illust") {
-    adjust.rotation = rad;
-  } else if (currentLayer === "text") {
-    textConfig.rotation = rad;
-  } else if (currentLayer === "bg") {
-    bgConfig.rotation = rad;
   }
   renderPreview();
 };
@@ -1401,7 +1378,7 @@ $("#modalEditBtn").onclick = () => {
   if (currentModalIndex === null || !results[currentModalIndex]) return;
   const item = results[currentModalIndex];
   $("#imageModal").classList.remove("show");
-  if (!item.state) { toast("編集履歴がありません"); return; }
+  if (!item.state) { toast("編集画面のデータがありません"); return; }
   editingIndex = currentModalIndex;
   openAdjustForEdit(item.state);
 };
@@ -1417,7 +1394,7 @@ $("#modalDeleteBtn").onclick = () => {
 
 $("#zip").onclick = async () => {
   if (!window.JSZip) { toast("ZIP機能の読み込みに失敗しました"); return; }
-  toast("ZIP的过程を作成中...");
+  toast("ZIPを作成中...");
   const z = new JSZip();
   results.forEach(r => z.file(r.name, r.blob));
   const b = await z.generateAsync({ type: "blob" });
