@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#ffffff">
 <title>LINEスタンプ・絵文字メーカー</title>
+<!-- Google Fonts (LINEスタンプ向けフリーフォント) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Hachi+Maru+Pop&family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -30,6 +34,7 @@
     <div class="spec" id="spec"></div>
   </section>
 
+  <!-- ステップ①：切り出し画面 -->
   <section id="sheetStep" class="step hidden">
     <div class="stepTitle"><span>① 切り出す</span><b id="sheetProgress">1 / 16</b></div>
     <p>欲しい絵を指でざっくり囲んでください。枠は自動で正しい比率になります。</p>
@@ -40,37 +45,140 @@
     <div class="sheetActions">
       <button id="resetCrop" class="subBtn hidden">↺ 枠をリセット</button>
       <button id="startSelect" class="primary big">✂️ この絵を囲む</button>
-      <button id="adjustBtn" class="primary big hidden">次へ：細かく調整 →</button>
+      <button id="adjustBtn" class="primary big hidden">次へ：編集する →</button>
     </div>
   </section>
 
+  <!-- ステップ②：編集・レイヤー調整画面 -->
   <section id="adjustStep" class="step hidden">
-    <div class="stepTitle"><span>② 位置を調整</span><button id="back" class="linkBtn">← 戻る</button></div>
-    <p>枠の中に絵がきれいに入るように調整してください。</p>
-    <div class="adjustArea">
+    <div class="stepTitle">
+      <span>② スタンプをととのえる</span>
+      <button id="back" class="linkBtn">← 戻る</button>
+    </div>
+    
+    <!-- リアルタイム合成プレビュー -->
+    <div class="adjustArea" id="adjustArea">
       <canvas id="preview"></canvas>
       <div id="adjustBox" class="cropBox"></div>
     </div>
-    <div class="adjustTools">
-      <button id="minus">− 小さく</button><button id="plus">＋ 大きく</button>
-      <button id="center">◎ 中央へ</button>
-      <button id="resetAdjust">↺ リセット</button>
+
+    <!-- レイヤー切り替えタブ -->
+    <div class="layerTabs">
+      <button class="tabBtn active" data-tab="tab-illust">🎨 えの調整</button>
+      <button class="tabBtn" data-tab="tab-bg">🖼 はいけい</button>
+      <button class="tabBtn" data-tab="tab-text">💬 セリフ</button>
     </div>
-    <div class="transRow">
-      <button id="transparent" class="primary">✨ 背景を透過</button>
-      <span id="transState">透過 OFF</span>
+
+    <!-- タブ1: イラスト調整 -->
+    <div id="tab-illust" class="tabContent active">
+      <div class="adjustTools">
+        <button id="minus">− 小さく</button><button id="plus">＋ 大きく</button>
+        <button id="center">◎ 中央へ</button>
+        <button id="resetAdjust">↺ リセット</button>
+      </div>
+      <div class="transRow">
+        <button id="transparent" class="primary">✨ 絵のまわりを透明にする</button>
+        <span id="transState">透過 OFF</span>
+      </div>
+      <div class="borderRow">
+        <label class="borderToggle"><input type="checkbox" id="whiteBorder"> ⭕ 白フチをつける</label>
+        <label class="borderWidth">太さ
+          <input type="range" id="borderWidth" min="1" max="20" value="6">
+          <b><span id="borderWidthValue">6</span>px</b>
+        </label>
+      </div>
     </div>
-    <div class="borderRow">
-      <label class="borderToggle"><input type="checkbox" id="whiteBorder"> ⭕ 白縁をつける</label>
-      <label class="borderWidth">太さ
-        <input type="range" id="borderWidth" min="1" max="20" value="6">
-        <b><span id="borderWidthValue">6</span>px</b>
-      </label>
+
+    <!-- タブ2: 背景レイヤー -->
+    <div id="tab-bg" class="tabContent">
+      <div class="bgSelectGroup">
+        <span class="subLabel">はいけいの色：</span>
+        <div class="colorPalette" id="bgColorPalette">
+          <button class="colorBtn active" data-bg="transparent" title="とうめい">🚫<span>とうめい</span></button>
+          <button class="colorBtn" data-bg="#ffffff" style="background:#ffffff; border:1px solid #ccc;" title="しろ"></button>
+          <button class="colorBtn" data-bg="#ffebf0" style="background:#ffebf0;" title="ピンク"></button>
+          <button class="colorBtn" data-bg="#fff9db" style="background:#fff9db;" title="きいろ"></button>
+          <button class="colorBtn" data-bg="#e7f5ff" style="background:#e7f5ff;" title="みずいろ"></button>
+          <button class="colorBtn" data-bg="#ebfbee" style="background:#ebfbee;" title="みんと"></button>
+          <button class="colorBtn" data-bg="#f3f0ff" style="background:#f3f0ff;" title="むらさき"></button>
+          <button class="colorBtn" data-bg="#fff4e6" style="background:#fff4e6;" title="オレンジ"></button>
+        </div>
+      </div>
     </div>
-    <div id="checkerPreview" class="checker hidden"></div>
-    <button id="save" class="primary big">💾 このカットを保存</button>
+
+    <!-- タブ3: セリフ・文字レイヤー -->
+    <div id="tab-text" class="tabContent">
+      <div class="textRow">
+        <input type="text" id="stampText" placeholder="セリフを入力（例：ありがとう！）" maxlength="20">
+      </div>
+      
+      <!-- おすすめ言葉パレット -->
+      <div class="quickWords">
+        <span>おすすめ：</span>
+        <button type="button" class="qBtn">ありがとう</button>
+        <button type="button" class="qBtn">OK！</button>
+        <button type="button" class="qBtn">りょうかい</button>
+        <button type="button" class="qBtn">わーい！</button>
+        <button type="button" class="qBtn">おつかれさま</button>
+        <button type="button" class="qBtn">いいね！</button>
+        <button type="button" class="qBtn">消す</button>
+      </div>
+
+      <!-- フォント選択 -->
+      <div class="textControls">
+        <label>フォント
+          <select id="textFont">
+            <option value="'Mochiy Pop One', sans-serif" selected>モッチーポップ (かわいい)</option>
+            <option value="'Zen Maru Gothic', sans-serif">丸ゴシック (すっきり)</option>
+            <option value="'Dela Gothic One', sans-serif">デラゴシック (ふとい)</option>
+            <option value="'Hachi Maru Pop', cursive">はちまるポップ (てがき風)</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- 文字色とふちどり -->
+      <div class="textRowMulti">
+        <div>
+          <span class="subLabel">文字の色：</span>
+          <div class="colorPalette small" id="textColorPalette">
+            <button class="colorBtn active" data-color="#111111" style="background:#111111;"></button>
+            <button class="colorBtn" data-color="#ffffff" style="background:#ffffff; border:1px solid #ccc;"></button>
+            <button class="colorBtn" data-color="#e03131" style="background:#e03131;"></button>
+            <button class="colorBtn" data-color="#1971c2" style="background:#1971c2;"></button>
+            <button class="colorBtn" data-color="#2f9e44" style="background:#2f9e44;"></button>
+            <button class="colorBtn" data-color="#f08c00" style="background:#f08c00;"></button>
+            <button class="colorBtn" data-color="#e64980" style="background:#e64980;"></button>
+          </div>
+        </div>
+        <div>
+          <span class="subLabel">文字のフチ：</span>
+          <div class="strokePalette" id="strokePalette">
+            <button class="strokeBtn active" data-stroke="#ffffff" style="background:#fff; color:#222;">白フチ</button>
+            <button class="strokeBtn" data-stroke="#111111" style="background:#222; color:#fff;">黒フチ</button>
+            <button class="strokeBtn" data-stroke="none" style="background:#eee; color:#666;">なし</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 位置とサイズ -->
+      <div class="textSliders">
+        <div class="posButtons">
+          <span class="subLabel">位置：</span>
+          <button type="button" class="posBtn" data-pos="top">上</button>
+          <button type="button" class="posBtn" data-pos="center">中央</button>
+          <button type="button" class="posBtn active" data-pos="bottom">下</button>
+        </div>
+        <label class="sliderLabel">文字の大きさ
+          <input type="range" id="textSize" min="16" max="64" value="32">
+          <b><span id="textSizeVal">32</span>px</b>
+        </label>
+      </div>
+    </div>
+
+    <button id="save" class="primary big">💾 このスタンプを保存する</button>
   </section>
 
+  <!-- ステップ③：完成一覧 -->
   <section class="results">
     <div class="resultHead">
       <h2>完成 <span id="done">0</span> / <span id="total">16</span></h2>
