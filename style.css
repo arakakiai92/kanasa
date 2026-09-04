@@ -145,9 +145,9 @@ main{max-width:900px;margin:auto;padding:10px}
   font-size:15px;
 }
 .dpad.mini .dpadBtn{
-  width:34px;
-  height:30px;
-  font-size:12px;
+  width:36px;
+  height:32px;
+  font-size:13px;
 }
 
 .sizeTune{
@@ -172,8 +172,13 @@ main{max-width:900px;margin:auto;padding:10px}
 .subBtn{flex:1;padding:13px 8px;border:1px solid #bbb;border-radius:11px;background:#f0f0f0;font-size:14px;font-weight:800;color:#333;cursor:pointer}
 .sheetActions .primary.big{flex:2}
 
-/* ②プレビュー画面 */
-.previewContainer{margin-bottom:12px}
+/* ==========================================
+   ②ステップ②：スマホ最適化レイアウト
+   ========================================== */
+/* プレビュー画面：スマホの1画面に収まるよう高さを調整 */
+.previewContainer{
+  margin-bottom:8px;
+}
 .adjustArea{
   position:relative;
   width:100%;
@@ -191,7 +196,7 @@ main{max-width:900px;margin:auto;padding:10px}
   margin:0 auto;
   width:100%;
   height:auto;
-  max-height:48vh;
+  max-height:38vh; /* スマホ画面でコントローラーとプレビューが同時に入る高さ */
   object-fit:contain;
 }
 
@@ -206,7 +211,7 @@ main{max-width:900px;margin:auto;padding:10px}
   position:absolute;
   left:8px;
   top:8px;
-  background:rgba(34,34,34,.85);
+  background:rgba(34,34,34,.88);
   color:#fff;
   font-size:11px;
   font-weight:800;
@@ -215,78 +220,112 @@ main{max-width:900px;margin:auto;padding:10px}
   pointer-events:none;
   z-index:10;
   backdrop-filter:blur(3px);
-  box-shadow:0 1px 4px rgba(0,0,0,.2);
+  box-shadow:0 1px 4px rgba(0,0,0,.25);
 }
-.previewTip{font-size:11px;color:#777;text-align:center;margin-top:5px}
+.previewTip{font-size:11px;color:#777;text-align:center;margin-top:4px}
 
-/* ３レイヤー管理エリア */
-.layerManager{
-  background:#f9f9fa;
-  border:1px solid #e3e3e7;
-  border-radius:12px;
-  padding:10px;
-  margin-top:10px;
-}
-.layerStackTitle{
-  font-size:13px;
-  font-weight:800;
-  color:#333;
-  margin-bottom:8px;
+/* 【最優先①】レイヤー選択タブバー（プレビュー直下） */
+.layerTabBar{
   display:flex;
-  flex-direction:column;
-  gap:2px;
+  gap:6px;
+  margin:8px 0;
 }
-.layerStackTitle .subNote{
+.layerTabBar .tabBtn{
+  flex:1;
+  padding:10px 4px;
+  border:2px solid #ddd;
+  background:#fff;
+  border-radius:9px;
+  font-weight:800;
+  font-size:13px;
+  cursor:pointer;
+  color:#444;
+  transition:all .12s ease;
+}
+.layerTabBar .tabBtn.active{
+  background:#222;
+  color:#fff;
+  border-color:#222;
+  box-shadow:0 2px 6px rgba(0,0,0,.15);
+}
+.orderToggleBtn{
+  padding:10px 10px;
+  border:2px solid #ced4da;
+  background:#f1f3f5;
+  border-radius:9px;
+  font-weight:800;
+  font-size:12px;
+  cursor:pointer;
+  color:#495057;
+  white-space:nowrap;
+}
+.orderToggleBtn.active{
+  background:#e9ecef;
+  border-color:#495057;
+}
+
+/* 重なり順ドロワー（必要な時だけサッと開く） */
+.orderDrawer{
+  background:#f8f9fa;
+  border:1.5px solid #dee2e6;
+  border-radius:11px;
+  padding:10px;
+  margin-bottom:10px;
+  animation:fadeInDown .2s ease;
+}
+@keyframes fadeInDown{
+  from{opacity:0;transform:translateY(-8px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.drawerHeader{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:8px;
+  font-size:12px;
+}
+.drawerCloseBtn{
+  padding:4px 8px;
+  border:1px solid #ced4da;
+  background:#fff;
+  border-radius:6px;
   font-size:11px;
-  color:#666;
-  font-weight:normal;
+  font-weight:800;
+  cursor:pointer;
 }
 
 .layerStackList{
   display:flex;
   flex-direction:column;
-  gap:6px;
-  margin-bottom:12px;
+  gap:5px;
 }
 .layerItem{
   background:#fff;
-  border:2px solid #ddd;
-  border-radius:10px;
-  padding:8px 10px;
+  border:1.5px solid #ddd;
+  border-radius:8px;
+  padding:6px 9px;
   display:flex;
   align-items:center;
   gap:8px;
-  transition:border-color .15s, box-shadow .15s;
-}
-.layerItem.active{
-  border-color:#222;
-  box-shadow:0 3px 8px rgba(0,0,0,.08);
 }
 .layerItemMain{
   flex:1;
-  cursor:pointer;
   display:flex;
   flex-direction:column;
   gap:2px;
 }
-
 .tabTop{display:flex;justify-content:space-between;align-items:center}
-.badge{font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;color:#fff}
+.badge{font-size:10px;font-weight:800;padding:2px 5px;border-radius:4px;color:#fff}
 .badge-pos{background:#495057}
 .badge-top{background:#e03131!important}
 .badge-mid{background:#1971c2!important}
 .badge-bot{background:#5c7cfa!important}
+.tabState{font-size:10px;color:#666;font-weight:700}
+.tabName{font-size:13px;font-weight:800;color:#222}
 
-.tabState{font-size:11px;color:#666;font-weight:700}
-.tabName{font-size:14px;font-weight:800;color:#222}
-
-.layerOrderBtns{
-  display:flex;
-  flex-direction:column;
-  gap:3px;
-}
+.layerOrderBtns{display:flex;gap:4px}
 .btnOrderUp, .btnOrderDown{
-  padding:5px 9px;
+  padding:5px 8px;
   border:1px solid #ced4da;
   background:#f8f9fa;
   border-radius:6px;
@@ -294,27 +333,89 @@ main{max-width:900px;margin:auto;padding:10px}
   font-weight:800;
   cursor:pointer;
   color:#333;
-  line-height:1;
+}
+.btnOrderUp:active:not(:disabled), .btnOrderDown:active:not(:disabled){background:#dee2e6}
+.btnOrderUp:disabled, .btnOrderDown:disabled{opacity:.3;cursor:not-allowed}
+
+/* 【最優先②】プレビュー直下常駐！「大きさ＆位置クイックコントローラー」 */
+.quickTransformBox{
+  background:#fff;
+  border:2px solid #222;
+  border-radius:12px;
+  padding:10px 12px;
+  margin-bottom:12px;
+  box-shadow:0 3px 10px rgba(0,0,0,.06);
+}
+.sliderRow{
   display:flex;
   align-items:center;
-  justify-content:center;
+  gap:8px;
+  font-size:12px;
+  font-weight:800;
 }
-.btnOrderUp:active:not(:disabled), .btnOrderDown:active:not(:disabled){
-  background:#dee2e6;
+.sliderRow .ctrlLabel{
+  min-width:64px;
+  font-size:12px;
+  color:#222;
 }
-.btnOrderUp:disabled, .btnOrderDown:disabled{
-  opacity:.3;
-  cursor:not-allowed;
+.sliderRow input[type="range"]{
+  flex:1;
+}
+.scaleValueText{
+  min-width:48px;
+  text-align:right;
+  font-size:13px;
+  color:#222;
 }
 
-/* レイヤー設定パネル */
-.layerPanel{display:none;background:#fff;border:1px solid #ddd;border-radius:10px;padding:12px}
+.transformControlsRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:8px;
+  padding-top:8px;
+  border-top:1px dashed #e2e2e2;
+}
+.quickShortcuts{
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  flex:1;
+}
+.shortcutBtn{
+  padding:7px 8px;
+  border:1px solid #ced4da;
+  background:#f8f9fa;
+  border-radius:7px;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+  text-align:center;
+  white-space:nowrap;
+  color:#333;
+}
+.shortcutBtn:active{
+  background:#222;
+  color:#fff;
+  border-color:#222;
+}
+
+/* 【優先度③】詳細設定パネル（色・フォント・透過等） */
+.detailsArea{
+  background:#f9f9fa;
+  border:1px solid #e2e2e6;
+  border-radius:12px;
+  padding:12px;
+  margin-bottom:12px;
+}
+.layerPanel{display:none}
 .layerPanel.active{display:block}
 .panelHeader{margin-bottom:12px;border-bottom:1px solid #eee;padding-bottom:6px}
 .panelHeader b{font-size:14px;color:#111;display:block}
 .subNote{font-size:11px;color:#666}
 
-/* 文字レイヤー */
+/* 文字レイヤーのパーツ */
 .inputRow{display:flex;gap:6px;margin-bottom:8px}
 .inputRow input{flex:1;padding:11px;border:2px solid #bbb;border-radius:9px;font-size:16px;font-weight:700}
 .inputRow input:focus{border-color:#222;outline:none}
@@ -327,7 +428,7 @@ main{max-width:900px;margin:auto;padding:10px}
 .settingGroup{margin-bottom:12px}
 .groupLabel{font-size:12px;font-weight:800;display:block;margin-bottom:5px;color:#333}
 .fontSelect{width:100%;padding:9px;border:1px solid #aaa;border-radius:8px;font-size:14px;font-weight:700;background:#fff}
-.twoColRow{display:grid;grid-template-columns:1fr 1fr;gap:10px;background:#fafafa;padding:9px;border-radius:9px;border:1px solid #eee;margin-bottom:12px}
+.twoColRow{display:grid;grid-template-columns:1fr 1fr;gap:10px;background:#fff;padding:9px;border-radius:9px;border:1px solid #ddd;margin-bottom:12px}
 
 .colorList{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .colorList.large{gap:8px}
@@ -375,47 +476,13 @@ main{max-width:900px;margin:auto;padding:10px}
 .sBtn{flex:1;padding:7px 2px;border:1px solid #bbb;border-radius:7px;font-size:11px;font-weight:800;cursor:pointer}
 .sBtn.active{border-color:#222;outline:2px solid #222}
 
-.sliderRow{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800}
-.sliderRow input{flex:1}
-
-.illustPositionBox{
-  background:#fafafa;
-  border:1px solid #eee;
-  border-radius:10px;
-  padding:10px;
-  margin-bottom:12px;
-}
-.illustControlsGrid{
-  display:flex;
-  gap:12px;
-  align-items:center;
-  margin-top:6px;
-}
-.quickActionBtns{
-  display:flex;
-  flex-direction:column;
-  gap:5px;
-  flex:1;
-}
-.actionBtn{
-  padding:7px 10px;
-  border:1px solid #bbb;
-  background:#fff;
-  border-radius:7px;
-  font-size:11px;
-  font-weight:800;
-  cursor:pointer;
-  text-align:center;
-}
-.actionBtn:active{background:#eee}
-
+/* 透過・フチ設定 */
 .transRow{display:flex;gap:7px;align-items:center;margin-bottom:8px}
 .transRow button{flex:1;padding:10px 5px;border:1px solid #aaa;border-radius:9px;background:#fff;font-weight:700;font-size:12px;cursor:pointer}
 .transRow span{font-size:11px;color:#666;min-width:65px;text-align:center}
 
-/* 透過オプション調整カード */
 .transOptionsCard{
-  background:#f8f9fa;
+  background:#fff;
   border:1px solid #ddd;
   border-radius:10px;
   padding:10px;
@@ -435,22 +502,13 @@ main{max-width:900px;margin:auto;padding:10px}
   gap:6px;
   cursor:pointer;
 }
-.protectToggle input{
-  width:18px;
-  height:18px;
-  vertical-align:-3px;
-}
-.tipNote{
-  font-size:11px;
-  color:#666;
-  margin-top:6px;
-  line-height:1.4;
-}
+.protectToggle input{width:18px;height:18px;vertical-align:-3px}
+.tipNote{font-size:11px;color:#666;margin-top:6px;line-height:1.4}
 
 .borderCard{
   border:1px solid #ddd;
   border-radius:10px;
-  background:#fafafa;
+  background:#fff;
   padding:10px;
   margin-bottom:10px;
 }
@@ -468,27 +526,83 @@ main{max-width:900px;margin:auto;padding:10px}
 }
 .subLabel{font-size:11px;font-weight:800;display:block;margin-bottom:6px;color:#444}
 
-.bgShapeBtns{
+/* 背景スタイル4択 */
+.bgStyleGrid{
+  display:grid;
+  grid-template-columns:repeat(2, 1fr);
+  gap:8px;
+  margin-top:6px;
+}
+@media(min-width:480px){
+  .bgStyleGrid{grid-template-columns:repeat(4, 1fr)}
+}
+.bgStyleCard{
+  background:#fff;
+  border:2px solid #ddd;
+  border-radius:12px;
+  padding:10px 6px;
   display:flex;
-  gap:6px;
-  margin-bottom:10px;
-}
-.shapeBtn{
-  flex:1;
-  padding:8px 4px;
-  border:1px solid #bbb;
-  background:#f8f9fa;
-  border-radius:8px;
-  font-size:11px;
-  font-weight:800;
+  flex-direction:column;
+  align-items:center;
+  gap:4px;
   cursor:pointer;
-  color:#333;
+  transition:all .15s ease;
+  user-select:none;
 }
-.shapeBtn.active{
-  background:#222;
-  color:#fff;
+.bgStyleCard:active{transform:scale(0.96)}
+.bgStyleCard.active{
   border-color:#222;
+  background:#f8f9fa;
+  box-shadow:0 3px 8px rgba(0,0,0,.12);
+  transform:scale(1.02);
 }
+.styleIcon{
+  width:42px;
+  height:42px;
+  border-radius:10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
+  box-shadow:0 1px 3px rgba(0,0,0,.1);
+}
+.styleIcon.checkered{
+  background:repeating-conic-gradient(#ddd 0 25%,#fff 0 50%) 50%/10px 10px;
+  border:1px solid #ccc;
+}
+.styleIcon.circleIcon{
+  border-radius:50%;
+  background:#fff9db;
+  border:2px solid rgba(0,0,0,.15);
+  font-size:14px;
+  color:rgba(0,0,0,.35);
+}
+.styleIcon.plateIcon{
+  border-radius:8px;
+  background:#fff9db;
+  border:2px solid rgba(0,0,0,.15);
+}
+.styleIcon.fullIcon{
+  border-radius:4px;
+  background:#fff9db;
+  border:2px solid rgba(0,0,0,.15);
+}
+.styleTitle{font-size:13px;color:#111;font-weight:800}
+.styleDesc{font-size:10px;color:#666}
+
+.bgNoneCard{
+  background:#eefbf0;
+  border:1.5px solid #a3e6b5;
+  border-radius:10px;
+  padding:10px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:10px;
+}
+.bgNoneIcon{font-size:22px}
+.bgNoneText b{display:block;font-size:12px;color:#1b6330;margin-bottom:2px}
+.bgNoneText p{margin:0;font-size:11px;color:#3b7a4e;line-height:1.4}
 
 .big{width:100%;padding:14px;margin-top:10px;border-radius:11px;border:1px solid #999;font-size:16px;font-weight:800;background:#fff;cursor:pointer}
 .primary{background:#222!important;color:#fff;border-color:#222!important}

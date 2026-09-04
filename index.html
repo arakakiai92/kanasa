@@ -78,30 +78,37 @@
     </div>
   </section>
 
-  <!-- ステップ②：３レイヤー個別編集画面 -->
+  <!-- ステップ②：スマホ最適化・３レイヤー個別編集画面 -->
   <section id="adjustStep" class="step hidden">
     <div class="stepTitle">
       <span>② スタンプをととのえる</span>
       <button id="back" class="linkBtn">← 切り出しに戻る</button>
     </div>
     
-    <!-- プレビューエリア -->
+    <!-- プレビューエリア（スマホ画面でプレビューを見ながら操作可能） -->
     <div class="previewContainer">
       <div class="adjustArea" id="adjustArea">
         <canvas id="preview"></canvas>
         <div class="safeMarginGuide" title="この点線の内側に収めると綺麗に表示されます"></div>
-        <div id="activeLayerTag" class="activeLayerTag">💬 文字レイヤー編集中</div>
+        <div id="activeLayerTag" class="activeLayerTag">🎨 イラスト編集中</div>
       </div>
-      <div class="previewTip">💡 画面を直接指でなぞると選択中レイヤーを移動（2本指ピンチで拡大縮小）</div>
+      <div class="previewTip">💡 画面を直接なぞって移動、2本指ピンチで拡大縮小できます</div>
     </div>
 
-    <!-- レイヤー並べ替え＆選択マネージャー -->
-    <div class="layerManager">
-      <div class="layerStackTitle">
-        <span>📑 レイヤーの重なり順（上が一番手前）</span>
-        <span class="subNote">タップで編集切替、▲▼ボタンで重なり順を並べ替え</span>
-      </div>
+    <!-- 【最優先①】レイヤー選択タブバー（親指でワンタップ切り替え） -->
+    <div class="layerTabBar">
+      <button type="button" class="tabBtn active" data-layer="illust">🎨 イラスト</button>
+      <button type="button" class="tabBtn" data-layer="text">💬 文字</button>
+      <button type="button" class="tabBtn" data-layer="bg">🖼 背景</button>
+      <button type="button" id="toggleOrderDrawer" class="orderToggleBtn" title="重なり順を変更">🔃 順序</button>
+    </div>
 
+    <!-- 【重なり順ドロワー（必要な時だけサッと開く）】 -->
+    <div id="layerOrderDrawer" class="orderDrawer hidden">
+      <div class="drawerHeader">
+        <b>📑 レイヤーの重なり順（上が一番手前）</b>
+        <button type="button" id="closeOrderDrawer" class="drawerCloseBtn">✕ とじる</button>
+      </div>
       <div class="layerStackList" id="layerStackList">
         <!-- 文字レイヤー -->
         <div class="layerItem" id="item-text" data-layer="text">
@@ -138,7 +145,7 @@
           <div class="layerItemMain">
             <div class="tabTop">
               <span class="badge badge-pos" id="badge-bg">第1層 (一番奥)</span>
-              <span class="tabState" id="stateBg">とうめい</span>
+              <span class="tabState" id="stateBg">背景なし (透明)</span>
             </div>
             <div class="tabName">🖼 はいけい</div>
           </div>
@@ -148,12 +155,114 @@
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- パネル3：文字設定 -->
+    <!-- 【最優先②】プレビュー直下常駐！「大きさ＆位置クイックコントローラー」 -->
+    <!-- スクロール不要で、プレビューを見ながら親指で即調整！ -->
+    <div class="quickTransformBox">
+      <!-- 大きさスライダー（選択中レイヤーに自動連動） -->
+      <div class="sliderRow">
+        <span class="ctrlLabel" id="transformScaleLabel">大きさ：</span>
+        <input type="range" id="commonScaleSlider" min="40" max="300" value="100">
+        <b class="scaleValueText"><span id="commonScaleVal">100</span><span id="commonScaleUnit">%</span></b>
+      </div>
+
+      <!-- 位置微調整（十字キー ＋ レイヤー別クイックボタン） -->
+      <div class="transformControlsRow">
+        <!-- 十字キー -->
+        <div class="dpad mini">
+          <button type="button" id="ctrlUp" class="dpadBtn up">▲</button>
+          <div class="dpadMiddle">
+            <button type="button" id="ctrlLeft" class="dpadBtn left">◀</button>
+            <button type="button" id="ctrlCenter" class="dpadBtn center" title="中央へ">◎</button>
+            <button type="button" id="ctrlRight" class="dpadBtn right">▶</button>
+          </div>
+          <button type="button" id="ctrlDown" class="dpadBtn down">▼</button>
+        </div>
+
+        <!-- レイヤー別ショートカット（ワンタップで配置） -->
+        <div class="quickShortcuts" id="shortcutsIllust">
+          <button type="button" id="centerIllustBtn" class="shortcutBtn">◎ まんなか</button>
+          <button type="button" id="fitWidth" class="shortcutBtn">↔ 横幅に合わせる</button>
+          <button type="button" id="fitHeight" class="shortcutBtn">↕ 縦幅に合わせる</button>
+        </div>
+        <div class="quickShortcuts hidden" id="shortcutsText">
+          <button type="button" id="textPosTop" class="shortcutBtn">⬆ 上に置く</button>
+          <button type="button" id="textPosCenter" class="shortcutBtn">↕ 中央に置く</button>
+          <button type="button" id="textPosBottom" class="shortcutBtn">⬇ 下に置く</button>
+        </div>
+        <div class="quickShortcuts hidden" id="shortcutsBg">
+          <button type="button" id="bgCenterBtn" class="shortcutBtn">◎ まんなか</button>
+          <button type="button" id="bgFitFull" class="shortcutBtn">🔲 画面いっぱいに</button>
+          <button type="button" id="bgResetPos" class="shortcutBtn">↺ 初期サイズ</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 【優先度③：詳細設定エリア（色・フォント・透過オプションなど）】 -->
+    <div class="detailsArea">
+      <!-- パネル：イラスト詳細設定 -->
+      <div id="panel-illust" class="layerPanel active">
+        <div class="panelHeader">
+          <b>🎨 イラストの詳細設定</b>
+          <span class="subNote">背景透過やフチの追加・色を設定できます</span>
+        </div>
+
+        <!-- 背景透過ボタン ＆ 白ぬけ防止・感度調整カード -->
+        <div class="transRow">
+          <button id="transparent" class="primary">✨ 絵のまわりを透明にする</button>
+          <span id="transState">透過 OFF</span>
+        </div>
+
+        <div id="transOptionsWrap" class="transOptionsCard hidden">
+          <div class="transOptionRow">
+            <label class="protectToggle">
+              <input type="checkbox" id="protectWhiteToggle" checked>
+              🛡️ 白ぬけ防止（キャラの白を守る）
+            </label>
+          </div>
+          <div class="sliderRow" style="margin-top:8px;">
+            <span class="groupLabel">透過のつよさ（感度）：</span>
+            <input type="range" id="bgToleranceSlider" min="5" max="60" value="22">
+            <b><span id="bgToleranceVal">22</span></b>
+          </div>
+          <div class="tipNote">💡 白い服や顔が消えるときは「つよさ」を小さくしてね</div>
+        </div>
+
+        <div class="borderCard">
+          <div class="borderRow">
+            <label class="borderToggle"><input type="checkbox" id="illustBorderToggle"> ⭕ イラストにフチをつける</label>
+            <label class="borderWidth">太さ
+              <input type="range" id="borderWidth" min="1" max="20" value="6">
+              <b><span id="borderWidthValue">6</span>px</b>
+            </label>
+          </div>
+
+          <div id="illustBorderColorWrap" class="borderColorGroup hidden">
+            <span class="subLabel">フチの色（デフォルト：白）：</span>
+            <div class="colorList" id="illustBorderColorList">
+              <button class="cBtn active" data-color="#ffffff" style="background:#ffffff; border:1px solid #bbb;" title="しろ (デフォルト)"></button>
+              <button class="cBtn" data-color="#111111" style="background:#111111;" title="くろ"></button>
+              <button class="cBtn" data-color="#ffebf0" style="background:#ffebf0; border:1px solid #ddd;" title="うすピンク"></button>
+              <button class="cBtn" data-color="#ffd43b" style="background:#ffd43b;" title="きいろ"></button>
+              <button class="cBtn" data-color="#e7f5ff" style="background:#e7f5ff; border:1px solid #ddd;" title="みずいろ"></button>
+              <button class="cBtn" data-color="#e03131" style="background:#e03131;" title="あか"></button>
+              <button class="cBtn" data-color="#2f9e44" style="background:#2f9e44;" title="みどり"></button>
+              <button class="cBtn" data-color="#7048e8" style="background:#7048e8;" title="むらさき"></button>
+              <label class="customColorWrap" title="すきなフチの色をえらぶ">
+                <input type="color" id="illustBorderColorPicker" value="#ffffff">
+                <span class="customColorBadge">🎨</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- パネル：文字詳細設定 -->
       <div id="panel-text" class="layerPanel">
         <div class="panelHeader">
-          <b>💬 文字レイヤーの設定</b>
-          <span class="subNote">入力した文字の大きさ・位置・フォント・色を調整</span>
+          <b>💬 文字の詳細設定</b>
+          <span class="subNote">セリフの入力、フォント、文字色を設定できます</span>
         </div>
 
         <div class="inputRow">
@@ -214,195 +323,95 @@
             </div>
           </div>
         </div>
-
-        <div class="settingGroup">
-          <div class="sliderRow">
-            <span class="groupLabel">文字の大きさ：</span>
-            <input type="range" id="textSize" min="16" max="76" value="34">
-            <b><span id="textSizeVal">34</span>px</b>
-          </div>
-        </div>
-
-        <div class="illustPositionBox">
-          <span class="groupLabel">文字の位置微調整：</span>
-          <div class="illustControlsGrid">
-            <div class="dpad mini">
-              <button type="button" id="textUp" class="dpadBtn up">▲</button>
-              <div class="dpadMiddle">
-                <button type="button" id="textLeft" class="dpadBtn left">◀</button>
-                <button type="button" id="textCenterBtn" class="dpadBtn center" title="中央へ">◎</button>
-                <button type="button" id="textRight" class="dpadBtn right">▶</button>
-              </div>
-              <button type="button" id="textDown" class="dpadBtn down">▼</button>
-            </div>
-            <div class="quickActionBtns">
-              <button type="button" id="textPosTop" class="actionBtn">⬆ 上に配置</button>
-              <button type="button" id="textPosCenter" class="actionBtn">↕ 中央に配置</button>
-              <button type="button" id="textPosBottom" class="actionBtn">⬇ 下に配置</button>
-            </div>
-          </div>
-        </div>
       </div>
 
-      <!-- パネル2：イラスト設定 -->
-      <div id="panel-illust" class="layerPanel">
-        <div class="panelHeader">
-          <b>🎨 イラストレイヤーの設定</b>
-          <span class="subNote">切り抜いた絵の拡大縮小・位置・透過・フチを設定</span>
-        </div>
-
-        <div class="settingGroup">
-          <div class="sliderRow">
-            <span class="groupLabel">イラストの大きさ：</span>
-            <input type="range" id="illustScaleSlider" min="40" max="300" value="100">
-            <b><span id="illustScaleVal">100</span>%</b>
-          </div>
-        </div>
-
-        <div class="illustPositionBox">
-          <span class="groupLabel">イラストの位置微調整：</span>
-          <div class="illustControlsGrid">
-            <div class="dpad mini">
-              <button type="button" id="illustUp" class="dpadBtn up">▲</button>
-              <div class="dpadMiddle">
-                <button type="button" id="illustLeft" class="dpadBtn left">◀</button>
-                <button type="button" id="center" class="dpadBtn center" title="中央へ">◎</button>
-                <button type="button" id="illustRight" class="dpadBtn right">▶</button>
-              </div>
-              <button type="button" id="illustDown" class="dpadBtn down">▼</button>
-            </div>
-            <div class="quickActionBtns">
-              <button type="button" id="resetAdjust" class="actionBtn">↺ 最初に戻す</button>
-              <button type="button" id="fitWidth" class="actionBtn">↔ 横幅に合わせる</button>
-              <button type="button" id="fitHeight" class="actionBtn">↕ 縦幅に合わせる</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- 背景透過ボタン ＆ 白ぬけ防止・感度調整カード -->
-        <div class="transRow">
-          <button id="transparent" class="primary">✨ 絵のまわりを透明にする</button>
-          <span id="transState">透過 OFF</span>
-        </div>
-
-        <div id="transOptionsWrap" class="transOptionsCard hidden">
-          <div class="transOptionRow">
-            <label class="protectToggle">
-              <input type="checkbox" id="protectWhiteToggle" checked>
-              🛡️ 白ぬけ防止（キャラの白を守る）
-            </label>
-          </div>
-          <div class="sliderRow" style="margin-top:8px;">
-            <span class="groupLabel">透過のつよさ（感度）：</span>
-            <input type="range" id="bgToleranceSlider" min="5" max="60" value="22">
-            <b><span id="bgToleranceVal">22</span></b>
-          </div>
-          <div class="tipNote">💡 白い服や顔が消えるときは「つよさ」を小さくしてね</div>
-        </div>
-
-        <div class="borderCard">
-          <div class="borderRow">
-            <label class="borderToggle"><input type="checkbox" id="illustBorderToggle"> ⭕ イラストにフチをつける</label>
-            <label class="borderWidth">太さ
-              <input type="range" id="borderWidth" min="1" max="20" value="6">
-              <b><span id="borderWidthValue">6</span>px</b>
-            </label>
-          </div>
-
-          <div id="illustBorderColorWrap" class="borderColorGroup hidden">
-            <span class="subLabel">フチの色（デフォルト：白）：</span>
-            <div class="colorList" id="illustBorderColorList">
-              <button class="cBtn active" data-color="#ffffff" style="background:#ffffff; border:1px solid #bbb;" title="しろ (デフォルト)"></button>
-              <button class="cBtn" data-color="#111111" style="background:#111111;" title="くろ"></button>
-              <button class="cBtn" data-color="#ffebf0" style="background:#ffebf0; border:1px solid #ddd;" title="うすピンク"></button>
-              <button class="cBtn" data-color="#ffd43b" style="background:#ffd43b;" title="きいろ"></button>
-              <button class="cBtn" data-color="#e7f5ff" style="background:#e7f5ff; border:1px solid #ddd;" title="みずいろ"></button>
-              <button class="cBtn" data-color="#e03131" style="background:#e03131;" title="あか"></button>
-              <button class="cBtn" data-color="#2f9e44" style="background:#2f9e44;" title="みどり"></button>
-              <button class="cBtn" data-color="#7048e8" style="background:#7048e8;" title="むらさき"></button>
-              <label class="customColorWrap" title="すきなフチの色をえらぶ">
-                <input type="color" id="illustBorderColorPicker" value="#ffffff">
-                <span class="customColorBadge">🎨</span>
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- パネル1：背景設定 -->
+      <!-- パネル：背景詳細設定（直感的タイプ選択） -->
       <div id="panel-bg" class="layerPanel">
         <div class="panelHeader">
-          <b>🖼 はいけいレイヤーの設定</b>
-          <span class="subNote">背景色・形を選び、サイズや位置を自由に調整できます</span>
+          <b>🖼 はいけいの詳細設定</b>
+          <span class="subNote">絵の後ろに敷く背景のタイプ・色をえらんでね</span>
         </div>
 
+        <!-- 背景タイプ4択 -->
         <div class="settingGroup">
-          <label class="groupLabel">はいけいの形：</label>
-          <div class="bgShapeBtns" id="bgShapeBtns">
-            <button type="button" class="shapeBtn active" data-shape="full">⬜ 全画面ベタ塗り</button>
-            <button type="button" class="shapeBtn" data-shape="roundRect">🔲 角丸プレート</button>
-            <button type="button" class="shapeBtn" data-shape="circle">⚪ まる型座布団</button>
-          </div>
-        </div>
-
-        <div class="bgPaletteWrap">
-          <span class="groupLabel">はいけいの色：</span>
-          <div class="colorList large" id="bgColorList">
-            <button class="cBtn active" data-bg="transparent" title="とうめい">
-              <span class="iconTrans">🚫</span>
-              <span class="cLabel">とうめい (標準)</span>
-            </button>
-            <button class="cBtn" data-bg="#ffffff" style="background:#ffffff; border:1px solid #bbb;" title="しろ">
-              <span class="cLabel">しろ</span>
-            </button>
-            <button class="cBtn" data-bg="#ffebf0" style="background:#ffebf0;" title="ピンク">
-              <span class="cLabel">ピンク</span>
-            </button>
-            <button class="cBtn" data-bg="#fff9db" style="background:#fff9db;" title="きいろ">
-              <span class="cLabel">きいろ</span>
-            </button>
-            <button class="cBtn" data-bg="#e7f5ff" style="background:#e7f5ff;" title="みずいろ">
-              <span class="cLabel">みずいろ</span>
-            </button>
-            <button class="cBtn" data-bg="#ebfbee" style="background:#ebfbee;" title="みんと">
-              <span class="cLabel">みんと</span>
-            </button>
-            <button class="cBtn" data-bg="#f3f0ff" style="background:#f3f0ff;" title="むらさき">
-              <span class="cLabel">むらさき</span>
-            </button>
-            <button class="cBtn" data-bg="#fff4e6" style="background:#fff4e6;" title="オレンジ">
-              <span class="cLabel">オレンジ</span>
-            </button>
-            <label class="customColorWrap" title="すきな背景色をえらぶ">
-              <input type="color" id="bgColorPicker" value="#ffffff">
-              <span class="customColorBadge">🎨</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="settingGroup" id="bgTransformGroup">
-          <div class="sliderRow">
-            <span class="groupLabel">はいけいの大きさ：</span>
-            <input type="range" id="bgScaleSlider" min="20" max="250" value="100">
-            <b><span id="bgScaleVal">100</span>%</b>
-          </div>
-        </div>
-
-        <div class="illustPositionBox">
-          <span class="groupLabel">はいけいの位置微調整：</span>
-          <div class="illustControlsGrid">
-            <div class="dpad mini">
-              <button type="button" id="bgUp" class="dpadBtn up">▲</button>
-              <div class="dpadMiddle">
-                <button type="button" id="bgLeft" class="dpadBtn left">◀</button>
-                <button type="button" id="bgCenterBtn" class="dpadBtn center" title="中央へ">◎</button>
-                <button type="button" id="bgRight" class="dpadBtn right">▶</button>
+          <label class="groupLabel">はいけいのタイプ：</label>
+          <div class="bgStyleGrid" id="bgStyleGrid">
+            <button type="button" class="bgStyleCard active" data-style="none">
+              <div class="styleIcon checkered">
+                <span class="crossIcon">🚫</span>
               </div>
-              <button type="button" id="bgDown" class="dpadBtn down">▼</button>
-            </div>
-            <div class="quickActionBtns">
-              <button type="button" id="bgResetPos" class="actionBtn">↺ 中央・初期サイズ</button>
-              <button type="button" id="bgFitFull" class="actionBtn">🔲 全画面に合わせる</button>
+              <b class="styleTitle">背景なし</b>
+              <span class="styleDesc">透明（標準）</span>
+            </button>
+
+            <button type="button" class="bgStyleCard" data-style="circle">
+              <div class="styleIcon circleIcon" id="iconPreviewCircle">
+                <span class="starIcon">★</span>
+              </div>
+              <b class="styleTitle">まる型</b>
+              <span class="styleDesc">丸い座布団</span>
+            </button>
+
+            <button type="button" class="bgStyleCard" data-style="roundRect">
+              <div class="styleIcon plateIcon" id="iconPreviewPlate">
+                <span class="plateInner"></span>
+              </div>
+              <b class="styleTitle">角丸プレート</b>
+              <span class="styleDesc">看板風四角</span>
+            </button>
+
+            <button type="button" class="bgStyleCard" data-style="full">
+              <div class="styleIcon fullIcon" id="iconPreviewFull">
+                <span class="fullInner"></span>
+              </div>
+              <b class="styleTitle">ぜんぶ塗る</b>
+              <span class="styleDesc">全画面カラー</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 背景なし案内 -->
+        <div id="bgNoneNotice" class="bgNoneCard">
+          <div class="bgNoneIcon">✅</div>
+          <div class="bgNoneText">
+            <b>現在は「背景なし（透明）」です</b>
+            <p>LINEスタンプで一番使われる標準スタイルです。絵のまわりが透けたスタンプになります。</p>
+          </div>
+        </div>
+
+        <!-- 背景あり詳細コントロール -->
+        <div id="bgDetailControls" class="hidden">
+          <div class="settingGroup">
+            <span class="groupLabel">はいけいの色：</span>
+            <div class="colorList large" id="bgColorList">
+              <button class="cBtn" data-bg="#ffffff" style="background:#ffffff; border:1px solid #bbb;" title="しろ">
+                <span class="cLabel">しろ</span>
+              </button>
+              <button class="cBtn active" data-bg="#fff9db" style="background:#fff9db;" title="きいろ">
+                <span class="cLabel">きいろ</span>
+              </button>
+              <button class="cBtn" data-bg="#ffebf0" style="background:#ffebf0;" title="ピンク">
+                <span class="cLabel">ピンク</span>
+              </button>
+              <button class="cBtn" data-bg="#e7f5ff" style="background:#e7f5ff;" title="みずいろ">
+                <span class="cLabel">みずいろ</span>
+              </button>
+              <button class="cBtn" data-bg="#ebfbee" style="background:#ebfbee;" title="みんと">
+                <span class="cLabel">みんと</span>
+              </button>
+              <button class="cBtn" data-bg="#f3f0ff" style="background:#f3f0ff;" title="むらさき">
+                <span class="cLabel">むらさき</span>
+              </button>
+              <button class="cBtn" data-bg="#fff4e6" style="background:#fff4e6;" title="オレンジ">
+                <span class="cLabel">オレンジ</span>
+              </button>
+              <button class="cBtn" data-bg="#222222" style="background:#222222;" title="くろ">
+                <span class="cLabel" style="color:#fff;">くろ</span>
+              </button>
+              <label class="customColorWrap" title="すきな背景色をえらぶ">
+                <input type="color" id="bgColorPicker" value="#fff9db">
+                <span class="customColorBadge">🎨</span>
+              </label>
             </div>
           </div>
         </div>
