@@ -17,7 +17,7 @@
 </head>
 <body class="text-gray-800 pb-8">
 
-    <!-- ヘッダー（スマホでも絶対に改行されない設計） -->
+    <!-- ヘッダー -->
     <header class="bg-[#00C300] text-white shadow-md sticky top-0 z-40">
         <div class="max-w-6xl mx-auto flex items-center justify-between px-3 md:px-4 py-2.5 gap-2">
             <div class="flex items-center min-w-0">
@@ -252,7 +252,7 @@
                                 </div>
                             </div>
 
-                            <!-- ★透過ボタンを廃止し、最初から微調整（感度・白ぬけ防止）パネルを常時表示 -->
+                            <!-- 背景透過微調整（最初から常時表示・デフォルトON） -->
                             <div class="transOptionsCard bg-white border border-gray-200 rounded-xl p-3 space-y-2">
                                 <div class="text-xs font-bold text-gray-800">✨ 背景透過の微調整</div>
                                 <label class="protectToggle flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
@@ -436,16 +436,16 @@
         </section>
     </main>
 
-    <!-- フッター (LINE売上分析アプリと完全統一) -->
+    <!-- フッター -->
     <footer class="max-w-6xl mx-auto px-4 py-6 text-xs text-gray-400 border-t border-gray-100 mt-12 flex flex-col sm:flex-row justify-end items-center sm:items-end gap-2">
         <p class="leading-none pb-0.5">© 2026 <a href="https://store.line.me/search/ja?q=arakakiai" target="_blank" rel="noopener noreferrer" class="text-[#00C300] hover:text-[#009900] transition font-bold">ARAKAKIAIworks</a>. All Rights Reserved.</p>
         <img src="bottom-right.png" alt="シーサーロゴ" class="h-9 w-auto object-contain block">
     </footer>
 
-    <div id="toast" class="fixed left-1/2 bottom-6 -translate-x-1/2 translateY-10 bg-gray-900 text-white px-5 py-2.5 rounded-full text-xs font-bold opacity-0 transition-all duration-300 pointer-events-none z-50 shadow-lg"></div>
+    <div id="toast" class="fixed left-1/2 bottom-6 -translate-x-1/2 translate-y-10 bg-gray-900 text-white px-5 py-2.5 rounded-full text-xs font-bold opacity-0 transition-all duration-300 pointer-events-none z-50 shadow-lg"></div>
 
-    <!-- 画像プレビュー・再編集モーダル -->
-    <div id="imageModal" class="modal fixed inset-0 bg-gray-900/70 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
+    <!-- 画像プレビュー・再編集モーダル（hiddenクラスをCSSで完全に上書き制御） -->
+    <div id="imageModal" class="modal fixed inset-0 bg-gray-900/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="modalContent bg-white p-5 rounded-2xl text-center max-w-[92%] w-80 shadow-xl space-y-3">
             <p class="modalTitle text-sm font-bold text-gray-800" id="modalTitle">完成カット</p>
             <img id="modalImg" alt="完成画像" class="max-w-[180px] max-h-[180px] mx-auto border border-gray-200 rounded-xl bg-gray-100 object-contain">
