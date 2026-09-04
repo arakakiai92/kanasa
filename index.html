@@ -57,6 +57,13 @@
       <button id="transparent" class="primary">✨ 背景を透過</button>
       <span id="transState">透過 OFF</span>
     </div>
+    <div class="borderRow">
+      <label class="borderToggle"><input type="checkbox" id="whiteBorder"> ⭕ 白縁をつける</label>
+      <label class="borderWidth">太さ
+        <input type="range" id="borderWidth" min="1" max="20" value="6">
+        <b><span id="borderWidthValue">6</span>px</b>
+      </label>
+    </div>
     <div id="checkerPreview" class="checker hidden"></div>
     <button id="save" class="primary big">💾 このカットを保存</button>
   </section>

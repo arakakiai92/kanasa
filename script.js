@@ -3,7 +3,7 @@ const stage=$("#stage"), sctx=stage.getContext("2d");
 const preview=$("#preview"), pctx=preview.getContext("2d");
 const wrap=$("#stageWrap"), crop=$("#cropBox"), adjustBox=$("#adjustBox");
 let mode="sticker", img=null, selecting=false, selection=null, adjust=null;
-let results=[], bgTransparent=false;
+let results=[], bgTransparent=false, whiteBorder=false;
 
 const SPEC={
  sticker:{ratio:370/320,w:370,h:320,label:"370 × 320 px以内（スタンプ用）"},
@@ -78,7 +78,7 @@ function openAdjust(){
   preview.width=src.width;preview.height=src.height;renderAdjust();
   adjustBox.innerHTML='<i class="handle-nw" data-h="nw"></i><i class="handle-ne" data-h="ne"></i><i class="handle-sw" data-h="sw"></i><i class="handle-se" data-h="se"></i>';
   adjustBox.style.left="5%";adjustBox.style.top="5%";adjustBox.style.width="90%";adjustBox.style.height="90%";
-  $("#adjustStep").classList.remove("hidden");$("#sheetStep").classList.add("hidden");bgTransparent=false;updateTrans();
+  $("#adjustStep").classList.remove("hidden");$("#sheetStep").classList.add("hidden");bgTransparent=false;whiteBorder=false;$("#whiteBorder").checked=false;$("#borderWidth").value=6;$("#borderWidthValue").textContent="6";updateTrans();
 }
 function renderAdjust(){pctx.clearRect(0,0,preview.width,preview.height);pctx.drawImage(adjust.src,0,0,preview.width*adjust.scale,preview.height*adjust.scale,adjust.ox,adjust.oy,preview.width*adjust.scale,preview.height*adjust.scale);}
 function updateTrans(){ $("#transState").textContent=bgTransparent?"透過 ON":"透過 OFF";$("#transparent").textContent=bgTransparent?"↩️ 透過を解除":"✨ 背景を透過"; if(bgTransparent)showTransparentPreview();else $("#checkerPreview").classList.add("hidden");}
@@ -138,12 +138,49 @@ function removeBackground(src){
   for(let p=0;p<w*h;p++)if(seen[p])a[p*4+3]=0;
   x.putImageData(d,0,0);return c;
 }
+function addWhiteBorder(src, px){
+  const c=document.createElement("canvas");c.width=src.width;c.height=src.height;
+  const x=c.getContext("2d"), s=src.width*src.height;
+  const d=src.getContext("2d").getImageData(0,0,src.width,src.height);
+  // 白縁は透明化後のアルファ形状を膨張させ、その下に白を描く。
+  // 元画像の白い部分を白縁として扱わないため、アルファ値だけを基準にする。
+  const radius=Math.max(1,Math.round(px*src.width/SPEC[mode].w));
+  const mask=new Uint8Array(s);
+  for(let p=0;p<s;p++) mask[p]=d.data[p*4+3]>10?1:0;
+  const border=new Uint8Array(s);
+  const r2=radius*radius,w=src.width,h=src.height;
+  for(let y=0;y<h;y++){
+    for(let xx=0;xx<w;xx++){
+      const p=y*w+xx;
+      if(!mask[p])continue;
+      const minY=Math.max(0,y-radius),maxY=Math.min(h-1,y+radius);
+      const minX=Math.max(0,xx-radius),maxX=Math.min(w-1,xx+radius);
+      for(let yy=minY;yy<=maxY;yy++){
+        const dy=yy-y;
+        for(let xxx=minX;xxx<=maxX;xxx++){
+          const dx=xxx-xx;
+          if(dx*dx+dy*dy<=r2)border[yy*w+xxx]=1;
+        }
+      }
+    }
+  }
+  const out=x.createImageData(w,h), a=out.data;
+  for(let p=0;p<s;p++){
+    if(border[p] && !mask[p]){a[p*4]=255;a[p*4+1]=255;a[p*4+2]=255;a[p*4+3]=255;}
+  }
+  x.putImageData(out,0,0);
+  x.globalCompositeOperation="source-over";x.drawImage(src,0,0);
+  return c;
+}
 async function getFinalCanvas(){
   let c=adjustedCanvas();
   if(bgTransparent)c=removeBackground(c);
+  if(whiteBorder && bgTransparent)c=addWhiteBorder(c,Number($("#borderWidth").value));
   return c;
 }
 $("#transparent").onclick=async()=>{bgTransparent=!bgTransparent;updateTrans();if(bgTransparent)showTransparentPreview()};
+$("#whiteBorder").onchange=async e=>{whiteBorder=e.target.checked;if(whiteBorder&&!bgTransparent){bgTransparent=true;updateTrans()}if(bgTransparent)showTransparentPreview()};
+$("#borderWidth").oninput=async e=>{$("#borderWidthValue").textContent=e.target.value;if(bgTransparent)showTransparentPreview()};
 async function showTransparentPreview(){const c=await getFinalCanvas();const url=c.toDataURL("image/png");$("#checkerPreview").innerHTML=`<img src="${url}">`;$("#checkerPreview").classList.remove("hidden")}
 
 function download(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1200)}
