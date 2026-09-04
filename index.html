@@ -34,13 +34,18 @@
     <div class="spec" id="spec"></div>
   </section>
 
-  <!-- ステップ①：切り出し画面 -->
+  <!-- ステップ①：切り出し画面（囲む・動かす・サイズ調整がその場でできる） -->
   <section id="sheetStep" class="step hidden">
     <div class="stepTitle"><span>① 切り出す</span><b id="sheetProgress">1 / 16</b></div>
-    <p>欲しい絵を指でざっくり囲んでください。枠は自動で正しい比率になります。</p>
+    <p>絵を指で囲むか、枠を動かして位置・サイズをあわせてね。（まんなかをつかむと移動できるよ）</p>
     <div id="stageWrap">
       <canvas id="stage"></canvas>
-      <div id="cropBox" class="cropBox hidden"></div>
+      <div id="cropBox" class="cropBox hidden">
+        <i class="handle-nw" data-h="nw"></i>
+        <i class="handle-ne" data-h="ne"></i>
+        <i class="handle-sw" data-h="sw"></i>
+        <i class="handle-se" data-h="se"></i>
+      </div>
     </div>
     <div class="sheetActions">
       <button id="resetCrop" class="subBtn hidden">↺ 枠をリセット</button>
@@ -59,7 +64,12 @@
     <!-- リアルタイム合成プレビュー -->
     <div class="adjustArea" id="adjustArea">
       <canvas id="preview"></canvas>
-      <div id="adjustBox" class="cropBox"></div>
+      <div id="adjustBox" class="cropBox">
+        <i class="handle-nw" data-h="nw"></i>
+        <i class="handle-ne" data-h="ne"></i>
+        <i class="handle-sw" data-h="sw"></i>
+        <i class="handle-se" data-h="se"></i>
+      </div>
     </div>
 
     <!-- レイヤー切り替えタブ -->

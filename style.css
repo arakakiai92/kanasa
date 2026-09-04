@@ -21,9 +21,55 @@ main{max-width:900px;margin:auto;padding:10px}
 #stageWrap{position:relative;overflow:hidden;border-radius:10px;background:#e2e2e2;touch-action:none;user-select:none;-webkit-user-select:none;text-align:center}
 #stage{display:block;margin:0 auto;width:100%;height:auto;max-height:60vh;object-fit:contain}
 
-/* 切り出し枠 */
-.cropBox{position:absolute;border:3px solid #111;background:rgba(255,255,255,.05);touch-action:none;pointer-events:none}
-.cropBox:after{content:"";position:absolute;inset:5px;border:1px dashed rgba(255,255,255,.9);pointer-events:none}
+/* 切り出し枠（指で移動・四隅でサイズ変更可能） */
+.cropBox{
+  position:absolute;
+  border:3px solid #111;
+  background:rgba(255,255,255,.08);
+  touch-action:none;
+  pointer-events:auto;
+  cursor:move;
+}
+.cropBox:after{
+  content:"";
+  position:absolute;
+  inset:4px;
+  border:1px dashed rgba(255,255,255,.95);
+  pointer-events:none;
+}
+/* 中央の移動アイコン（子供が一目でつかめるとわかる目印） */
+.cropBox:before{
+  content:"✥";
+  position:absolute;
+  left:50%;top:50%;
+  transform:translate(-50%,-50%);
+  width:34px;height:34px;
+  background:rgba(255,255,255,.88);
+  border:2px solid #222;
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:19px;color:#222;
+  pointer-events:none;
+  box-shadow:0 2px 6px rgba(0,0,0,.25);
+  z-index:4;
+}
+
+/* 四隅のハンドル（指でつかみやすい大きめサイズ 38px） */
+.cropBox i{
+  position:absolute;
+  width:38px;
+  height:38px;
+  background:#fff;
+  border:2px solid #111;
+  border-radius:50%;
+  z-index:10;
+  box-shadow:0 2px 5px rgba(0,0,0,.3);
+  touch-action:none;
+}
+.handle-nw{left:-19px;top:-19px;cursor:nwse-resize}
+.handle-ne{right:-19px;top:-19px;cursor:nesw-resize}
+.handle-sw{left:-19px;bottom:-19px;cursor:nesw-resize}
+.handle-se{right:-19px;bottom:-19px;cursor:nwse-resize}
 
 .sheetActions{display:flex;gap:8px;margin-top:10px}
 .sheetActions button{margin-top:0}
@@ -34,14 +80,6 @@ main{max-width:900px;margin:auto;padding:10px}
 #adjustStep{overflow:hidden}
 .adjustArea{position:relative;width:100%;background:repeating-conic-gradient(#ddd 0 25%,#fff 0 50%) 50%/16px 16px;border-radius:10px;overflow:hidden;touch-action:none;text-align:center}
 #preview{display:block;margin:0 auto;width:100%;height:auto;max-height:50vh;object-fit:contain}
-
-/* 調整枠（拡大・縮小・移動） */
-#adjustBox{border:3px solid #111;background:rgba(255,255,255,.05);inset:auto;pointer-events:auto}
-#adjustBox i{position:absolute;width:36px;height:36px;background:#fff;border:2px solid #111;border-radius:50%;z-index:5}
-.handle-nw{left:-18px;top:-18px}
-.handle-ne{right:-18px;top:-18px}
-.handle-sw{left:-18px;bottom:-18px}
-.handle-se{right:-18px;bottom:-18px}
 
 .big{width:100%;padding:13px;margin-top:10px;border-radius:11px;border:1px solid #999;font-size:15px;font-weight:800;background:#fff;cursor:pointer}
 .primary{background:#222!important;color:#fff;border-color:#222!important}

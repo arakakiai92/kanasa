@@ -5,20 +5,24 @@ const wrap = $("#stageWrap"), crop = $("#cropBox"), adjustBox = $("#adjustBox");
 
 let mode = "sticker";
 let img = null;
-let selection = null; // 元画像座標系 {x, y, w, h}
+
+// 切り出し枠の状態（表示ピクセル座標系）
+let selectionRect = null; // { x, y, w, h }
+let selection = null;     // 元画像座標系 { x, y, w, h }
+
 let adjust = { src: null, scale: 1, ox: 0, oy: 0 };
 let results = [];
 
 // レイヤー設定
 let bgTransparent = false;
 let whiteBorder = false;
-let bgColor = "transparent"; // 背景色
+let bgColor = "transparent";
 let textConfig = {
   text: "",
   font: "'Mochiy Pop One', sans-serif",
   color: "#111111",
   stroke: "#ffffff",
-  pos: "bottom", // 'top' | 'center' | 'bottom'
+  pos: "bottom",
   size: 32
 };
 
@@ -57,7 +61,7 @@ $("#file").onchange = e => {
     $("#adjustStep").classList.add("hidden");
     resetSelection();
     refresh();
-    toast("シートを読み込みました！絵を指で囲んでね");
+    toast("シートを読み込みました！指で囲むか動かしてね");
   };
   im.src = URL.createObjectURL(f);
 };
@@ -74,14 +78,43 @@ function renderSheet() {
   sctx.drawImage(img, 0, 0, stage.width, stage.height);
 }
 
+// 枠の再描画と元画像座標の同期
+function renderCropBox() {
+  if (!selectionRect) {
+    crop.classList.add("hidden");
+    $("#resetCrop").classList.add("hidden");
+    $("#adjustBtn").classList.add("hidden");
+    $("#startSelect").classList.remove("hidden");
+    $("#sheetProgress").textContent = `${results.length + 1} / ${$("#count").value}`;
+    selection = null;
+    return;
+  }
+
+  const sr = stage.getBoundingClientRect();
+  crop.style.left = `${(selectionRect.x / sr.width) * 100}%`;
+  crop.style.top = `${(selectionRect.y / sr.height) * 100}%`;
+  crop.style.width = `${(selectionRect.w / sr.width) * 100}%`;
+  crop.style.height = `${(selectionRect.h / sr.height) * 100}%`;
+  crop.classList.remove("hidden");
+
+  $("#resetCrop").classList.remove("hidden");
+  $("#adjustBtn").classList.remove("hidden");
+  $("#startSelect").classList.add("hidden");
+
+  const scaleX = img.naturalWidth / sr.width;
+  const scaleY = img.naturalHeight / sr.height;
+  selection = {
+    x: selectionRect.x * scaleX,
+    y: selectionRect.y * scaleY,
+    w: selectionRect.w * scaleX,
+    h: selectionRect.h * scaleY
+  };
+}
+
 // 枠のリセット
 function resetSelection() {
-  selection = null;
-  crop.classList.add("hidden");
-  $("#adjustBtn").classList.add("hidden");
-  $("#resetCrop").classList.add("hidden");
-  $("#startSelect").classList.remove("hidden");
-  $("#sheetProgress").textContent = `${results.length + 1} / ${$("#count").value}`;
+  selectionRect = null;
+  renderCropBox();
 }
 
 $("#resetCrop").onclick = () => {
@@ -89,25 +122,23 @@ $("#resetCrop").onclick = () => {
   toast("枠をリセットしました");
 };
 
-// 「この絵を囲む」ボタン
+// 「この絵を囲む」ボタン（中央に標準枠を配置）
 $("#startSelect").onclick = () => {
   if (!img) return;
   const r = SPEC[mode].ratio;
-  const stageRect = stage.getBoundingClientRect();
-  let w = stageRect.width * 0.55;
+  const sr = stage.getBoundingClientRect();
+  let w = sr.width * 0.55;
   let h = w / r;
-  if (h > stageRect.height * 0.8) {
-    h = stageRect.height * 0.8;
+  if (h > sr.height * 0.8) {
+    h = sr.height * 0.8;
     w = h * r;
   }
-  const x = (stageRect.width - w) / 2;
-  const y = (stageRect.height - h) / 2;
+  const x = (sr.width - w) / 2;
+  const y = (sr.height - h) / 2;
 
-  applyCropRect(x, y, w, h, stageRect);
-  $("#startSelect").classList.add("hidden");
-  $("#resetCrop").classList.remove("hidden");
-  $("#adjustBtn").classList.remove("hidden");
-  toast("枠を表示しました！指で囲み直すこともできます");
+  selectionRect = { x, y, w, h };
+  renderCropBox();
+  toast("枠を置きました！中央をつかんで移動、四隅で大きさ調整ができます");
 };
 
 function getStagePoint(e) {
@@ -118,64 +149,120 @@ function getStagePoint(e) {
   };
 }
 
-function applyCropRect(x, y, w, h, stageRect) {
-  crop.style.left = `${(x / stageRect.width) * 100}%`;
-  crop.style.top = `${(y / stageRect.height) * 100}%`;
-  crop.style.width = `${(w / stageRect.width) * 100}%`;
-  crop.style.height = `${(h / stageRect.height) * 100}%`;
-  crop.classList.remove("hidden");
+// ==========================================
+// ①切り出し画面：枠の「新規囲み」「位置移動」「サイズ変更」統合イベント
+// ==========================================
+let cropDrag = null;
 
-  const scaleX = img.naturalWidth / stageRect.width;
-  const scaleY = img.naturalHeight / stageRect.height;
-  selection = {
-    x: x * scaleX,
-    y: y * scaleY,
-    w: w * scaleX,
-    h: h * scaleY
-  };
-}
-
-// 指でドラッグして囲む
-let drawStart = null;
 wrap.addEventListener("pointerdown", e => {
   if (!img) return;
   e.preventDefault();
   wrap.setPointerCapture(e.pointerId);
-  drawStart = getStagePoint(e);
+
+  const p = getStagePoint(e);
+  const handle = e.target.dataset ? e.target.dataset.h : null;
+  const isInsideCrop = (e.target === crop || crop.contains(e.target));
+
+  if (handle) {
+    // 四隅のハンドルをつまんだ場合（サイズ変更）
+    cropDrag = {
+      kind: handle,
+      start: p,
+      orig: { ...selectionRect }
+    };
+  } else if (isInsideCrop && selectionRect) {
+    // 枠の中をつまんだ場合（位置移動）
+    cropDrag = {
+      kind: "move",
+      start: p,
+      orig: { ...selectionRect }
+    };
+  } else {
+    // 枠の外側をドラッグした場合（新しく囲み直す）
+    cropDrag = {
+      kind: "draw",
+      start: p,
+      orig: null
+    };
+  }
 });
 
 wrap.addEventListener("pointermove", e => {
-  if (!drawStart) return;
+  if (!cropDrag) return;
   e.preventDefault();
   const p = getStagePoint(e);
   const r = SPEC[mode].ratio;
+  const sr = stage.getBoundingClientRect();
 
-  let dx = p.x - drawStart.x;
-  let dy = p.y - drawStart.y;
-  let w = Math.abs(dx);
-  let h = Math.abs(dy);
+  if (cropDrag.kind === "move") {
+    // 枠の位置を移動（パン）
+    const dx = p.x - cropDrag.start.x;
+    const dy = p.y - cropDrag.start.y;
+    const maxPosX = sr.width - cropDrag.orig.w;
+    const maxPosY = sr.height - cropDrag.orig.h;
 
-  if (w / h > r) h = w / r;
-  else w = h * r;
+    selectionRect = {
+      x: Math.max(0, Math.min(maxPosX, cropDrag.orig.x + dx)),
+      y: Math.max(0, Math.min(maxPosY, cropDrag.orig.y + dy)),
+      w: cropDrag.orig.w,
+      h: cropDrag.orig.h
+    };
+    renderCropBox();
+  } else if (cropDrag.kind === "draw") {
+    // 指でドラッグして新規作成
+    let dx = p.x - cropDrag.start.x;
+    let dy = p.y - cropDrag.start.y;
+    let w = Math.abs(dx);
+    let h = Math.abs(dy);
 
-  if (w < 20 || h < 20) return;
+    if (w / h > r) h = w / r;
+    else w = h * r;
 
-  const stageRect = stage.getBoundingClientRect();
-  let x = dx < 0 ? drawStart.x - w : drawStart.x;
-  let y = dy < 0 ? drawStart.y - h : drawStart.y;
+    if (w < 20 || h < 20) return;
 
-  x = Math.max(0, Math.min(stageRect.width - w, x));
-  y = Math.max(0, Math.min(stageRect.height - h, y));
+    let x = dx < 0 ? cropDrag.start.x - w : cropDrag.start.x;
+    let y = dy < 0 ? cropDrag.start.y - h : cropDrag.start.y;
 
-  applyCropRect(x, y, w, h, stageRect);
+    x = Math.max(0, Math.min(sr.width - w, x));
+    y = Math.max(0, Math.min(sr.height - h, y));
 
-  $("#startSelect").classList.add("hidden");
-  $("#resetCrop").classList.remove("hidden");
-  $("#adjustBtn").classList.remove("hidden");
+    selectionRect = { x, y, w, h };
+    renderCropBox();
+  } else {
+    // 四隅のハンドルでサイズ変更（比率固定）
+    const kind = cropDrag.kind;
+    const orig = cropDrag.orig;
+    const dx = p.x - cropDrag.start.x;
+    const dy = p.y - cropDrag.start.y;
+
+    let w = orig.w, h = orig.h, x = orig.x, y = orig.y;
+    if (kind.includes("w")) w = orig.w - dx;
+    else if (kind.includes("e")) w = orig.w + dx;
+
+    if (w < 30) w = 30;
+    h = w / r;
+
+    if (kind.includes("w")) x = orig.x + orig.w - w;
+    if (kind.includes("n")) y = orig.y + orig.h - h;
+
+    if (x < 0) {
+      x = 0; w = orig.x + orig.w; h = w / r;
+      if (kind.includes("n")) y = orig.y + orig.h - h;
+    }
+    if (y < 0) {
+      y = 0; h = orig.y + orig.h; w = h * r;
+      if (kind.includes("w")) x = orig.x + orig.w - w;
+    }
+    if (x + w > sr.width) { w = sr.width - x; h = w / r; }
+    if (y + h > sr.height) { h = sr.height - y; w = h * r; }
+
+    selectionRect = { x, y, w, h };
+    renderCropBox();
+  }
 });
 
-wrap.addEventListener("pointerup", () => { drawStart = null; });
-wrap.addEventListener("pointercancel", () => { drawStart = null; });
+wrap.addEventListener("pointerup", () => { cropDrag = null; });
+wrap.addEventListener("pointercancel", () => { cropDrag = null; });
 
 $("#adjustBtn").onclick = () => {
   if (!selection) {
@@ -190,7 +277,7 @@ $("#back").onclick = () => {
   $("#sheetStep").classList.remove("hidden");
 };
 
-// 元画像から高精度のまま切り出し
+// 元画像から高解像度のまま直接切り出し
 function cropFromOriginal(sel) {
   const c = document.createElement("canvas");
   c.width = Math.max(1, Math.round(sel.w));
@@ -206,7 +293,6 @@ function openAdjust() {
   preview.width = SPEC[mode].w;
   preview.height = SPEC[mode].h;
 
-  adjustBox.innerHTML = '<i class="handle-nw" data-h="nw"></i><i class="handle-ne" data-h="ne"></i><i class="handle-sw" data-h="sw"></i><i class="handle-se" data-h="se"></i>';
   adjustBox.style.left = "0%";
   adjustBox.style.top = "0%";
   adjustBox.style.width = "100%";
@@ -215,7 +301,6 @@ function openAdjust() {
   $("#adjustStep").classList.remove("hidden");
   $("#sheetStep").classList.add("hidden");
   
-  // 初期設定
   bgTransparent = false;
   whiteBorder = false;
   $("#whiteBorder").checked = false;
@@ -223,7 +308,6 @@ function openAdjust() {
   $("#borderWidthValue").textContent = "6";
   updateTransUI();
 
-  // タブ初期化
   switchTab("tab-illust");
   renderPreview();
 }
@@ -233,18 +317,14 @@ function switchTab(tabId) {
   document.querySelectorAll(".tabBtn").forEach(b => b.classList.toggle("active", b.dataset.tab === tabId));
   document.querySelectorAll(".tabContent").forEach(c => c.classList.toggle("active", c.id === tabId));
   
-  // 「えの調整」タブのみ枠を表示
-  if (tabId === "tab-illust") {
-    adjustBox.classList.remove("hidden");
-  } else {
-    adjustBox.classList.add("hidden");
-  }
+  if (tabId === "tab-illust") adjustBox.classList.remove("hidden");
+  else adjustBox.classList.add("hidden");
 }
 document.querySelectorAll(".layerTabs .tabBtn").forEach(b => {
   b.onclick = () => switchTab(b.dataset.tab);
 });
 
-// レイヤー合成プレビューの描画
+// レイヤー合成プレビュー描画
 function renderPreview() {
   pctx.clearRect(0, 0, preview.width, preview.height);
 
@@ -254,13 +334,12 @@ function renderPreview() {
     pctx.fillRect(0, 0, preview.width, preview.height);
   }
 
-  // 2. イラストレイヤー（位置・スケール・透過・白フチ）
+  // 2. イラストレイヤー
   let illust = document.createElement("canvas");
   illust.width = preview.width;
   illust.height = preview.height;
   const ictx = illust.getContext("2d");
 
-  // 元画像の配置
   const iw = preview.width * adjust.scale;
   const ih = (preview.width * adjust.scale / adjust.src.width) * adjust.src.height;
   ictx.drawImage(adjust.src, adjust.ox, adjust.oy, iw, ih);
@@ -276,7 +355,7 @@ function renderPreview() {
   }
 }
 
-// セリフ描画（太いフチ＋自動複数行・位置合わせ）
+// セリフ描画（フチ＋自動位置合わせ）
 function renderText(ctx, w, h) {
   const txt = textConfig.text;
   const size = textConfig.size;
@@ -289,7 +368,7 @@ function renderText(ctx, w, h) {
   const lineHeight = size * 1.15;
   const totalH = lines.length * lineHeight;
 
-  let startY = h - totalH / 2 - 16; // bottom
+  let startY = h - totalH / 2 - 16;
   if (textConfig.pos === "top") startY = 16 + totalH / 2;
   if (textConfig.pos === "center") startY = h / 2;
 
@@ -298,7 +377,6 @@ function renderText(ctx, w, h) {
   lines.forEach((line, i) => {
     const y = startY - ((lines.length - 1) * lineHeight) / 2 + i * lineHeight;
 
-    // フチどり
     if (textConfig.stroke !== "none") {
       ctx.strokeStyle = textConfig.stroke;
       ctx.lineWidth = Math.max(4, size * 0.22);
@@ -307,7 +385,6 @@ function renderText(ctx, w, h) {
       ctx.strokeText(line, centerX, y);
     }
 
-    // メイン文字
     ctx.fillStyle = textConfig.color;
     ctx.fillText(line, centerX, y);
   });
@@ -320,7 +397,7 @@ function updateTransUI() {
   $("#transparent").textContent = bgTransparent ? "↩️ 透過を解除" : "✨ 絵のまわりを透明にする";
 }
 
-// イラスト操作ボタン群
+// イラスト微調整ボタン群
 $("#plus").onclick = () => { adjust.scale = Math.min(3, adjust.scale + 0.1); renderPreview(); };
 $("#minus").onclick = () => { adjust.scale = Math.max(0.4, adjust.scale - 0.1); renderPreview(); };
 $("#center").onclick = () => {
@@ -422,7 +499,7 @@ $("#textSize").oninput = e => {
   renderPreview();
 };
 
-// 調整枠のドラッグ & リサイズ
+// 調整枠のドラッグ & リサイズ（②編集画面用）
 let adrag = null;
 adjustBox.addEventListener("pointerdown", e => {
   e.preventDefault();
@@ -476,7 +553,6 @@ adjustBox.addEventListener("pointermove", e => {
 adjustBox.addEventListener("pointerup", () => {
   if (!adrag) return;
   adrag = null;
-  // 枠の位置に合わせてイラストのオフセットとスケールを連動
   const a = preview.getBoundingClientRect();
   const b = adjustBox.getBoundingClientRect();
   const scale = b.width / a.width;
@@ -492,7 +568,7 @@ adjustBox.addEventListener("pointerup", () => {
 });
 adjustBox.addEventListener("pointercancel", () => { adrag = null; });
 
-// 背景透過処理
+// 高速背景透過
 function removeBackground(src) {
   const c = document.createElement("canvas");
   c.width = src.width;
@@ -554,7 +630,7 @@ function removeBackground(src) {
   return c;
 }
 
-// 白フチ合成
+// 高速白フチ合成
 function addWhiteBorder(src, px) {
   const c = document.createElement("canvas");
   c.width = src.width;
@@ -588,7 +664,7 @@ function addWhiteBorder(src, px) {
   return c;
 }
 
-// 最終書き出し用Canvasの生成
+// 最終画像書き出し
 async function getFinalCanvas() {
   await document.fonts.ready;
   const c = document.createElement("canvas");
@@ -596,13 +672,11 @@ async function getFinalCanvas() {
   c.height = SPEC[mode].h;
   const ctx = c.getContext("2d");
 
-  // 1. 背景
   if (bgColor !== "transparent") {
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, c.width, c.height);
   }
 
-  // 2. イラスト
   let illust = document.createElement("canvas");
   illust.width = c.width;
   illust.height = c.height;
@@ -617,7 +691,6 @@ async function getFinalCanvas() {
 
   ctx.drawImage(illust, 0, 0);
 
-  // 3. セリフ
   if (textConfig.text.trim()) {
     renderText(ctx, c.width, c.height);
   }
@@ -705,7 +778,6 @@ function toast(t) {
   toast.t = setTimeout(() => x.classList.remove("show"), 1800);
 }
 
-// フォント読み込み完了時に再描画
 document.fonts.ready.then(() => {
   if ($("#adjustStep").classList.contains("hidden") === false) {
     renderPreview();
