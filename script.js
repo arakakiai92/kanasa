@@ -77,24 +77,75 @@ document.querySelectorAll(".switch button").forEach(b => b.onclick = () => {
 
 $("#count").onchange = () => { $("#total").textContent = $("#count").value; };
 
-// シート画像読み込み
+// シート画像読み込み（Androidのメモリ不足・高解像度写真フリーズ防止の自動リサイズ対応）
 $("#file").onchange = e => {
   const f = e.target.files[0];
   if (!f) return;
-  const im = new Image();
-  im.onload = () => {
-    img = im;
-    results = [];
-    editingIndex = null;
-    setupCanvas();
-    renderSheet();
-    $("#sheetStep").classList.remove("hidden");
-    $("#adjustStep").classList.add("hidden");
-    resetSelection();
-    refresh();
-    toast("シートを読み込みました！絵を指で囲んでね");
+  
+  toast("画像を読み込んでいます...");
+  
+  const reader = new FileReader();
+  reader.onload = event => {
+    const im = new Image();
+    im.onload = () => {
+      let width = im.naturalWidth;
+      let height = im.naturalHeight;
+      const MAX_DIM = 2048;
+      
+      if (width > MAX_DIM || height > MAX_DIM) {
+        if (width > height) {
+          height = Math.round((height * MAX_DIM) / width);
+          width = MAX_DIM;
+        } else {
+          width = Math.round((width * MAX_DIM) / height);
+          height = MAX_DIM;
+        }
+        
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tctx = tempCanvas.getContext("2d");
+        tctx.drawImage(im, 0, 0, width, height);
+        
+        const resizedImg = new Image();
+        resizedImg.onload = () => {
+          img = resizedImg;
+          results = [];
+          editingIndex = null;
+          setupCanvas();
+          renderSheet();
+          $("#sheetStep").classList.remove("hidden");
+          $("#adjustStep").classList.add("hidden");
+          resetSelection();
+          refresh();
+          toast("シートを読み込みました！絵を指で囲んでね");
+        };
+        resizedImg.onerror = () => {
+          toast("リサイズ画像の生成に失敗しました。");
+        };
+        resizedImg.src = tempCanvas.toDataURL("image/jpeg", 0.9);
+      } else {
+        img = im;
+        results = [];
+        editingIndex = null;
+        setupCanvas();
+        renderSheet();
+        $("#sheetStep").classList.remove("hidden");
+        $("#adjustStep").classList.add("hidden");
+        resetSelection();
+        refresh();
+        toast("シートを読み込みました！絵を指で囲んでね");
+      }
+    };
+    im.onerror = () => {
+      toast("画像の読み込みに失敗しました。別の画像をお試しください。");
+    };
+    im.src = event.target.result;
   };
-  im.src = URL.createObjectURL(f);
+  reader.onerror = () => {
+    toast("ファイルの読み込みに失敗しました。");
+  };
+  reader.readAsDataURL(f);
 };
 
 function setupCanvas() {
@@ -1394,7 +1445,7 @@ document.querySelectorAll("#bgColorList .cBtn").forEach(btn => {
     updateBgUI();
     renderPreview();
   };
-};
+});
 
 // 背景色カラーピッカー
 $("#bgColorPicker").oninput = e => {
@@ -1585,7 +1636,6 @@ $("#save").onclick = async () => {
 
   const c = await getFinalCanvas();
   c.toBlob(blob => {
-    // 現在の全編集状態（ステート）を完全にパッケージ化
     const savedState = {
       adjust: {
         src: adjust.src,
@@ -1612,7 +1662,6 @@ $("#save").onclick = async () => {
     };
 
     if (editingIndex !== null) {
-      // 既存カットの上書き更新
       const n = editingIndex + 1;
       const updatedItem = {
         blob,
@@ -1628,7 +1677,6 @@ $("#save").onclick = async () => {
       resetSelection();
       toast(`${n}個目を修正して上書き保存しました！`);
     } else {
-      // 新規カットの追加
       const n = results.length + 1;
       const newItem = {
         blob,
@@ -1664,7 +1712,6 @@ function refresh() {
   $("#checks").innerHTML = `<div class="${bad ? 'warn' : 'ok'}">${bad ? '⚠️ 1MBを超える画像があります' : '✅ PNG形式・規定サイズで保存中（タップして再編集・写真保存可能）'}</div>`;
 }
 
-// サムネイルタップ時のモーダル表示
 function showImageModal(item, index) {
   currentModalIndex = index;
   const modal = $("#imageModal");
@@ -1677,7 +1724,6 @@ $("#modalClose").onclick = () => {
   $("#imageModal").classList.remove("show");
 };
 
-// モーダルから「✏️ このカットを再編集する」
 $("#modalEditBtn").onclick = () => {
   if (currentModalIndex === null || !results[currentModalIndex]) return;
   const item = results[currentModalIndex];
@@ -1692,7 +1738,6 @@ $("#modalEditBtn").onclick = () => {
   openAdjustForEdit(item.state);
 };
 
-// モーダルから「🗑️ 削除」
 $("#modalDeleteBtn").onclick = () => {
   if (currentModalIndex === null || !results[currentModalIndex]) return;
   if (confirm(`${currentModalIndex + 1}個目のスタンプを削除しますか？`)) {
