@@ -35,7 +35,7 @@ let illustBorderColor = "#ffffff";
 // Layer: 文字
 let textConfig = {
   text: "",
-  font: "'Mochiy Pop One', sans-serif",
+  font: "'M PLUS Rounded 1c', sans-serif",
   color: "#111111",
   stroke: "#ffffff",
   size: 34,
@@ -96,7 +96,7 @@ $("#file").onchange = e => {
       $("#adjustStep").classList.add("hidden");
       resetSelection();
       refresh();
-      toast("シートを読み込んだよ！絵を指で囲んでね");
+      toast("シートを読み込みました！絵を指で囲んでね");
     };
     im.onerror = () => toast("画像の読み込みに失敗しました。");
     im.src = event.target.result;
@@ -382,7 +382,7 @@ function openAdjustForEdit(savedState) {
 
   textConfig = { ...savedState.textConfig };
   $("#stampText").value = textConfig.text || "";
-  $("#textFont").value = textConfig.font || "'Mochiy Pop One', sans-serif";
+  $("#textFont").value = textConfig.font || "'M PLUS Rounded 1c', sans-serif";
   $("#textColorPicker").value = (textConfig.color && textConfig.color.startsWith("#")) ? textConfig.color : "#111111";
   document.querySelectorAll("#textColorList .cBtn").forEach(b => {
     b.classList.toggle("active", b.dataset.color && b.dataset.color.toLowerCase() === textConfig.color.toLowerCase());
