@@ -27,7 +27,7 @@ let bgConfig = {
 
 // Layer: イラスト
 let adjust = { src: null, processedSrc: null, scale: 1, ox: 0, oy: 0, rotation: 0 };
-let bgTransparent = true; // ★最初からデフォルトで透過ON
+let bgTransparent = true; // デフォルトで透過ON
 let bgTolerance = 22;
 let protectWhite = true;
 let illustBorder = false;
@@ -67,7 +67,6 @@ function updateMode() {
   $("#spec").textContent = `切り抜き比率：${mode === "sticker" ? "370 : 320" : "1 : 1"} ／ 書き出し：${s.label}`;
   $("#total").textContent = $("#count").value;
   
-  // モード切替時にボタンスタイルを更新
   document.querySelectorAll(".switch button").forEach(btn => {
     if (btn.dataset.mode === mode) {
       btn.classList.add("bg-white", "shadow-sm", "text-gray-800");
@@ -88,7 +87,7 @@ document.querySelectorAll(".switch button").forEach(b => b.onclick = () => {
 
 $("#count").onchange = () => { $("#total").textContent = $("#count").value; };
 
-// シート画像読み込み（自動リサイズ＆比率枠自動生成対応）
+// シート画像読み込み（自動リサイズ＆画面表示を先に行ってからCanvasを初期化）
 $("#file").onchange = e => {
   const f = e.target.files[0];
   if (!f) return;
@@ -103,6 +102,22 @@ $("#file").onchange = e => {
       let height = im.naturalHeight;
       const MAX_DIM = 2048;
       
+      const processLoadedImage = (loadedImage) => {
+        img = loadedImage;
+        results = [];
+        editingIndex = null;
+        
+        // ★重要：先にステップ①を表示状態にしてからcanvasの幅を計算する
+        $("#sheetStep").classList.remove("hidden");
+        $("#adjustStep").classList.add("hidden");
+        
+        setupCanvas();
+        renderSheet();
+        initOrAdjustSelection();
+        refresh();
+        toast("シートを読み込みました！枠を動かしてね");
+      };
+
       if (width > MAX_DIM || height > MAX_DIM) {
         if (width > height) {
           height = Math.round((height * MAX_DIM) / width);
@@ -119,30 +134,10 @@ $("#file").onchange = e => {
         tctx.drawImage(im, 0, 0, width, height);
         
         const resizedImg = new Image();
-        resizedImg.onload = () => {
-          img = resizedImg;
-          results = [];
-          editingIndex = null;
-          setupCanvas();
-          renderSheet();
-          $("#sheetStep").classList.remove("hidden");
-          $("#adjustStep").classList.add("hidden");
-          initOrAdjustSelection();
-          refresh();
-          toast("シートを読み込みました！枠を動かしてね");
-        };
+        resizedImg.onload = () => processLoadedImage(resizedImg);
         resizedImg.src = tempCanvas.toDataURL("image/jpeg", 0.9);
       } else {
-        img = im;
-        results = [];
-        editingIndex = null;
-        setupCanvas();
-        renderSheet();
-        $("#sheetStep").classList.remove("hidden");
-        $("#adjustStep").classList.add("hidden");
-        initOrAdjustSelection();
-        refresh();
-        toast("シートを読み込みました！枠を動かしてね");
+        processLoadedImage(im);
       }
     };
     im.onerror = () => toast("画像の読み込みに失敗しました。");
@@ -152,7 +147,8 @@ $("#file").onchange = e => {
 };
 
 function setupCanvas() {
-  const maxW = Math.min(wrap.clientWidth || window.innerWidth - 20, 900);
+  const containerW = wrap.clientWidth || window.innerWidth - 40;
+  const maxW = Math.min(containerW > 0 ? containerW : 600, 900);
   const scale = Math.min(1, maxW / img.naturalWidth);
   stage.width = Math.round(img.naturalWidth * scale);
   stage.height = Math.round(img.naturalHeight * scale);
@@ -227,9 +223,7 @@ function getTouchPos(clientX, clientY) {
   };
 }
 
-// ==========================================
 // ① 切り出し画面のタッチ＆マウス操作
-// ==========================================
 let cropDrag = null;
 
 wrap.addEventListener("touchstart", e => {
@@ -427,7 +421,7 @@ function openAdjustNew() {
   $("#stampText").value = "";
 
   layerOrder = ["illust", "text", "bg"];
-  bgTransparent = true; // デフォルト透過ON
+  bgTransparent = true;
   bgTolerance = 22;
   protectWhite = true;
   $("#bgToleranceSlider").value = 22;
@@ -534,7 +528,6 @@ function centerIllust() {
   adjust.oy = (preview.height - ih) / 2;
 }
 
-// 消しゴム機能
 function setEraserMode(active) {
   isEraserActive = active;
   $("#eraserToggleBtn").textContent = isEraserActive ? "🧹 消しゴム：ON" : "🧹 消しゴム：OFF";
@@ -623,9 +616,6 @@ function updateEraserCursorPos(clientX, clientY) {
   cursor.classList.add("hidden");
 }
 
-// ==========================================
-// ② スタンプ調整画面
-// ==========================================
 let touchMode = null;
 let touchStartX = 0, touchStartY = 0;
 let origOx = 0, origOy = 0;
@@ -768,7 +758,6 @@ adjustArea.addEventListener("touchcancel", () => {
   if (isEraserActive) $("#eraserCursor")?.classList.add("hidden");
 });
 
-// マウスフォールバック
 adjustArea.addEventListener("mousedown", e => {
   if (isEraserActive && currentLayer === "illust") {
     if (adjust.src) {
@@ -798,7 +787,6 @@ adjustArea.addEventListener("mousemove", e => {
 });
 adjustArea.addEventListener("mouseup", () => { lastErasePoint = null; });
 
-// レイヤー切り替え
 function switchLayer(layerId) {
   currentLayer = layerId;
   if (currentLayer !== "illust" && isEraserActive) setEraserMode(false);
@@ -934,7 +922,6 @@ $("#textPosBottom").onclick = () => {
 $("#bgCenterBtn").onclick = () => { bgConfig.ox = 0; bgConfig.oy = 0; renderPreview(); };
 $("#bgFitFull").onclick = () => { bgConfig.style = "full"; bgConfig.ox = 0; bgConfig.oy = 0; bgConfig.scale = 1; updateBgUI(); syncCommonScaleSlider(); renderPreview(); };
 
-// 重なり順ドロワー
 $("#toggleOrderDrawer").onclick = () => { $("#layerOrderDrawer").classList.toggle("hidden"); };
 $("#closeOrderDrawer").onclick = () => { $("#layerOrderDrawer").classList.add("hidden"); };
 
@@ -1008,7 +995,6 @@ function updateIllustCache() {
   adjust.processedSrc = c;
 }
 
-// 描画処理（回転対応）
 function renderPreview() {
   pctx.clearRect(0, 0, preview.width, preview.height);
   const drawList = layerOrder.slice().reverse();
@@ -1105,7 +1091,6 @@ function drawTextLayer(ctx, w, h) {
   ctx.restore();
 }
 
-// イベント設定
 $("#protectWhiteToggle").onchange = e => {
   protectWhite = e.target.checked;
   updateIllustCache(); renderPreview();
