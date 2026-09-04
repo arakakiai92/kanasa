@@ -45,13 +45,13 @@ let textConfig = {
   initialized: false
 };
 
-let currentLayer = "illust"; // スマホ操作の初期選択は「イラスト」
-
 // 消しゴム機能の状態
 let isEraserActive = false;
 let eraserRadius = 14;
 let eraserUndoStack = [];
 let lastErasePoint = null;
+
+let currentLayer = "illust"; // スマホ操作の初期選択は「イラスト」
 let results = [];
 let editingIndex = null;     // 再編集中のカット番号 (null: 新規作成)
 let currentModalIndex = null;// モーダルで表示中のカット番号
@@ -63,7 +63,7 @@ const SPEC = {
 
 function updateMode() {
   const s = SPEC[mode];
-  $("#spec").textContent = `切り抜き比率：${mode === "sticker" ? "370 : 320" : "1 : 1"}　／　書き出し：${s.label}`;
+  $("#spec").textContent = `切り抜き比率：${mode === "sticker" ? "370 : 320" : "1 : 1"} ／ 書き出し：${s.label}`;
   $("#total").textContent = $("#count").value;
   if (img) resetSelection();
 }
@@ -326,7 +326,7 @@ function scaleCrop(factor) {
   nx = Math.max(0, Math.min(sr.width - newW, nx));
   ny = Math.max(0, Math.min(sr.height - newH, ny));
 
-  selectionRect = { x, y: ny, w: newW, h: newH };
+  selectionRect = { x: nx, y: ny, w: newW, h: newH };
   renderCropBox();
 }
 
@@ -406,14 +406,15 @@ function openAdjustNew() {
 
   illustBorder = false;
   illustBorderColor = "#ffffff";
-  isEraserActive = false;
-  eraserUndoStack = [];
-  lastErasePoint = null;
-  updateEraserUI();
   $("#illustBorderToggle").checked = false;
   $("#illustBorderColorWrap").classList.add("hidden");
   $("#borderWidth").value = 6;
   $("#borderWidthValue").textContent = "6";
+
+  isEraserActive = false;
+  eraserUndoStack = [];
+  lastErasePoint = null;
+  updateEraserUI();
 
   $("#save").textContent = "💾 このスタンプを保存する";
   $("#adjustStepTitle").textContent = "② スタンプをととのえる";
@@ -468,10 +469,6 @@ function openAdjustForEdit(savedState) {
   protectWhite = savedState.protectWhite !== undefined ? savedState.protectWhite : true;
   illustBorder = savedState.illustBorder;
   illustBorderColor = savedState.illustBorderColor || "#ffffff";
-  isEraserActive = false;
-  eraserUndoStack = [];
-  lastErasePoint = null;
-  updateEraserUI();
 
   $("#bgToleranceSlider").value = bgTolerance;
   $("#bgToleranceVal").textContent = bgTolerance;
@@ -482,6 +479,11 @@ function openAdjustForEdit(savedState) {
   $("#illustBorderColorWrap").classList.toggle("hidden", !illustBorder);
   $("#borderWidth").value = savedState.borderWidth || 6;
   $("#borderWidthValue").textContent = savedState.borderWidth || 6;
+
+  isEraserActive = false;
+  eraserUndoStack = [];
+  lastErasePoint = null;
+  updateEraserUI();
 
   $("#save").textContent = `💾 ${editingIndex + 1}個目を修正して上書き保存`;
   $("#adjustStepTitle").textContent = `② ${editingIndex + 1}個目を修正中（上書き保存）`;
@@ -502,6 +504,105 @@ function centerIllust() {
   const ih = (preview.width * adjust.scale / adjust.src.width) * adjust.src.height;
   adjust.ox = (preview.width - iw) / 2;
   adjust.oy = (preview.height - ih) / 2;
+}
+
+// ==========================================
+// 消しゴム機能（手動タッチ消去＆Undo）
+// ==========================================
+function setEraserMode(active) {
+  isEraserActive = active;
+  $("#eraserToggleBtn").textContent = isEraserActive ? "🧹 消しゴムモード：ON" : "🧹 消しゴムモード：OFF";
+  $("#eraserToggleBtn").classList.toggle("active", isEraserActive);
+  $("#eraserOptionsWrap").classList.toggle("hidden", !isEraserActive);
+  adjustArea.classList.toggle("erasing", isEraserActive);
+  if (!isEraserActive) {
+    $("#eraserCursor").classList.add("hidden");
+  }
+}
+
+function updateEraserUI() {
+  setEraserMode(isEraserActive);
+  $("#eraserUndoBtn").disabled = (eraserUndoStack.length === 0);
+}
+
+$("#eraserToggleBtn").onclick = () => {
+  if (currentLayer !== "illust") {
+    switchLayer("illust");
+  }
+  setEraserMode(!isEraserActive);
+  if (isEraserActive) {
+    toast("消しゴムON：プレビューをなぞって不要な部分を消せます");
+  }
+};
+
+document.querySelectorAll(".eSizeBtn").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".eSizeBtn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    eraserRadius = Number(btn.dataset.size) / 2;
+  };
+});
+
+$("#eraserUndoBtn").onclick = () => {
+  if (eraserUndoStack.length === 0) return;
+  const lastSnapshot = eraserUndoStack.pop();
+  const sctx = adjust.src.getContext("2d");
+  sctx.putImageData(lastSnapshot, 0, 0);
+  updateEraserUI();
+  updateIllustCache();
+  renderPreview();
+  toast("消しゴムの操作を1つ元に戻しました");
+};
+
+function eraseAtCoords(p1, p2) {
+  if (!adjust.src) return;
+  const sctx = adjust.src.getContext("2d");
+  const ratio = adjust.src.width / (preview.width * adjust.scale);
+
+  const sx1 = (p1.x - adjust.ox) * ratio;
+  const sy1 = (p1.y - adjust.oy) * ratio;
+  const rInSrc = eraserRadius * ratio;
+
+  sctx.save();
+  sctx.globalCompositeOperation = "destination-out";
+
+  if (!p2 || (p1.x === p2.x && p1.y === p2.y)) {
+    sctx.beginPath();
+    sctx.arc(sx1, sy1, Math.max(1, rInSrc), 0, Math.PI * 2);
+    sctx.fill();
+  } else {
+    const sx2 = (p2.x - adjust.ox) * ratio;
+    const sy2 = (p2.y - adjust.oy) * ratio;
+    sctx.beginPath();
+    sctx.arc(sx2, sy2, Math.max(1, rInSrc), 0, Math.PI * 2);
+    sctx.fill();
+
+    sctx.beginPath();
+    sctx.lineWidth = Math.max(2, rInSrc * 2);
+    sctx.lineCap = "round";
+    sctx.lineJoin = "round";
+    sctx.moveTo(sx1, sy1);
+    sctx.lineTo(sx2, sy2);
+    sctx.stroke();
+  }
+  sctx.restore();
+}
+
+function updateEraserCursorPos(clientX, clientY) {
+  if (!isEraserActive) return;
+  const cursor = $("#eraserCursor");
+  const rect = adjustArea.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+
+  const displayScale = rect.width / preview.width;
+  const diameter = eraserRadius * 2 * displayScale;
+
+  cursor.style.width = `${diameter}px`;
+  cursor.style.height = `${diameter}px`;
+  cursor.style.left = `${x}px`;
+  cursor.style.top = `${y}px`;
+  cursor.classList.remove("hidden");
 }
 
 // ==========================================
@@ -917,7 +1018,7 @@ function drawTextLayer(ctx, w, h) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  const lines = txt.split("\n");
+  const lines = txt.split("\\n");
   const lineHeight = size * 1.18;
   const totalH = lines.length * lineHeight;
 
@@ -975,14 +1076,6 @@ adjustArea.addEventListener("pointerdown", e => {
     updateEraserCursorPos(e.clientX, e.clientY);
     return;
   }
-  e.preventDefault();
-  adjustArea.setPointerCapture(e.pointerId);
-  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
-  const rect = preview.getBoundingClientRect();
-  const scaleFactor = preview.width / rect.width;
-  const px = (e.clientX - rect.left) * scaleFactor;
-  const py = (e.clientY - rect.top) * scaleFactor;
 
   if (activePointers.size === 1) {
     if (currentLayer === "text") {
@@ -1041,9 +1134,6 @@ adjustArea.addEventListener("pointermove", e => {
     }
     return;
   }
-  if (!activePointers.has(e.pointerId)) return;
-  e.preventDefault();
-  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
   if (activePointers.size === 2 && initialPinchDistance) {
     const pts = Array.from(activePointers.values());
@@ -1063,11 +1153,6 @@ adjustArea.addEventListener("pointermove", e => {
   }
 
   if (previewDragStart && activePointers.size === 1) {
-    const rect = preview.getBoundingClientRect();
-    const scaleFactor = preview.width / rect.width;
-    const px = (e.clientX - rect.left) * scaleFactor;
-    const py = (e.clientY - rect.top) * scaleFactor;
-
     const dx = px - previewDragStart.startX;
     const dy = py - previewDragStart.startY;
 
@@ -1076,7 +1161,7 @@ adjustArea.addEventListener("pointermove", e => {
       textConfig.oy = previewDragStart.origY + dy;
     } else if (previewDragStart.layer === "illust") {
       adjust.ox = previewDragStart.origX + dx;
-      adjust.oy = previewDragStart.origOy + dy;
+      adjust.oy = previewDragStart.origY + dy;
     } else if (previewDragStart.layer === "bg") {
       bgConfig.ox = previewDragStart.origX + dx;
       bgConfig.oy = previewDragStart.origY + dy;
@@ -1096,105 +1181,6 @@ function endPointer(e) {
 }
 adjustArea.addEventListener("pointerup", endPointer);
 adjustArea.addEventListener("pointercancel", endPointer);
-
-// ==========================================
-// 消しゴム機能（手動タッチ消去＆Undo）
-// ==========================================
-function setEraserMode(active) {
-  isEraserActive = active;
-  $("#eraserToggleBtn").textContent = isEraserActive ? "🧹 消しゴムモード：ON" : "🧹 消しゴムモード：OFF";
-  $("#eraserToggleBtn").classList.toggle("active", isEraserActive);
-  $("#eraserOptionsWrap").classList.toggle("hidden", !isEraserActive);
-  adjustArea.classList.toggle("erasing", isEraserActive);
-  if (!isEraserActive) {
-    $("#eraserCursor").classList.add("hidden");
-  }
-}
-
-function updateEraserUI() {
-  setEraserMode(isEraserActive);
-  $("#eraserUndoBtn").disabled = (eraserUndoStack.length === 0);
-}
-
-$("#eraserToggleBtn").onclick = () => {
-  if (currentLayer !== "illust") {
-    switchLayer("illust");
-  }
-  setEraserMode(!isEraserActive);
-  if (isEraserActive) {
-    toast("消しゴムON：プレビューをなぞって不要な部分を消せます");
-  }
-};
-
-document.querySelectorAll(".eSizeBtn").forEach(btn => {
-  btn.onclick = () => {
-    document.querySelectorAll(".eSizeBtn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    eraserRadius = Number(btn.dataset.size) / 2;
-  };
-});
-
-$("#eraserUndoBtn").onclick = () => {
-  if (eraserUndoStack.length === 0) return;
-  const lastSnapshot = eraserUndoStack.pop();
-  const sctx = adjust.src.getContext("2d");
-  sctx.putImageData(lastSnapshot, 0, 0);
-  updateEraserUI();
-  updateIllustCache();
-  renderPreview();
-  toast("消しゴムの操作を1つ元に戻しました");
-};
-
-function eraseAtCoords(p1, p2) {
-  if (!adjust.src) return;
-  const sctx = adjust.src.getContext("2d");
-  const ratio = adjust.src.width / (preview.width * adjust.scale);
-
-  const sx1 = (p1.x - adjust.ox) * ratio;
-  const sy1 = (p1.y - adjust.oy) * ratio;
-  const rInSrc = eraserRadius * ratio;
-
-  sctx.save();
-  sctx.globalCompositeOperation = "destination-out";
-
-  if (!p2 || (p1.x === p2.x && p1.y === p2.y)) {
-    sctx.beginPath();
-    sctx.arc(sx1, sy1, Math.max(1, rInSrc), 0, Math.PI * 2);
-    sctx.fill();
-  } else {
-    const sx2 = (p2.x - adjust.ox) * ratio;
-    const sy2 = (p2.y - adjust.oy) * ratio;
-    sctx.beginPath();
-    sctx.arc(sx2, sy2, Math.max(1, rInSrc), 0, Math.PI * 2);
-    sctx.fill();
-
-    sctx.beginPath();
-    sctx.lineWidth = Math.max(2, rInSrc * 2);
-    sctx.lineCap = "round";
-    sctx.lineJoin = "round";
-    sctx.moveTo(sx1, sy1);
-    sctx.lineTo(sx2, sy2);
-    sctx.stroke();
-  }
-  sctx.restore();
-}
-
-function updateEraserCursorPos(clientX, clientY) {
-  if (!isEraserActive) return;
-  const cursor = $("#eraserCursor");
-  const rect = adjustArea.getBoundingClientRect();
-  const x = clientX - rect.left;
-  const y = clientY - rect.top;
-
-  const displayScale = rect.width / preview.width;
-  const diameter = eraserRadius * 2 * displayScale;
-
-  cursor.style.width = `${diameter}px`;
-  cursor.style.height = `${diameter}px`;
-  cursor.style.left = `${x}px`;
-  cursor.style.top = `${y}px`;
-  cursor.classList.remove("hidden");
-}
 
 // ==========================================
 // 詳細設定：イラストレイヤー
@@ -1408,7 +1394,7 @@ document.querySelectorAll("#bgColorList .cBtn").forEach(btn => {
     updateBgUI();
     renderPreview();
   };
-});
+};
 
 // 背景色カラーピッカー
 $("#bgColorPicker").oninput = e => {
