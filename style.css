@@ -169,13 +169,13 @@ main{max-width:900px;margin:auto;padding:10px}
 
 .sheetActions{display:flex;gap:8px;margin-top:10px}
 .sheetActions button{margin-top:0}
-.subBtn{flex:1;padding:13px 8px;border:1px solid #bbb;border-radius:11px;background:#f0f0f0;font-size:14px;font-weight:800;color:#333;cursor:pointer}
+.subBtn{flex:1;padding:12px 8px;border:1px solid #bbb;border-radius:11px;background:#f0f0f0;font-size:14px;font-weight:800;color:#333;cursor:pointer}
+.subBtn.danger{background:#ffe3e3;color:#c92a2a;border-color:#ffa8a8}
 .sheetActions .primary.big{flex:2}
 
 /* ==========================================
    ②ステップ②：スマホ最適化レイアウト
    ========================================== */
-/* プレビュー画面：スマホの1画面に収まるよう高さを調整 */
 .previewContainer{
   margin-bottom:8px;
 }
@@ -196,7 +196,7 @@ main{max-width:900px;margin:auto;padding:10px}
   margin:0 auto;
   width:100%;
   height:auto;
-  max-height:38vh; /* スマホ画面でコントローラーとプレビューが同時に入る高さ */
+  max-height:38vh;
   object-fit:contain;
 }
 
@@ -224,7 +224,7 @@ main{max-width:900px;margin:auto;padding:10px}
 }
 .previewTip{font-size:11px;color:#777;text-align:center;margin-top:4px}
 
-/* 【最優先①】レイヤー選択タブバー（プレビュー直下） */
+/* レイヤー選択タブバー */
 .layerTabBar{
   display:flex;
   gap:6px;
@@ -264,7 +264,7 @@ main{max-width:900px;margin:auto;padding:10px}
   border-color:#495057;
 }
 
-/* 重なり順ドロワー（必要な時だけサッと開く） */
+/* 重なり順ドロワー */
 .orderDrawer{
   background:#f8f9fa;
   border:1.5px solid #dee2e6;
@@ -337,7 +337,7 @@ main{max-width:900px;margin:auto;padding:10px}
 .btnOrderUp:active:not(:disabled), .btnOrderDown:active:not(:disabled){background:#dee2e6}
 .btnOrderUp:disabled, .btnOrderDown:disabled{opacity:.3;cursor:not-allowed}
 
-/* 【最優先②】プレビュー直下常駐！「大きさ＆位置クイックコントローラー」 */
+/* プレビュー直下常駐！大きさ＆位置クイックコントローラー */
 .quickTransformBox{
   background:#fff;
   border:2px solid #222;
@@ -401,7 +401,7 @@ main{max-width:900px;margin:auto;padding:10px}
   border-color:#222;
 }
 
-/* 【優先度③】詳細設定パネル（色・フォント・透過等） */
+/* 詳細設定パネル */
 .detailsArea{
   background:#f9f9fa;
   border:1px solid #e2e2e6;
@@ -419,7 +419,7 @@ main{max-width:900px;margin:auto;padding:10px}
 .inputRow{display:flex;gap:6px;margin-bottom:8px}
 .inputRow input{flex:1;padding:11px;border:2px solid #bbb;border-radius:9px;font-size:16px;font-weight:700}
 .inputRow input:focus{border-color:#222;outline:none}
-.clearBtn{padding:0 14px;border:1px solid #ccc;background:#eee;border-radius:9px;font-size:16px;font-weight:800;cursor:pointer}
+.clearBtn{padding:4px 10px;border:1px solid #ccc;background:#eee;border-radius:7px;font-size:12px;font-weight:800;cursor:pointer}
 .quickWords{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
 .quickWords span{font-size:11px;color:#666;font-weight:700}
 .qBtn{background:#f1f3f5;border:1px solid #ced4da;border-radius:14px;padding:4px 9px;font-size:12px;font-weight:700;cursor:pointer}
@@ -526,21 +526,21 @@ main{max-width:900px;margin:auto;padding:10px}
 }
 .subLabel{font-size:11px;font-weight:800;display:block;margin-bottom:6px;color:#444}
 
-/* 背景スタイル4択 */
+/* 背景スタイルカード */
 .bgStyleGrid{
   display:grid;
-  grid-template-columns:repeat(2, 1fr);
-  gap:8px;
+  grid-template-columns:repeat(3, 1fr);
+  gap:7px;
   margin-top:6px;
 }
-@media(min-width:480px){
-  .bgStyleGrid{grid-template-columns:repeat(4, 1fr)}
+@media(min-width:550px){
+  .bgStyleGrid{grid-template-columns:repeat(5, 1fr)}
 }
 .bgStyleCard{
   background:#fff;
   border:2px solid #ddd;
   border-radius:12px;
-  padding:10px 6px;
+  padding:9px 4px;
   display:flex;
   flex-direction:column;
   align-items:center;
@@ -557,8 +557,8 @@ main{max-width:900px;margin:auto;padding:10px}
   transform:scale(1.02);
 }
 .styleIcon{
-  width:42px;
-  height:42px;
+  width:40px;
+  height:40px;
   border-radius:10px;
   display:flex;
   align-items:center;
@@ -569,6 +569,10 @@ main{max-width:900px;margin:auto;padding:10px}
 .styleIcon.checkered{
   background:repeating-conic-gradient(#ddd 0 25%,#fff 0 50%) 50%/10px 10px;
   border:1px solid #ccc;
+}
+.styleIcon.imgIcon{
+  background:#e7f5ff;
+  border:2px solid #74c0fc;
 }
 .styleIcon.circleIcon{
   border-radius:50%;
@@ -587,8 +591,8 @@ main{max-width:900px;margin:auto;padding:10px}
   background:#fff9db;
   border:2px solid rgba(0,0,0,.15);
 }
-.styleTitle{font-size:13px;color:#111;font-weight:800}
-.styleDesc{font-size:10px;color:#666}
+.styleTitle{font-size:12px;color:#111;font-weight:800;white-space:nowrap}
+.styleDesc{font-size:10px;color:#666;white-space:nowrap}
 
 .bgNoneCard{
   background:#eefbf0;
@@ -603,6 +607,36 @@ main{max-width:900px;margin:auto;padding:10px}
 .bgNoneIcon{font-size:22px}
 .bgNoneText b{display:block;font-size:12px;color:#1b6330;margin-bottom:2px}
 .bgNoneText p{margin:0;font-size:11px;color:#3b7a4e;line-height:1.4}
+
+/* 背景写真アップロードカード */
+.bgUploadCard{
+  background:#fff;
+  border:1.5px solid #74c0fc;
+  border-radius:10px;
+  padding:10px;
+  margin-top:10px;
+}
+.bgFileLabel{
+  display:block;
+  background:#1971c2;
+  color:#fff;
+  text-align:center;
+  padding:10px;
+  border-radius:8px;
+  font-size:13px;
+  font-weight:800;
+  cursor:pointer;
+}
+.bgFileLabel input{display:none}
+.bgImgStatus{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:8px;
+  font-size:12px;
+  font-weight:700;
+  color:#333;
+}
 
 .big{width:100%;padding:14px;margin-top:10px;border-radius:11px;border:1px solid #999;font-size:16px;font-weight:800;background:#fff;cursor:pointer}
 .primary{background:#222!important;color:#fff;border-color:#222!important}
@@ -619,14 +653,91 @@ main{max-width:900px;margin:auto;padding:10px}
 .thumb img{display:block;width:100%;height:auto;object-fit:contain}
 .thumb span{position:absolute;left:4px;top:4px;background:#fff;border-radius:5px;padding:2px 5px;font-size:10px;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 
-.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;padding:20px}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;padding:16px}
 .modal.show{display:flex}
-.modalContent{background:#fff;padding:16px;border-radius:14px;text-align:center;max-width:90%;box-shadow:0 4px 20px rgba(0,0,0,.3)}
-.modalContent p{font-size:13px;font-weight:700;margin:0 0 12px;color:#333}
-.modalContent img{max-width:240px;max-height:240px;border:1px solid #ddd;border-radius:8px;background:repeating-conic-gradient(#ddd 0 25%,#fff 0 50%) 50%/14px 14px;display:block;margin:0 auto 12px}
+.modalContent{background:#fff;padding:16px;border-radius:14px;text-align:center;max-width:92%;width:340px;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.modalTitle{font-size:14px;font-weight:800;margin:0 0 10px;color:#222}
+.modalContent img{max-width:200px;max-height:200px;border:1px solid #ddd;border-radius:8px;background:repeating-conic-gradient(#ddd 0 25%,#fff 0 50%) 50%/14px 14px;display:block;margin:0 auto 12px}
+.modalActions{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.modalActions .big{margin-top:0}
+.modalTip{font-size:11px;color:#777;margin:0}
 
-#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:22px;font-size:13px;opacity:0;transition:.2s;z-index:50;pointer-events:none;white-space:nowrap}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:22px;font-size:13px;opacity:0;transition:.2s;z-index:150;pointer-events:none;white-space:nowrap}
 #toast.show{opacity:1}
 @media(min-width:650px){
   .thumbs{grid-template-columns:repeat(6,1fr)}
+}
+
+/* ==========================================
+   消しゴム機能 スタイル
+   ========================================== */
+.eraserCard{
+  border:1.5px solid #ffa94d;
+  background:#fff9db;
+  border-radius:10px;
+  padding:10px;
+  margin-bottom:10px;
+}
+.eraserTopRow{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.eraserBtn{
+  flex:1;
+  padding:10px 8px;
+  border:2px solid #fd7e14;
+  background:#fff;
+  color:#d9480f;
+  border-radius:8px;
+  font-size:13px;
+  font-weight:800;
+  cursor:pointer;
+  transition:all .15s ease;
+}
+.eraserBtn.active{
+  background:#fd7e14;
+  color:#fff;
+  box-shadow:0 2px 6px rgba(253,126,20,.35);
+}
+.eraserOptions{
+  margin-top:8px;
+  padding-top:8px;
+  border-top:1px dashed #ffd8a8;
+}
+.eraserSizeRow{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  flex-wrap:wrap;
+}
+.eSizeBtn{
+  padding:6px 10px;
+  border:1px solid #ced4da;
+  background:#fff;
+  border-radius:6px;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+  color:#495057;
+}
+.eSizeBtn.active{
+  background:#222;
+  color:#fff;
+  border-color:#222;
+}
+
+/* プレビュー上の消しゴムカーソル */
+.eraserCursor{
+  position:absolute;
+  border:2px solid rgba(253,126,20,.9);
+  background:rgba(253,126,20,.2);
+  border-radius:50%;
+  pointer-events:none;
+  transform:translate(-50%, -50%);
+  z-index:20;
+  box-shadow:0 0 4px rgba(0,0,0,.2);
+}
+.adjustArea.erasing{
+  cursor:crosshair!important;
 }

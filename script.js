@@ -17,8 +17,9 @@ let layerOrder = ["illust", "text", "bg"];
 
 // Layer: 背景
 let bgConfig = {
-  style: "none", // 'none' (背景なし) | 'circle' (まる型) | 'roundRect' (角丸プレート) | 'full' (全画面)
+  style: "none", // 'none' | 'image' | 'circle' | 'roundRect' | 'full'
   color: "#fff9db",
+  image: null,   // 背景画像（Imageオブジェクト）
   scale: 1,
   ox: 0,
   oy: 0
@@ -45,7 +46,15 @@ let textConfig = {
 };
 
 let currentLayer = "illust"; // スマホ操作の初期選択は「イラスト」
+
+// 消しゴム機能の状態
+let isEraserActive = false;
+let eraserRadius = 14;
+let eraserUndoStack = [];
+let lastErasePoint = null;
 let results = [];
+let editingIndex = null;     // 再編集中のカット番号 (null: 新規作成)
+let currentModalIndex = null;// モーダルで表示中のカット番号
 
 const SPEC = {
   sticker: { ratio: 370 / 320, w: 370, h: 320, label: "370 × 320 px（スタンプ用）" },
@@ -76,6 +85,7 @@ $("#file").onchange = e => {
   im.onload = () => {
     img = im;
     results = [];
+    editingIndex = null;
     setupCanvas();
     renderSheet();
     $("#sheetStep").classList.remove("hidden");
@@ -277,7 +287,7 @@ wrap.addEventListener("pointermove", e => {
       if (h.includes("w")) nx = ax - newW;
     }
 
-    selectionRect = { x, y, w, h };
+    selectionRect = { x: nx, y: ny, w: newW, h: newH };
     renderCropBox();
   }
 });
@@ -316,7 +326,7 @@ function scaleCrop(factor) {
   nx = Math.max(0, Math.min(sr.width - newW, nx));
   ny = Math.max(0, Math.min(sr.height - newH, ny));
 
-  selectionRect = { x, y, w, h };
+  selectionRect = { x, y: ny, w: newW, h: newH };
   renderCropBox();
 }
 
@@ -335,16 +345,18 @@ $("#cropCenter").onclick = () => {
 $("#cropZoomIn").onclick = () => scaleCrop(1.08);
 $("#cropZoomOut").onclick = () => scaleCrop(0.92);
 
-// ②個別編集画面への遷移
+// ②個別編集画面への遷移（新規作成）
 $("#adjustBtn").onclick = () => {
   if (!selection) {
     toast("絵を指で囲んでから押してね");
     return;
   }
-  openAdjust();
+  editingIndex = null;
+  openAdjustNew();
 };
 
 $("#back").onclick = () => {
+  editingIndex = null;
   $("#adjustStep").classList.add("hidden");
   $("#sheetStep").classList.remove("hidden");
 };
@@ -357,28 +369,31 @@ function cropFromOriginal(sel) {
   return c;
 }
 
-function openAdjust() {
+// 新規作成時の初期化
+function openAdjustNew() {
   const src = cropFromOriginal(selection);
   preview.width = SPEC[mode].w;
   preview.height = SPEC[mode].h;
 
-  // イラスト初期化
   adjust = { src, processedSrc: null, scale: 1, ox: 0, oy: 0 };
   centerIllust();
 
-  // 背景初期化
   bgConfig = {
     style: "none",
     color: "#fff9db",
+    image: null,
     scale: 1,
     ox: 0,
     oy: 0
   };
 
-  // 文字初期化（下部に初期配置）
   textConfig.ox = preview.width / 2;
   textConfig.oy = preview.height - 40;
-  textConfig.initialized = true;
+  textConfig.text = "";
+  textConfig.size = 34;
+  textConfig.color = "#111111";
+  textConfig.stroke = "#ffffff";
+  $("#stampText").value = "";
 
   layerOrder = ["illust", "text", "bg"];
   bgTransparent = false;
@@ -389,27 +404,97 @@ function openAdjust() {
   $("#protectWhiteToggle").checked = true;
   $("#transOptionsWrap").classList.add("hidden");
 
-  // イラストフチ
   illustBorder = false;
   illustBorderColor = "#ffffff";
+  isEraserActive = false;
+  eraserUndoStack = [];
+  lastErasePoint = null;
+  updateEraserUI();
   $("#illustBorderToggle").checked = false;
   $("#illustBorderColorWrap").classList.add("hidden");
   $("#borderWidth").value = 6;
   $("#borderWidthValue").textContent = "6";
-  $("#illustBorderColorPicker").value = "#ffffff";
-  document.querySelectorAll("#illustBorderColorList .cBtn").forEach(b => {
-    b.classList.toggle("active", b.dataset.color === "#ffffff");
-  });
+
+  $("#save").textContent = "💾 このスタンプを保存する";
+  $("#adjustStepTitle").textContent = "② スタンプをととのえる";
 
   $("#adjustStep").classList.remove("hidden");
   $("#sheetStep").classList.add("hidden");
 
-  // スマホ優先設計：初期選択は「イラスト」
   switchLayer("illust");
   updateIllustCache();
   updateLayerListUI();
   updateBgUI();
   renderPreview();
+}
+
+// 過去の完成カットを再編集する際の復元処理
+function openAdjustForEdit(savedState) {
+  preview.width = SPEC[mode].w;
+  preview.height = SPEC[mode].h;
+
+  // 1. イラスト復元
+  adjust.src = savedState.adjust.src;
+  adjust.scale = savedState.adjust.scale;
+  adjust.ox = savedState.adjust.ox;
+  adjust.oy = savedState.adjust.oy;
+
+  // 2. 文字復元
+  textConfig = { ...savedState.textConfig };
+  $("#stampText").value = textConfig.text || "";
+  $("#textFont").value = textConfig.font || "'Mochiy Pop One', sans-serif";
+  $("#textColorPicker").value = (textConfig.color && textConfig.color.startsWith("#")) ? textConfig.color : "#111111";
+  document.querySelectorAll("#textColorList .cBtn").forEach(b => {
+    b.classList.toggle("active", b.dataset.color && b.dataset.color.toLowerCase() === textConfig.color.toLowerCase());
+  });
+  document.querySelectorAll("#textStrokeList .sBtn").forEach(b => {
+    b.classList.toggle("active", b.dataset.stroke === textConfig.stroke);
+  });
+
+  // 3. 背景復元
+  bgConfig = {
+    style: savedState.bgConfig.style || "none",
+    color: savedState.bgConfig.color || "#fff9db",
+    image: savedState.bgConfig.image || null,
+    scale: savedState.bgConfig.scale || 1,
+    ox: savedState.bgConfig.ox || 0,
+    oy: savedState.bgConfig.oy || 0
+  };
+
+  // 4. 重なり順・透過・フチ設定の復元
+  layerOrder = [...savedState.layerOrder];
+  bgTransparent = savedState.bgTransparent;
+  bgTolerance = savedState.bgTolerance !== undefined ? savedState.bgTolerance : 22;
+  protectWhite = savedState.protectWhite !== undefined ? savedState.protectWhite : true;
+  illustBorder = savedState.illustBorder;
+  illustBorderColor = savedState.illustBorderColor || "#ffffff";
+  isEraserActive = false;
+  eraserUndoStack = [];
+  lastErasePoint = null;
+  updateEraserUI();
+
+  $("#bgToleranceSlider").value = bgTolerance;
+  $("#bgToleranceVal").textContent = bgTolerance;
+  $("#protectWhiteToggle").checked = protectWhite;
+  $("#transOptionsWrap").classList.toggle("hidden", !bgTransparent);
+
+  $("#illustBorderToggle").checked = illustBorder;
+  $("#illustBorderColorWrap").classList.toggle("hidden", !illustBorder);
+  $("#borderWidth").value = savedState.borderWidth || 6;
+  $("#borderWidthValue").textContent = savedState.borderWidth || 6;
+
+  $("#save").textContent = `💾 ${editingIndex + 1}個目を修正して上書き保存`;
+  $("#adjustStepTitle").textContent = `② ${editingIndex + 1}個目を修正中（上書き保存）`;
+
+  $("#adjustStep").classList.remove("hidden");
+  $("#sheetStep").classList.add("hidden");
+
+  switchLayer("illust");
+  updateIllustCache();
+  updateLayerListUI();
+  updateBgUI();
+  renderPreview();
+  toast(`${editingIndex + 1}個目のデータを読み込みました`);
 }
 
 function centerIllust() {
@@ -420,33 +505,31 @@ function centerIllust() {
 }
 
 // ==========================================
-// 【最優先UI】レイヤー切り替え＆クイックコントローラー連動
+// レイヤー切り替え＆クイックコントローラー連動
 // ==========================================
 function switchLayer(layerId) {
   currentLayer = layerId;
+  if (currentLayer !== "illust" && isEraserActive) {
+    setEraserMode(false);
+  }
 
-  // タブバーのアクティブ切り替え
   document.querySelectorAll(".layerTabBar .tabBtn").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.layer === layerId);
   });
 
-  // プレビュー左上の編集中タグ
   const tagEl = $("#activeLayerTag");
   if (layerId === "illust") tagEl.textContent = "🎨 イラスト編集中";
   else if (layerId === "text") tagEl.textContent = "💬 文字編集中";
   else if (layerId === "bg") tagEl.textContent = "🖼 背景編集中";
 
-  // ショートカットボタンの切り替え
   $("#shortcutsIllust").classList.toggle("hidden", layerId !== "illust");
   $("#shortcutsText").classList.toggle("hidden", layerId !== "text");
   $("#shortcutsBg").classList.toggle("hidden", layerId !== "bg");
 
-  // 詳細設定パネルの表示切り替え
   document.querySelectorAll(".layerPanel").forEach(p => {
     p.classList.toggle("active", p.id === `panel-${layerId}`);
   });
 
-  // クイック大きさスライダーの連動
   syncCommonScaleSlider();
 }
 
@@ -454,7 +537,6 @@ document.querySelectorAll(".layerTabBar .tabBtn").forEach(btn => {
   btn.onclick = () => switchLayer(btn.dataset.layer);
 });
 
-// スライダーの表示と現在値を同期
 function syncCommonScaleSlider() {
   const slider = $("#commonScaleSlider");
   const label = $("#transformScaleLabel");
@@ -477,7 +559,7 @@ function syncCommonScaleSlider() {
     unit.textContent = "px";
   } else if (currentLayer === "bg") {
     slider.min = 20;
-    slider.max = 250;
+    slider.max = 300;
     slider.value = Math.round(bgConfig.scale * 100);
     label.textContent = "背景の大きさ：";
     val.textContent = slider.value;
@@ -485,7 +567,6 @@ function syncCommonScaleSlider() {
   }
 }
 
-// プレビュー直下の共通スライダー操作
 $("#commonScaleSlider").oninput = e => {
   const v = Number(e.target.value);
   $("#commonScaleVal").textContent = v;
@@ -506,7 +587,6 @@ $("#commonScaleSlider").oninput = e => {
   renderPreview();
 };
 
-// プレビュー直下の共通十字キー操作（▲▼◀▶・◎）
 function nudgeCurrentLayer(dx, dy) {
   if (currentLayer === "illust") {
     adjust.ox += dx;
@@ -541,7 +621,6 @@ $("#ctrlCenter").onclick = () => {
   renderPreview();
 };
 
-// ワンタッチボタン（イラスト）
 $("#centerIllustBtn").onclick = () => {
   centerIllust();
   renderPreview();
@@ -560,7 +639,6 @@ $("#fitHeight").onclick = () => {
   renderPreview();
 };
 
-// ワンタッチボタン（文字）
 $("#textPosTop").onclick = () => {
   textConfig.ox = preview.width / 2;
   textConfig.oy = 34;
@@ -577,7 +655,6 @@ $("#textPosBottom").onclick = () => {
   renderPreview();
 };
 
-// ワンタッチボタン（背景）
 $("#bgCenterBtn").onclick = () => {
   bgConfig.ox = 0;
   bgConfig.oy = 0;
@@ -605,7 +682,7 @@ $("#bgResetPos").onclick = () => {
 };
 
 // ==========================================
-// 重なり順ドロワー（必要な時だけサッと開く）
+// 重なり順ドロワー
 // ==========================================
 $("#toggleOrderDrawer").onclick = () => {
   const drawer = $("#layerOrderDrawer");
@@ -690,8 +767,10 @@ function updateLayerStatus() {
   }
   $("#stateIllust").textContent = stIllust;
 
-  if (bgConfig.style === "none" || bgConfig.color === "transparent") {
+  if (bgConfig.style === "none" || (bgConfig.style !== "image" && bgConfig.color === "transparent")) {
     $("#stateBg").textContent = "背景なし (透明)";
+  } else if (bgConfig.style === "image") {
+    $("#stateBg").textContent = "📷 写真・画像";
   } else if (bgConfig.style === "circle") {
     $("#stateBg").textContent = "⚪ まる型背景";
   } else if (bgConfig.style === "roundRect") {
@@ -704,9 +783,7 @@ function updateLayerStatus() {
   $("#transparent").textContent = bgTransparent ? "↩️ 透過を解除" : "✨ 絵のまわりを透明にする";
 }
 
-// ==========================================
 // イラストレイヤーの透過・フチ画像キャッシュ生成
-// ==========================================
 function updateIllustCache() {
   if (!adjust.src) return;
 
@@ -739,12 +816,47 @@ function renderPreview() {
   updateLayerStatus();
 }
 
+// 背景レイヤー描画（写真・図形・全面カラーの拡大縮小・位置調整対応）
 function drawBgLayer(ctx, w, h) {
-  if (bgConfig.style === "none" || bgConfig.color === "transparent") return;
+  if (bgConfig.style === "none") return;
 
   ctx.save();
-  ctx.fillStyle = bgConfig.color;
 
+  // 1. 背景写真・画像
+  if (bgConfig.style === "image") {
+    if (bgConfig.image) {
+      const imgW = bgConfig.image.width;
+      const imgH = bgConfig.image.height;
+      let baseW = w, baseH = h;
+      const canvasRatio = w / h;
+      const imgRatio = imgW / imgH;
+
+      if (imgRatio > canvasRatio) {
+        baseH = h;
+        baseW = h * imgRatio;
+      } else {
+        baseW = w;
+        baseH = w / imgRatio;
+      }
+
+      const drawW = baseW * bgConfig.scale;
+      const drawH = baseH * bgConfig.scale;
+      const cx = w / 2 + bgConfig.ox;
+      const cy = h / 2 + bgConfig.oy;
+
+      ctx.drawImage(bgConfig.image, cx - drawW / 2, cy - drawH / 2, drawW, drawH);
+    }
+    ctx.restore();
+    return;
+  }
+
+  // 2. 単色・プレート・まる型
+  if (!bgConfig.color || bgConfig.color === "transparent") {
+    ctx.restore();
+    return;
+  }
+
+  ctx.fillStyle = bgConfig.color;
   const baseW = w * 0.85;
   const baseH = h * 0.85;
   const pw = baseW * bgConfig.scale;
@@ -831,7 +943,7 @@ function drawTextLayer(ctx, w, h) {
 }
 
 // ==========================================
-// プレビュー画面：直接ドラッグ＆ピンチズーム
+// プレビュー画面：全レイヤー共通の直接ドラッグ＆ピンチズーム
 // ==========================================
 let activePointers = new Map();
 let initialPinchDistance = null;
@@ -839,6 +951,30 @@ let initialPinchScale = 1;
 let previewDragStart = null;
 
 adjustArea.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  adjustArea.setPointerCapture(e.pointerId);
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  const rect = preview.getBoundingClientRect();
+  const scaleFactor = preview.width / rect.width;
+  const px = (e.clientX - rect.left) * scaleFactor;
+  const py = (e.clientY - rect.top) * scaleFactor;
+
+  if (isEraserActive && currentLayer === "illust" && activePointers.size === 1) {
+    if (adjust.src) {
+      const sctx = adjust.src.getContext("2d");
+      const snapshot = sctx.getImageData(0, 0, adjust.src.width, adjust.src.height);
+      eraserUndoStack.push(snapshot);
+      if (eraserUndoStack.length > 10) eraserUndoStack.shift();
+      updateEraserUI();
+    }
+    lastErasePoint = { x: px, y: py };
+    eraseAtCoords(lastErasePoint, null);
+    updateIllustCache();
+    renderPreview();
+    updateEraserCursorPos(e.clientX, e.clientY);
+    return;
+  }
   e.preventDefault();
   adjustArea.setPointerCapture(e.pointerId);
   activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -889,6 +1025,26 @@ adjustArea.addEventListener("pointermove", e => {
   e.preventDefault();
   activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
+  const rect = preview.getBoundingClientRect();
+  const scaleFactor = preview.width / rect.width;
+  const px = (e.clientX - rect.left) * scaleFactor;
+  const py = (e.clientY - rect.top) * scaleFactor;
+
+  if (isEraserActive && currentLayer === "illust") {
+    updateEraserCursorPos(e.clientX, e.clientY);
+    if (lastErasePoint) {
+      const currentP = { x: px, y: py };
+      eraseAtCoords(lastErasePoint, currentP);
+      lastErasePoint = currentP;
+      updateIllustCache();
+      renderPreview();
+    }
+    return;
+  }
+  if (!activePointers.has(e.pointerId)) return;
+  e.preventDefault();
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
   if (activePointers.size === 2 && initialPinchDistance) {
     const pts = Array.from(activePointers.values());
     const currentDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
@@ -899,7 +1055,7 @@ adjustArea.addEventListener("pointermove", e => {
     } else if (currentLayer === "illust") {
       adjust.scale = Math.max(0.4, Math.min(3.0, initialPinchScale * ratio));
     } else if (currentLayer === "bg") {
-      bgConfig.scale = Math.max(0.2, Math.min(2.5, initialPinchScale * ratio));
+      bgConfig.scale = Math.max(0.2, Math.min(3.0, initialPinchScale * ratio));
     }
     syncCommonScaleSlider();
     renderPreview();
@@ -932,10 +1088,113 @@ adjustArea.addEventListener("pointermove", e => {
 function endPointer(e) {
   activePointers.delete(e.pointerId);
   if (activePointers.size < 2) initialPinchDistance = null;
-  if (activePointers.size === 0) previewDragStart = null;
+  if (activePointers.size === 0) {
+    previewDragStart = null;
+    lastErasePoint = null;
+    if (isEraserActive) $("#eraserCursor").classList.add("hidden");
+  }
 }
 adjustArea.addEventListener("pointerup", endPointer);
 adjustArea.addEventListener("pointercancel", endPointer);
+
+// ==========================================
+// 消しゴム機能（手動タッチ消去＆Undo）
+// ==========================================
+function setEraserMode(active) {
+  isEraserActive = active;
+  $("#eraserToggleBtn").textContent = isEraserActive ? "🧹 消しゴムモード：ON" : "🧹 消しゴムモード：OFF";
+  $("#eraserToggleBtn").classList.toggle("active", isEraserActive);
+  $("#eraserOptionsWrap").classList.toggle("hidden", !isEraserActive);
+  adjustArea.classList.toggle("erasing", isEraserActive);
+  if (!isEraserActive) {
+    $("#eraserCursor").classList.add("hidden");
+  }
+}
+
+function updateEraserUI() {
+  setEraserMode(isEraserActive);
+  $("#eraserUndoBtn").disabled = (eraserUndoStack.length === 0);
+}
+
+$("#eraserToggleBtn").onclick = () => {
+  if (currentLayer !== "illust") {
+    switchLayer("illust");
+  }
+  setEraserMode(!isEraserActive);
+  if (isEraserActive) {
+    toast("消しゴムON：プレビューをなぞって不要な部分を消せます");
+  }
+};
+
+document.querySelectorAll(".eSizeBtn").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".eSizeBtn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    eraserRadius = Number(btn.dataset.size) / 2;
+  };
+});
+
+$("#eraserUndoBtn").onclick = () => {
+  if (eraserUndoStack.length === 0) return;
+  const lastSnapshot = eraserUndoStack.pop();
+  const sctx = adjust.src.getContext("2d");
+  sctx.putImageData(lastSnapshot, 0, 0);
+  updateEraserUI();
+  updateIllustCache();
+  renderPreview();
+  toast("消しゴムの操作を1つ元に戻しました");
+};
+
+function eraseAtCoords(p1, p2) {
+  if (!adjust.src) return;
+  const sctx = adjust.src.getContext("2d");
+  const ratio = adjust.src.width / (preview.width * adjust.scale);
+
+  const sx1 = (p1.x - adjust.ox) * ratio;
+  const sy1 = (p1.y - adjust.oy) * ratio;
+  const rInSrc = eraserRadius * ratio;
+
+  sctx.save();
+  sctx.globalCompositeOperation = "destination-out";
+
+  if (!p2 || (p1.x === p2.x && p1.y === p2.y)) {
+    sctx.beginPath();
+    sctx.arc(sx1, sy1, Math.max(1, rInSrc), 0, Math.PI * 2);
+    sctx.fill();
+  } else {
+    const sx2 = (p2.x - adjust.ox) * ratio;
+    const sy2 = (p2.y - adjust.oy) * ratio;
+    sctx.beginPath();
+    sctx.arc(sx2, sy2, Math.max(1, rInSrc), 0, Math.PI * 2);
+    sctx.fill();
+
+    sctx.beginPath();
+    sctx.lineWidth = Math.max(2, rInSrc * 2);
+    sctx.lineCap = "round";
+    sctx.lineJoin = "round";
+    sctx.moveTo(sx1, sy1);
+    sctx.lineTo(sx2, sy2);
+    sctx.stroke();
+  }
+  sctx.restore();
+}
+
+function updateEraserCursorPos(clientX, clientY) {
+  if (!isEraserActive) return;
+  const cursor = $("#eraserCursor");
+  const rect = adjustArea.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+
+  const displayScale = rect.width / preview.width;
+  const diameter = eraserRadius * 2 * displayScale;
+
+  cursor.style.width = `${diameter}px`;
+  cursor.style.height = `${diameter}px`;
+  cursor.style.left = `${x}px`;
+  cursor.style.top = `${y}px`;
+  cursor.classList.remove("hidden");
+}
 
 // ==========================================
 // 詳細設定：イラストレイヤー
@@ -1051,26 +1310,38 @@ document.querySelectorAll("#textStrokeList .sBtn").forEach(btn => {
 });
 
 // ==========================================
-// 詳細設定：背景レイヤー（直感的タイプ選択）
+// 詳細設定：背景レイヤー（写真・タイプ選択）
 // ==========================================
 function updateBgUI() {
-  const isNone = (bgConfig.style === "none");
+  const style = bgConfig.style;
+  const isNone = (style === "none");
+  const isImg = (style === "image");
 
   document.querySelectorAll(".bgStyleCard").forEach(card => {
-    card.classList.toggle("active", card.dataset.style === bgConfig.style);
+    card.classList.toggle("active", card.dataset.style === style);
   });
 
-  const noneNotice = $("#bgNoneNotice");
-  const detailControls = $("#bgDetailControls");
-  if (noneNotice) noneNotice.classList.toggle("hidden", !isNone);
-  if (detailControls) detailControls.classList.toggle("hidden", isNone);
+  // 各セクションの表示/非表示
+  $("#bgNoneNotice").classList.toggle("hidden", !isNone);
+  $("#bgImageControls").classList.toggle("hidden", !isImg);
+  $("#bgColorControls").classList.toggle("hidden", isNone || isImg);
 
+  // 背景画像ステータス
+  const imgStatus = $("#bgImageStatus");
+  if (isImg && bgConfig.image) {
+    imgStatus.classList.remove("hidden");
+  } else {
+    imgStatus.classList.add("hidden");
+  }
+
+  // 色パレットのアクティブ状態
   document.querySelectorAll("#bgColorList .cBtn").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.bg && btn.dataset.bg.toLowerCase() === bgConfig.color.toLowerCase());
   });
   const picker = $("#bgColorPicker");
   if (picker) picker.value = (bgConfig.color && bgConfig.color.startsWith("#")) ? bgConfig.color : "#fff9db";
 
+  // カード内アイコンプレビューの色
   const previewColor = isNone ? "#fff9db" : bgConfig.color;
   ["iconPreviewCircle", "iconPreviewPlate", "iconPreviewFull"].forEach(id => {
     const el = document.getElementById(id);
@@ -1078,18 +1349,23 @@ function updateBgUI() {
   });
 }
 
+// 背景スタイルカード選択
 document.querySelectorAll(".bgStyleCard").forEach(card => {
   card.onclick = () => {
     const style = card.dataset.style;
     bgConfig.style = style;
-    if (style !== "none" && (!bgConfig.color || bgConfig.color === "transparent")) {
+
+    if (style !== "none" && style !== "image" && (!bgConfig.color || bgConfig.color === "transparent")) {
       bgConfig.color = "#fff9db";
     }
+
     updateBgUI();
+    syncCommonScaleSlider();
     renderPreview();
 
     const nameMap = {
       none: "背景なし（透明）",
+      image: "写真・画像",
       circle: "まる型座布団",
       roundRect: "角丸プレート",
       full: "全画面カラー"
@@ -1098,6 +1374,34 @@ document.querySelectorAll(".bgStyleCard").forEach(card => {
   };
 });
 
+// 背景画像アップロード処理
+$("#bgFileInput").onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const im = new Image();
+  im.onload = () => {
+    bgConfig.image = im;
+    bgConfig.style = "image";
+    updateBgUI();
+    syncCommonScaleSlider();
+    renderPreview();
+    toast("背景写真をセットしました！大きさや位置も調整できます");
+  };
+  im.src = URL.createObjectURL(f);
+};
+
+// 背景画像削除ボタン
+$("#removeBgImgBtn").onclick = () => {
+  bgConfig.image = null;
+  bgConfig.style = "none";
+  $("#bgFileInput").value = "";
+  updateBgUI();
+  syncCommonScaleSlider();
+  renderPreview();
+  toast("背景画像を削除しました");
+};
+
+// 背景色パレットボタン
 document.querySelectorAll("#bgColorList .cBtn").forEach(btn => {
   btn.onclick = () => {
     bgConfig.color = btn.dataset.bg;
@@ -1106,6 +1410,7 @@ document.querySelectorAll("#bgColorList .cBtn").forEach(btn => {
   };
 });
 
+// 背景色カラーピッカー
 $("#bgColorPicker").oninput = e => {
   document.querySelectorAll("#bgColorList .cBtn").forEach(b => b.classList.remove("active"));
   bgConfig.color = e.target.value;
@@ -1285,26 +1590,73 @@ function download(blob, name) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1500);
 }
 
-// 保存ボタン
+// 保存ボタン（新規保存 or 上書き保存）
 $("#save").onclick = async () => {
-  if (results.length >= Number($("#count").value)) {
+  if (editingIndex === null && results.length >= Number($("#count").value)) {
     toast("設定した個数に達しています");
     return;
   }
+
   const c = await getFinalCanvas();
   c.toBlob(blob => {
-    const n = results.length + 1;
-    const item = {
-      blob,
-      url: URL.createObjectURL(blob),
-      name: `${mode}_${String(n).padStart(2, "0")}.png`
+    // 現在の全編集状態（ステート）を完全にパッケージ化
+    const savedState = {
+      adjust: {
+        src: adjust.src,
+        scale: adjust.scale,
+        ox: adjust.ox,
+        oy: adjust.oy
+      },
+      textConfig: JSON.parse(JSON.stringify(textConfig)),
+      bgConfig: {
+        style: bgConfig.style,
+        color: bgConfig.color,
+        image: bgConfig.image,
+        scale: bgConfig.scale,
+        ox: bgConfig.ox,
+        oy: bgConfig.oy
+      },
+      layerOrder: [...layerOrder],
+      bgTransparent,
+      bgTolerance,
+      protectWhite,
+      illustBorder,
+      illustBorderColor,
+      borderWidth: Number($("#borderWidth").value)
     };
-    results.push(item);
-    refresh();
-    $("#adjustStep").classList.add("hidden");
-    $("#sheetStep").classList.remove("hidden");
-    resetSelection();
-    toast(`${n}個目を保存しました！`);
+
+    if (editingIndex !== null) {
+      // 既存カットの上書き更新
+      const n = editingIndex + 1;
+      const updatedItem = {
+        blob,
+        url: URL.createObjectURL(blob),
+        name: `${mode}_${String(n).padStart(2, "0")}.png`,
+        state: savedState
+      };
+      results[editingIndex] = updatedItem;
+      editingIndex = null;
+      refresh();
+      $("#adjustStep").classList.add("hidden");
+      $("#sheetStep").classList.remove("hidden");
+      resetSelection();
+      toast(`${n}個目を修正して上書き保存しました！`);
+    } else {
+      // 新規カットの追加
+      const n = results.length + 1;
+      const newItem = {
+        blob,
+        url: URL.createObjectURL(blob),
+        name: `${mode}_${String(n).padStart(2, "0")}.png`,
+        state: savedState
+      };
+      results.push(newItem);
+      refresh();
+      $("#adjustStep").classList.add("hidden");
+      $("#sheetStep").classList.remove("hidden");
+      resetSelection();
+      toast(`${n}個目を保存しました！`);
+    }
   }, "image/png");
 };
 
@@ -1318,21 +1670,51 @@ function refresh() {
     const d = document.createElement("div");
     d.className = "thumb";
     d.innerHTML = `<span>${i + 1}</span><img src="${r.url}">`;
-    d.onclick = () => showImageModal(r);
+    d.onclick = () => showImageModal(r, i);
     $("#thumbs").appendChild(d);
   });
 
   const bad = results.filter(r => r.blob.size > 1024 * 1024).length;
-  $("#checks").innerHTML = `<div class="${bad ? 'warn' : 'ok'}">${bad ? '⚠️ 1MBを超える画像があります' : '✅ PNG形式・規定サイズで保存中（画像をタップで長押し保存可能）'}</div>`;
+  $("#checks").innerHTML = `<div class="${bad ? 'warn' : 'ok'}">${bad ? '⚠️ 1MBを超える画像があります' : '✅ PNG形式・規定サイズで保存中（タップして再編集・写真保存可能）'}</div>`;
 }
 
-function showImageModal(item) {
+// サムネイルタップ時のモーダル表示
+function showImageModal(item, index) {
+  currentModalIndex = index;
   const modal = $("#imageModal");
+  $("#modalTitle").textContent = `${index + 1}個目のスタンプ`;
   $("#modalImg").src = item.url;
   modal.classList.add("show");
 }
+
 $("#modalClose").onclick = () => {
   $("#imageModal").classList.remove("show");
+};
+
+// モーダルから「✏️ このカットを再編集する」
+$("#modalEditBtn").onclick = () => {
+  if (currentModalIndex === null || !results[currentModalIndex]) return;
+  const item = results[currentModalIndex];
+  $("#imageModal").classList.remove("show");
+
+  if (!item.state) {
+    toast("このカットの編集履歴がありません");
+    return;
+  }
+
+  editingIndex = currentModalIndex;
+  openAdjustForEdit(item.state);
+};
+
+// モーダルから「🗑️ 削除」
+$("#modalDeleteBtn").onclick = () => {
+  if (currentModalIndex === null || !results[currentModalIndex]) return;
+  if (confirm(`${currentModalIndex + 1}個目のスタンプを削除しますか？`)) {
+    results.splice(currentModalIndex, 1);
+    $("#imageModal").classList.remove("show");
+    refresh();
+    toast("スタンプを削除しました");
+  }
 };
 
 $("#zip").onclick = async () => {

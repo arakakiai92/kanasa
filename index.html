@@ -81,21 +81,22 @@
   <!-- ステップ②：スマホ最適化・３レイヤー個別編集画面 -->
   <section id="adjustStep" class="step hidden">
     <div class="stepTitle">
-      <span>② スタンプをととのえる</span>
+      <span id="adjustStepTitle">② スタンプをととのえる</span>
       <button id="back" class="linkBtn">← 切り出しに戻る</button>
     </div>
     
-    <!-- プレビューエリア（スマホ画面でプレビューを見ながら操作可能） -->
+    <!-- プレビューエリア -->
     <div class="previewContainer">
       <div class="adjustArea" id="adjustArea">
         <canvas id="preview"></canvas>
         <div class="safeMarginGuide" title="この点線の内側に収めると綺麗に表示されます"></div>
+        <div id="eraserCursor" class="eraserCursor hidden"></div>
         <div id="activeLayerTag" class="activeLayerTag">🎨 イラスト編集中</div>
       </div>
       <div class="previewTip">💡 画面を直接なぞって移動、2本指ピンチで拡大縮小できます</div>
     </div>
 
-    <!-- 【最優先①】レイヤー選択タブバー（親指でワンタップ切り替え） -->
+    <!-- レイヤー選択タブバー -->
     <div class="layerTabBar">
       <button type="button" class="tabBtn active" data-layer="illust">🎨 イラスト</button>
       <button type="button" class="tabBtn" data-layer="text">💬 文字</button>
@@ -103,14 +104,13 @@
       <button type="button" id="toggleOrderDrawer" class="orderToggleBtn" title="重なり順を変更">🔃 順序</button>
     </div>
 
-    <!-- 【重なり順ドロワー（必要な時だけサッと開く）】 -->
+    <!-- 重なり順ドロワー -->
     <div id="layerOrderDrawer" class="orderDrawer hidden">
       <div class="drawerHeader">
         <b>📑 レイヤーの重なり順（上が一番手前）</b>
         <button type="button" id="closeOrderDrawer" class="drawerCloseBtn">✕ とじる</button>
       </div>
       <div class="layerStackList" id="layerStackList">
-        <!-- 文字レイヤー -->
         <div class="layerItem" id="item-text" data-layer="text">
           <div class="layerItemMain">
             <div class="tabTop">
@@ -125,7 +125,6 @@
           </div>
         </div>
 
-        <!-- イラストレイヤー -->
         <div class="layerItem" id="item-illust" data-layer="illust">
           <div class="layerItemMain">
             <div class="tabTop">
@@ -140,7 +139,6 @@
           </div>
         </div>
 
-        <!-- 背景レイヤー -->
         <div class="layerItem" id="item-bg" data-layer="bg">
           <div class="layerItemMain">
             <div class="tabTop">
@@ -157,19 +155,15 @@
       </div>
     </div>
 
-    <!-- 【最優先②】プレビュー直下常駐！「大きさ＆位置クイックコントローラー」 -->
-    <!-- スクロール不要で、プレビューを見ながら親指で即調整！ -->
+    <!-- プレビュー直下常駐：大きさ＆位置クイックコントローラー -->
     <div class="quickTransformBox">
-      <!-- 大きさスライダー（選択中レイヤーに自動連動） -->
       <div class="sliderRow">
-        <span class="ctrlLabel" id="transformScaleLabel">大きさ：</span>
+        <span class="ctrlLabel" id="transformScaleLabel">絵の大きさ：</span>
         <input type="range" id="commonScaleSlider" min="40" max="300" value="100">
         <b class="scaleValueText"><span id="commonScaleVal">100</span><span id="commonScaleUnit">%</span></b>
       </div>
 
-      <!-- 位置微調整（十字キー ＋ レイヤー別クイックボタン） -->
       <div class="transformControlsRow">
-        <!-- 十字キー -->
         <div class="dpad mini">
           <button type="button" id="ctrlUp" class="dpadBtn up">▲</button>
           <div class="dpadMiddle">
@@ -180,7 +174,6 @@
           <button type="button" id="ctrlDown" class="dpadBtn down">▼</button>
         </div>
 
-        <!-- レイヤー別ショートカット（ワンタップで配置） -->
         <div class="quickShortcuts" id="shortcutsIllust">
           <button type="button" id="centerIllustBtn" class="shortcutBtn">◎ まんなか</button>
           <button type="button" id="fitWidth" class="shortcutBtn">↔ 横幅に合わせる</button>
@@ -199,16 +192,34 @@
       </div>
     </div>
 
-    <!-- 【優先度③：詳細設定エリア（色・フォント・透過オプションなど）】 -->
+    <!-- 詳細設定エリア -->
     <div class="detailsArea">
       <!-- パネル：イラスト詳細設定 -->
       <div id="panel-illust" class="layerPanel active">
         <div class="panelHeader">
           <b>🎨 イラストの詳細設定</b>
-          <span class="subNote">背景透過やフチの追加・色を設定できます</span>
+          <span class="subNote">消しゴムや背景透過・フチを設定できます</span>
         </div>
 
-        <!-- 背景透過ボタン ＆ 白ぬけ防止・感度調整カード -->
+        <!-- 【新機能】手動タッチ消しゴムカード -->
+        <div class="eraserCard">
+          <div class="eraserTopRow">
+            <button type="button" id="eraserToggleBtn" class="eraserBtn">🧹 消しゴムモード：OFF</button>
+            <button type="button" id="eraserUndoBtn" class="subBtn" disabled>↩️ 元に戻す</button>
+          </div>
+          <div id="eraserOptionsWrap" class="eraserOptions hidden">
+            <div class="eraserSizeRow">
+              <span class="subLabel">太さ：</span>
+              <button type="button" class="eSizeBtn" data-size="8">極細</button>
+              <button type="button" class="eSizeBtn" data-size="16">細</button>
+              <button type="button" class="eSizeBtn active" data-size="28">中</button>
+              <button type="button" class="eSizeBtn" data-size="46">太</button>
+              <button type="button" class="eSizeBtn" data-size="70">極太</button>
+            </div>
+            <div class="tipNote">💡 消しゴムONの間は、プレビュー画面を指でなぞると不要な部分や隣の絵を消せます</div>
+          </div>
+        </div>
+
         <div class="transRow">
           <button id="transparent" class="primary">✨ 絵のまわりを透明にする</button>
           <span id="transState">透過 OFF</span>
@@ -325,14 +336,13 @@
         </div>
       </div>
 
-      <!-- パネル：背景詳細設定（直感的タイプ選択） -->
+      <!-- パネル：背景詳細設定 -->
       <div id="panel-bg" class="layerPanel">
         <div class="panelHeader">
           <b>🖼 はいけいの詳細設定</b>
-          <span class="subNote">絵の後ろに敷く背景のタイプ・色をえらんでね</span>
+          <span class="subNote">絵の後ろに敷く背景のタイプ・写真・色をえらんでね</span>
         </div>
 
-        <!-- 背景タイプ4択 -->
         <div class="settingGroup">
           <label class="groupLabel">はいけいのタイプ：</label>
           <div class="bgStyleGrid" id="bgStyleGrid">
@@ -342,6 +352,14 @@
               </div>
               <b class="styleTitle">背景なし</b>
               <span class="styleDesc">透明（標準）</span>
+            </button>
+
+            <button type="button" class="bgStyleCard" data-style="image">
+              <div class="styleIcon imgIcon" id="iconPreviewImg">
+                <span>📷</span>
+              </div>
+              <b class="styleTitle">写真・画像</b>
+              <span class="styleDesc">好きな画像を敷く</span>
             </button>
 
             <button type="button" class="bgStyleCard" data-style="circle">
@@ -379,8 +397,20 @@
           </div>
         </div>
 
-        <!-- 背景あり詳細コントロール -->
-        <div id="bgDetailControls" class="hidden">
+        <!-- 背景画像アップロードUI -->
+        <div id="bgImageControls" class="bgUploadCard hidden">
+          <label class="bgFileLabel">
+            <input type="file" id="bgFileInput" accept="image/*">
+            📷 背景の写真・画像をえらぶ
+          </label>
+          <div id="bgImageStatus" class="bgImgStatus hidden">
+            <span id="bgImageName">画像がセットされています</span>
+            <button type="button" id="removeBgImgBtn" class="clearBtn">✕ 削除</button>
+          </div>
+        </div>
+
+        <!-- 背景カラー選択 -->
+        <div id="bgColorControls" class="hidden">
           <div class="settingGroup">
             <span class="groupLabel">はいけいの色：</span>
             <div class="colorList large" id="bgColorList">
@@ -434,12 +464,17 @@
 
 <div id="toast"></div>
 
-<!-- 画像プレビュー＆長押し保存モーダル -->
+<!-- 画像プレビュー・再編集・長押し保存モーダル -->
 <div id="imageModal" class="modal">
   <div class="modalContent">
-    <p>画像を長押しして「写真に追加」で保存できます</p>
+    <p class="modalTitle" id="modalTitle">完成カット</p>
     <img id="modalImg" alt="完成画像">
-    <button id="modalClose" class="primary big">とじる</button>
+    <div class="modalActions">
+      <button type="button" id="modalEditBtn" class="primary big">✏️ このカットを再編集する</button>
+      <button type="button" id="modalDeleteBtn" class="subBtn danger">🗑️ 削除</button>
+      <button type="button" id="modalClose" class="subBtn">とじる</button>
+    </div>
+    <p class="modalTip">※ 画像を長押しすると「写真に追加」で保存できます</p>
   </div>
 </div>
 
