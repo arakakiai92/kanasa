@@ -21,11 +21,12 @@ let bgConfig = {
   image: null,
   scale: 1,
   ox: 0,
-  oy: 0
+  oy: 0,
+  rotation: 0
 };
 
 // Layer: イラスト
-let adjust = { src: null, processedSrc: null, scale: 1, ox: 0, oy: 0 };
+let adjust = { src: null, processedSrc: null, scale: 1, ox: 0, oy: 0, rotation: 0 };
 let bgTransparent = false;
 let bgTolerance = 22;
 let protectWhite = true;
@@ -41,6 +42,7 @@ let textConfig = {
   size: 34,
   ox: 0,
   oy: 0,
+  rotation: 0,
   initialized: false
 };
 
@@ -316,16 +318,16 @@ function cropFromOriginal(sel) {
   return c;
 }
 
-// 新規作成時の初期化（絵文字モード対応の最適サイズ）
+// 新規作成時の初期化
 function openAdjustNew() {
   const src = cropFromOriginal(selection);
   preview.width = SPEC[mode].w;
   preview.height = SPEC[mode].h;
 
-  adjust = { src, processedSrc: null, scale: 1, ox: 0, oy: 0 };
+  adjust = { src, processedSrc: null, scale: 1, ox: 0, oy: 0, rotation: 0 };
   centerIllust();
 
-  bgConfig = { style: "none", color: "#fff9db", image: null, scale: 1, ox: 0, oy: 0 };
+  bgConfig = { style: "none", color: "#fff9db", image: null, scale: 1, ox: 0, oy: 0, rotation: 0 };
   
   const isEmoji = (mode === "emoji");
   textConfig.ox = preview.width / 2;
@@ -334,6 +336,7 @@ function openAdjustNew() {
   textConfig.size = isEmoji ? 22 : 34;
   textConfig.color = "#111111";
   textConfig.stroke = "#ffffff";
+  textConfig.rotation = 0;
   $("#stampText").value = "";
 
   layerOrder = ["illust", "text", "bg"];
@@ -379,8 +382,11 @@ function openAdjustForEdit(savedState) {
   adjust.scale = savedState.adjust.scale;
   adjust.ox = savedState.adjust.ox;
   adjust.oy = savedState.adjust.oy;
+  adjust.rotation = savedState.adjust.rotation !== undefined ? savedState.adjust.rotation : 0;
 
   textConfig = { ...savedState.textConfig };
+  if (textConfig.rotation === undefined) textConfig.rotation = 0;
+
   $("#stampText").value = textConfig.text || "";
   $("#textFont").value = textConfig.font || "'M PLUS Rounded 1c', sans-serif";
   $("#textColorPicker").value = (textConfig.color && textConfig.color.startsWith("#")) ? textConfig.color : "#111111";
@@ -397,7 +403,8 @@ function openAdjustForEdit(savedState) {
     image: savedState.bgConfig.image || null,
     scale: savedState.bgConfig.scale || 1,
     ox: savedState.bgConfig.ox || 0,
-    oy: savedState.bgConfig.oy || 0
+    oy: savedState.bgConfig.oy || 0,
+    rotation: savedState.bgConfig.rotation !== undefined ? savedState.bgConfig.rotation : 0
   };
 
   layerOrder = [...savedState.layerOrder];
@@ -535,13 +542,15 @@ function updateEraserCursorPos(clientX, clientY) {
 }
 
 // ==========================================
-// スマホ完全対応【スマートタッチ＆ドラッグ＆ピンチズーム】（ダブルタップ・暴走対策版）
+// スマホ完全対応【スマートタッチ＆ドラッグ＆ピンチズーム＆回転】
 // ==========================================
 let touchMode = null; // 'drag' or 'pinch'
 let touchStartX = 0, touchStartY = 0;
 let origOx = 0, origOy = 0;
 let initialDist = 0;
 let initialScale = 1;
+let initialAngle = 0;
+let origRotation = 0;
 
 adjustArea.addEventListener("touchstart", e => {
   e.preventDefault();
@@ -567,7 +576,7 @@ adjustArea.addEventListener("touchstart", e => {
     return;
   }
 
-  // 1本指タッチ時：スマートタッチ切り替え（文字の近くか、キャラの近くかを自動判定）
+  // 1本指タッチ時：スマートタッチ切り替え
   if (e.touches.length === 1 && !isEraserActive) {
     const px = (e.touches[0].clientX - rect.left) * scaleFactor;
     const py = (e.touches[0].clientY - rect.top) * scaleFactor;
@@ -601,9 +610,13 @@ adjustArea.addEventListener("touchstart", e => {
       e.touches[0].clientX - e.touches[1].clientX,
       e.touches[0].clientY - e.touches[1].clientY
     );
-    if (currentLayer === "illust") initialScale = adjust.scale;
-    else if (currentLayer === "text") initialScale = textConfig.size;
-    else if (currentLayer === "bg") initialScale = bgConfig.scale;
+    initialAngle = Math.atan2(
+      e.touches[1].clientY - e.touches[0].clientY,
+      e.touches[1].clientX - e.touches[0].clientX
+    );
+    if (currentLayer === "illust") { initialScale = adjust.scale; origRotation = adjust.rotation; }
+    else if (currentLayer === "text") { initialScale = textConfig.size; origRotation = textConfig.rotation; }
+    else if (currentLayer === "bg") { initialScale = bgConfig.scale; origRotation = bgConfig.rotation; }
   }
 }, { passive: false });
 
@@ -648,14 +661,24 @@ adjustArea.addEventListener("touchmove", e => {
       e.touches[0].clientX - e.touches[1].clientX,
       e.touches[0].clientY - e.touches[1].clientY
     );
+    const currentAngle = Math.atan2(
+      e.touches[1].clientY - e.touches[0].clientY,
+      e.touches[1].clientX - e.touches[0].clientX
+    );
+
     if (initialDist > 0 && !isNaN(currentDist)) {
       const ratio = currentDist / initialDist;
+      const angleDiff = currentAngle - initialAngle;
+
       if (currentLayer === "illust") {
         adjust.scale = Math.max(0.4, Math.min(3.0, initialScale * ratio));
+        adjust.rotation = origRotation + angleDiff;
       } else if (currentLayer === "text") {
         textConfig.size = Math.round(Math.max(10, Math.min(76, initialScale * ratio)));
+        textConfig.rotation = origRotation + angleDiff;
       } else if (currentLayer === "bg") {
         bgConfig.scale = Math.max(0.2, Math.min(3.0, initialScale * ratio));
+        bgConfig.rotation = origRotation + angleDiff;
       }
       syncCommonScaleSlider();
       renderPreview();
@@ -922,7 +945,7 @@ function updateIllustCache() {
 }
 
 // ==========================================
-// ３レイヤー合成描画
+// ３レイヤー合成描画（回転対応）
 // ==========================================
 function renderPreview() {
   pctx.clearRect(0, 0, preview.width, preview.height);
@@ -938,6 +961,10 @@ function renderPreview() {
 function drawBgLayer(ctx, w, h) {
   if (bgConfig.style === "none") return;
   ctx.save();
+  const cx = w / 2 + bgConfig.ox, cy = h / 2 + bgConfig.oy;
+  ctx.translate(cx, cy);
+  ctx.rotate(bgConfig.rotation);
+
   if (bgConfig.style === "image") {
     if (bgConfig.image) {
       const imgW = bgConfig.image.width, imgH = bgConfig.image.height;
@@ -946,8 +973,7 @@ function drawBgLayer(ctx, w, h) {
       if (imgRatio > canvasRatio) { baseH = h; baseW = h * imgRatio; }
       else { baseW = w; baseH = w / imgRatio; }
       const drawW = baseW * bgConfig.scale, drawH = baseH * bgConfig.scale;
-      const cx = w / 2 + bgConfig.ox, cy = h / 2 + bgConfig.oy;
-      ctx.drawImage(bgConfig.image, cx - drawW / 2, cy - drawH / 2, drawW, drawH);
+      ctx.drawImage(bgConfig.image, -drawW / 2, -drawH / 2, drawW, drawH);
     }
     ctx.restore();
     return;
@@ -955,13 +981,12 @@ function drawBgLayer(ctx, w, h) {
   if (!bgConfig.color || bgConfig.color === "transparent") { ctx.restore(); return; }
   ctx.fillStyle = bgConfig.color;
   const pw = w * 0.85 * bgConfig.scale, ph = h * 0.85 * bgConfig.scale;
-  const cx = w / 2 + bgConfig.ox, cy = h / 2 + bgConfig.oy;
   if (bgConfig.style === "full") {
-    ctx.fillRect(cx - (w * bgConfig.scale) / 2, cy - (h * bgConfig.scale) / 2, w * bgConfig.scale, h * bgConfig.scale);
+    ctx.fillRect(-(w * bgConfig.scale) / 2, -(h * bgConfig.scale) / 2, w * bgConfig.scale, h * bgConfig.scale);
   } else if (bgConfig.style === "circle") {
-    ctx.beginPath(); ctx.arc(cx, cy, Math.max(1, Math.min(pw, ph) / 2), 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, Math.max(1, Math.min(pw, ph) / 2), 0, Math.PI * 2); ctx.fill();
   } else if (bgConfig.style === "roundRect") {
-    drawRoundedRect(ctx, cx - pw / 2, cy - ph / 2, pw, ph, Math.min(pw, ph) * 0.15); ctx.fill();
+    drawRoundedRect(ctx, -pw / 2, -ph / 2, pw, ph, Math.min(pw, ph) * 0.15); ctx.fill();
   }
   ctx.restore();
 }
@@ -985,28 +1010,35 @@ function drawIllustLayer(ctx, w, h) {
   if (!src) return;
   const iw = w * adjust.scale;
   const ih = (w * adjust.scale / adjust.src.width) * adjust.src.height;
-  ctx.drawImage(src, adjust.ox, adjust.oy, iw, ih);
+
+  ctx.save();
+  ctx.translate(adjust.ox + iw / 2, adjust.oy + ih / 2);
+  ctx.rotate(adjust.rotation);
+  ctx.drawImage(src, -iw / 2, -ih / 2, iw, ih);
+  ctx.restore();
 }
 
 function drawTextLayer(ctx, w, h) {
   if (textConfig.text.trim() === "") return;
   const txt = textConfig.text, size = textConfig.size;
   ctx.save();
+  ctx.translate(textConfig.ox, textConfig.oy);
+  ctx.rotate(textConfig.rotation);
+
   ctx.font = `900 ${size}px ${textConfig.font}`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   const lines = txt.split("\n");
   const lineHeight = size * 1.18;
-  const cx = textConfig.ox, cy = textConfig.oy;
   lines.forEach((line, i) => {
-    const y = cy - ((lines.length - 1) * lineHeight) / 2 + i * lineHeight;
+    const y = -((lines.length - 1) * lineHeight) / 2 + i * lineHeight;
     if (textConfig.stroke !== "none") {
       ctx.strokeStyle = textConfig.stroke;
       ctx.lineWidth = Math.max(5, size * 0.22);
       ctx.lineJoin = "round"; ctx.miterLimit = 2;
-      ctx.strokeText(line, cx, y);
+      ctx.strokeText(line, 0, y);
     }
     ctx.fillStyle = textConfig.color;
-    ctx.fillText(line, cx, y);
+    ctx.fillText(line, 0, y);
   });
   ctx.restore();
 }
@@ -1270,9 +1302,9 @@ $("#save").onclick = async () => {
   const c = await getFinalCanvas();
   c.toBlob(blob => {
     const savedState = {
-      adjust: { src: adjust.src, scale: adjust.scale, ox: adjust.ox, oy: adjust.oy },
+      adjust: { src: adjust.src, scale: adjust.scale, ox: adjust.ox, oy: adjust.oy, rotation: adjust.rotation },
       textConfig: JSON.parse(JSON.stringify(textConfig)),
-      bgConfig: { style: bgConfig.style, color: bgConfig.color, image: bgConfig.image, scale: bgConfig.scale, ox: bgConfig.ox, oy: bgConfig.oy },
+      bgConfig: { style: bgConfig.style, color: bgConfig.color, image: bgConfig.image, scale: bgConfig.scale, ox: bgConfig.ox, oy: bgConfig.oy, rotation: bgConfig.rotation },
       layerOrder: [...layerOrder],
       bgTransparent, bgTolerance, protectWhite, illustBorder, illustBorderColor,
       borderWidth: Number($("#borderWidth").value)
@@ -1331,6 +1363,7 @@ $("#modalDeleteBtn").onclick = () => {
   if (currentModalIndex === null || !results[currentModalIndex]) return;
   if (confirm(`${currentModalIndex + 1}個目を削除しますか？`)) {
     results.splice(currentModalIndex, 1);
+    $("#imageModal").classList.add("show"); // fix modal close
     $("#imageModal").classList.remove("show");
     refresh(); toast("削除しました");
   }
