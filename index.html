@@ -149,7 +149,7 @@
         </div>
       </div>
 
-      <!-- パネル3：文字設定（拡大縮小・位置調整を完備） -->
+      <!-- パネル3：文字設定 -->
       <div id="panel-text" class="layerPanel">
         <div class="panelHeader">
           <b>💬 文字レイヤーの設定</b>
@@ -215,7 +215,6 @@
           </div>
         </div>
 
-        <!-- 文字レイヤー：拡大縮小スライダー -->
         <div class="settingGroup">
           <div class="sliderRow">
             <span class="groupLabel">文字の大きさ：</span>
@@ -224,7 +223,6 @@
           </div>
         </div>
 
-        <!-- 文字レイヤー：位置微調整コントローラー -->
         <div class="illustPositionBox">
           <span class="groupLabel">文字の位置微調整：</span>
           <div class="illustControlsGrid">
@@ -246,7 +244,7 @@
         </div>
       </div>
 
-      <!-- パネル2：イラスト設定（拡大縮小・位置調整） -->
+      <!-- パネル2：イラスト設定 -->
       <div id="panel-illust" class="layerPanel">
         <div class="panelHeader">
           <b>🎨 イラストレイヤーの設定</b>
@@ -281,9 +279,25 @@
           </div>
         </div>
 
+        <!-- 背景透過ボタン ＆ 白ぬけ防止・感度調整カード -->
         <div class="transRow">
           <button id="transparent" class="primary">✨ 絵のまわりを透明にする</button>
           <span id="transState">透過 OFF</span>
+        </div>
+
+        <div id="transOptionsWrap" class="transOptionsCard hidden">
+          <div class="transOptionRow">
+            <label class="protectToggle">
+              <input type="checkbox" id="protectWhiteToggle" checked>
+              🛡️ 白ぬけ防止（キャラの白を守る）
+            </label>
+          </div>
+          <div class="sliderRow" style="margin-top:8px;">
+            <span class="groupLabel">透過のつよさ（感度）：</span>
+            <input type="range" id="bgToleranceSlider" min="5" max="60" value="22">
+            <b><span id="bgToleranceVal">22</span></b>
+          </div>
+          <div class="tipNote">💡 白い服や顔が消えるときは「つよさ」を小さくしてね</div>
         </div>
 
         <div class="borderCard">
@@ -315,14 +329,13 @@
         </div>
       </div>
 
-      <!-- パネル1：背景設定（拡大縮小・位置調整・プレート形状対応） -->
+      <!-- パネル1：背景設定 -->
       <div id="panel-bg" class="layerPanel">
         <div class="panelHeader">
           <b>🖼 はいけいレイヤーの設定</b>
           <span class="subNote">背景色・形を選び、サイズや位置を自由に調整できます</span>
         </div>
 
-        <!-- 背景の形状 -->
         <div class="settingGroup">
           <label class="groupLabel">はいけいの形：</label>
           <div class="bgShapeBtns" id="bgShapeBtns">
@@ -332,7 +345,6 @@
           </div>
         </div>
 
-        <!-- 背景色パレット -->
         <div class="bgPaletteWrap">
           <span class="groupLabel">はいけいの色：</span>
           <div class="colorList large" id="bgColorList">
@@ -368,7 +380,6 @@
           </div>
         </div>
 
-        <!-- 背景レイヤー：拡大縮小スライダー -->
         <div class="settingGroup" id="bgTransformGroup">
           <div class="sliderRow">
             <span class="groupLabel">はいけいの大きさ：</span>
@@ -377,7 +388,6 @@
           </div>
         </div>
 
-        <!-- 背景レイヤー：位置微調整コントローラー -->
         <div class="illustPositionBox">
           <span class="groupLabel">はいけいの位置微調整：</span>
           <div class="illustControlsGrid">
