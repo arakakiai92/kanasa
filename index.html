@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#ffffff">
 <title>LINEスタンプ・絵文字メーカー</title>
-<!-- Google Fonts (LINEスタンプ向けフリーフォント) -->
+<!-- Google Fonts (商用利用フリー日本語フォント) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Hachi+Maru+Pop&family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Hachi+Maru+Pop&family=Kiwi+Maru:wght@500;900&family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -34,10 +34,10 @@
     <div class="spec" id="spec"></div>
   </section>
 
-  <!-- ステップ①：切り出し画面（囲む・動かす・サイズ調整がその場でできる） -->
+  <!-- ステップ①：切り出し画面（囲む・動かす・サイズ調整・リセット） -->
   <section id="sheetStep" class="step hidden">
     <div class="stepTitle"><span>① 切り出す</span><b id="sheetProgress">1 / 16</b></div>
-    <p>絵を指で囲むか、枠を動かして位置・サイズをあわせてね。（まんなかをつかむと移動できるよ）</p>
+    <p>絵を指で囲むか、枠を動かして位置・大きさを合わせてね。（中央の✥で移動、四隅でサイズ変更）</p>
     <div id="stageWrap">
       <canvas id="stage"></canvas>
       <div id="cropBox" class="cropBox hidden">
@@ -50,138 +50,225 @@
     <div class="sheetActions">
       <button id="resetCrop" class="subBtn hidden">↺ 枠をリセット</button>
       <button id="startSelect" class="primary big">✂️ この絵を囲む</button>
-      <button id="adjustBtn" class="primary big hidden">次へ：編集する →</button>
+      <button id="adjustBtn" class="primary big hidden">次へ：レイヤー編集 →</button>
     </div>
   </section>
 
-  <!-- ステップ②：編集・レイヤー調整画面 -->
+  <!-- ステップ②：３レイヤー編集画面（順序入れ替え対応） -->
   <section id="adjustStep" class="step hidden">
     <div class="stepTitle">
-      <span>② スタンプをととのえる</span>
-      <button id="back" class="linkBtn">← 戻る</button>
+      <span>② ３レイヤー編集</span>
+      <button id="back" class="linkBtn">← 切り出しに戻る</button>
     </div>
     
     <!-- リアルタイム合成プレビュー -->
-    <div class="adjustArea" id="adjustArea">
-      <canvas id="preview"></canvas>
-      <div id="adjustBox" class="cropBox">
-        <i class="handle-nw" data-h="nw"></i>
-        <i class="handle-ne" data-h="ne"></i>
-        <i class="handle-sw" data-h="sw"></i>
-        <i class="handle-se" data-h="se"></i>
+    <div class="previewContainer">
+      <div class="adjustArea" id="adjustArea">
+        <canvas id="preview"></canvas>
       </div>
+      <div class="previewTip">💡 プレビュー画面で文字やイラストを指で直接動かせます</div>
     </div>
 
-    <!-- レイヤー切り替えタブ -->
-    <div class="layerTabs">
-      <button class="tabBtn active" data-tab="tab-illust">🎨 えの調整</button>
-      <button class="tabBtn" data-tab="tab-bg">🖼 はいけい</button>
-      <button class="tabBtn" data-tab="tab-text">💬 セリフ</button>
-    </div>
+    <!-- ３レイヤー操作・順序入れ替えパネル -->
+    <div class="layerManager">
+      <div class="layerStackTitle">
+        <span>📑 レイヤーの重なり順（上が一番手前）</span>
+        <span class="subNote">▲▼ボタンで順番を入れ替えられます</span>
+      </div>
 
-    <!-- タブ1: イラスト調整 -->
-    <div id="tab-illust" class="tabContent active">
-      <div class="adjustTools">
-        <button id="minus">− 小さく</button><button id="plus">＋ 大きく</button>
-        <button id="center">◎ 中央へ</button>
-        <button id="resetAdjust">↺ リセット</button>
-      </div>
-      <div class="transRow">
-        <button id="transparent" class="primary">✨ 絵のまわりを透明にする</button>
-        <span id="transState">透過 OFF</span>
-      </div>
-      <div class="borderRow">
-        <label class="borderToggle"><input type="checkbox" id="whiteBorder"> ⭕ 白フチをつける</label>
-        <label class="borderWidth">太さ
-          <input type="range" id="borderWidth" min="1" max="20" value="6">
-          <b><span id="borderWidthValue">6</span>px</b>
-        </label>
-      </div>
-    </div>
+      <!-- レイヤースタックリスト（動的並び替え対応） -->
+      <div class="layerStackList" id="layerStackList">
+        <!-- 文字レイヤー -->
+        <div class="layerItem" id="item-text" data-layer="text">
+          <div class="layerItemMain">
+            <div class="tabTop">
+              <span class="badge badge-pos" id="badge-text">第3層 (一番手前)</span>
+              <span class="tabState" id="stateText">無選択 (なし)</span>
+            </div>
+            <div class="tabName">💬 文字（セリフ）</div>
+          </div>
+          <div class="layerOrderBtns">
+            <button type="button" class="btnOrderUp" data-layer="text" title="手前へ持ってくる">▲ 手前</button>
+            <button type="button" class="btnOrderDown" data-layer="text" title="奥へ持っていく">▼ 奥</button>
+          </div>
+        </div>
 
-    <!-- タブ2: 背景レイヤー -->
-    <div id="tab-bg" class="tabContent">
-      <div class="bgSelectGroup">
-        <span class="subLabel">はいけいの色：</span>
-        <div class="colorPalette" id="bgColorPalette">
-          <button class="colorBtn active" data-bg="transparent" title="とうめい">🚫<span>とうめい</span></button>
-          <button class="colorBtn" data-bg="#ffffff" style="background:#ffffff; border:1px solid #ccc;" title="しろ"></button>
-          <button class="colorBtn" data-bg="#ffebf0" style="background:#ffebf0;" title="ピンク"></button>
-          <button class="colorBtn" data-bg="#fff9db" style="background:#fff9db;" title="きいろ"></button>
-          <button class="colorBtn" data-bg="#e7f5ff" style="background:#e7f5ff;" title="みずいろ"></button>
-          <button class="colorBtn" data-bg="#ebfbee" style="background:#ebfbee;" title="みんと"></button>
-          <button class="colorBtn" data-bg="#f3f0ff" style="background:#f3f0ff;" title="むらさき"></button>
-          <button class="colorBtn" data-bg="#fff4e6" style="background:#fff4e6;" title="オレンジ"></button>
+        <!-- イラストレイヤー -->
+        <div class="layerItem" id="item-illust" data-layer="illust">
+          <div class="layerItemMain">
+            <div class="tabTop">
+              <span class="badge badge-pos" id="badge-illust">第2層 (中間)</span>
+              <span class="tabState" id="stateIllust">標準</span>
+            </div>
+            <div class="tabName">🎨 イラスト</div>
+          </div>
+          <div class="layerOrderBtns">
+            <button type="button" class="btnOrderUp" data-layer="illust" title="手前へ持ってくる">▲ 手前</button>
+            <button type="button" class="btnOrderDown" data-layer="illust" title="奥へ持っていく">▼ 奥</button>
+          </div>
+        </div>
+
+        <!-- 背景レイヤー -->
+        <div class="layerItem" id="item-bg" data-layer="bg">
+          <div class="layerItemMain">
+            <div class="tabTop">
+              <span class="badge badge-pos" id="badge-bg">第1層 (一番奥)</span>
+              <span class="tabState" id="stateBg">とうめい</span>
+            </div>
+            <div class="tabName">🖼 はいけい</div>
+          </div>
+          <div class="layerOrderBtns">
+            <button type="button" class="btnOrderUp" data-layer="bg" title="手前へ持ってくる">▲ 手前</button>
+            <button type="button" class="btnOrderDown" data-layer="bg" title="奥へ持っていく">▼ 奥</button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- タブ3: セリフ・文字レイヤー -->
-    <div id="tab-text" class="tabContent">
-      <div class="textRow">
-        <input type="text" id="stampText" placeholder="セリフを入力（例：ありがとう！）" maxlength="20">
-      </div>
-      
-      <!-- おすすめ言葉パレット -->
-      <div class="quickWords">
-        <span>おすすめ：</span>
-        <button type="button" class="qBtn">ありがとう</button>
-        <button type="button" class="qBtn">OK！</button>
-        <button type="button" class="qBtn">りょうかい</button>
-        <button type="button" class="qBtn">わーい！</button>
-        <button type="button" class="qBtn">おつかれさま</button>
-        <button type="button" class="qBtn">いいね！</button>
-        <button type="button" class="qBtn">消す</button>
-      </div>
+      <!-- レイヤー3：文字（セリフ）設定パネル -->
+      <div id="panel-text" class="layerPanel">
+        <div class="panelHeader">
+          <b>💬 文字レイヤーの設定</b>
+          <span class="subNote">入力した文字が表示されます（空なら文字なし）</span>
+        </div>
 
-      <!-- フォント選択 -->
-      <div class="textControls">
-        <label>フォント
-          <select id="textFont">
-            <option value="'Mochiy Pop One', sans-serif" selected>モッチーポップ (かわいい)</option>
-            <option value="'Zen Maru Gothic', sans-serif">丸ゴシック (すっきり)</option>
-            <option value="'Dela Gothic One', sans-serif">デラゴシック (ふとい)</option>
-            <option value="'Hachi Maru Pop', cursive">はちまるポップ (てがき風)</option>
+        <div class="inputRow">
+          <input type="text" id="stampText" placeholder="ここに入力した文字が表示されます" maxlength="25">
+          <button type="button" id="clearTextBtn" class="clearBtn">✕</button>
+        </div>
+
+        <!-- かんたん言葉ボタン -->
+        <div class="quickWords">
+          <span>よく使う言葉：</span>
+          <button type="button" class="qBtn">ありがとう！</button>
+          <button type="button" class="qBtn">OK</button>
+          <button type="button" class="qBtn">りょうかい！</button>
+          <button type="button" class="qBtn">わーい！</button>
+          <button type="button" class="qBtn">おつかれさま</button>
+          <button type="button" class="qBtn">いいね！</button>
+          <button type="button" class="qBtn">ペこり</button>
+          <button type="button" class="qBtn">よろしくね</button>
+        </div>
+
+        <!-- フリーフォント選択 -->
+        <div class="settingGroup">
+          <label class="groupLabel">フリーフォント（商用OK）</label>
+          <select id="textFont" class="fontSelect">
+            <option value="'Mochiy Pop One', sans-serif" selected>モッチーポップ (かわいいポップ体)</option>
+            <option value="'Zen Maru Gothic', sans-serif">丸ゴシック (すっきり太丸ゴシック)</option>
+            <option value="'Dela Gothic One', sans-serif">デラゴシック (迫力ある極太文字)</option>
+            <option value="'Hachi Maru Pop', cursive">はちまるポップ (ゆるかわ手書き風)</option>
+            <option value="'Kiwi Maru', serif">キウイ丸 (やさしい丸明朝風)</option>
           </select>
-        </label>
-      </div>
+        </div>
 
-      <!-- 文字色とふちどり -->
-      <div class="textRowMulti">
-        <div>
-          <span class="subLabel">文字の色：</span>
-          <div class="colorPalette small" id="textColorPalette">
-            <button class="colorBtn active" data-color="#111111" style="background:#111111;"></button>
-            <button class="colorBtn" data-color="#ffffff" style="background:#ffffff; border:1px solid #ccc;"></button>
-            <button class="colorBtn" data-color="#e03131" style="background:#e03131;"></button>
-            <button class="colorBtn" data-color="#1971c2" style="background:#1971c2;"></button>
-            <button class="colorBtn" data-color="#2f9e44" style="background:#2f9e44;"></button>
-            <button class="colorBtn" data-color="#f08c00" style="background:#f08c00;"></button>
-            <button class="colorBtn" data-color="#e64980" style="background:#e64980;"></button>
+        <!-- 文字色 & フチ色 -->
+        <div class="twoColRow">
+          <div class="settingGroup">
+            <label class="groupLabel">文字の色</label>
+            <div class="colorList" id="textColorList">
+              <button class="cBtn active" data-color="#111111" style="background:#111111;"></button>
+              <button class="cBtn" data-color="#ffffff" style="background:#ffffff; border:1px solid #ccc;"></button>
+              <button class="cBtn" data-color="#e03131" style="background:#e03131;"></button>
+              <button class="cBtn" data-color="#1971c2" style="background:#1971c2;"></button>
+              <button class="cBtn" data-color="#2f9e44" style="background:#2f9e44;"></button>
+              <button class="cBtn" data-color="#f08c00" style="background:#f08c00;"></button>
+              <button class="cBtn" data-color="#e64980" style="background:#e64980;"></button>
+              <button class="cBtn" data-color="#7048e8" style="background:#7048e8;"></button>
+            </div>
+          </div>
+
+          <div class="settingGroup">
+            <label class="groupLabel">文字のフチどり</label>
+            <div class="strokeList" id="textStrokeList">
+              <button class="sBtn active" data-stroke="#ffffff" style="background:#fff; color:#111;">白フチ</button>
+              <button class="sBtn" data-stroke="#111111" style="background:#111; color:#fff;">黒フチ</button>
+              <button class="sBtn" data-stroke="none" style="background:#eee; color:#666;">なし</button>
+            </div>
           </div>
         </div>
-        <div>
-          <span class="subLabel">文字のフチ：</span>
-          <div class="strokePalette" id="strokePalette">
-            <button class="strokeBtn active" data-stroke="#ffffff" style="background:#fff; color:#222;">白フチ</button>
-            <button class="strokeBtn" data-stroke="#111111" style="background:#222; color:#fff;">黒フチ</button>
-            <button class="strokeBtn" data-stroke="none" style="background:#eee; color:#666;">なし</button>
+
+        <!-- 位置・サイズ -->
+        <div class="settingGroup">
+          <div class="posRow">
+            <span class="groupLabel">配置：</span>
+            <div class="posBtns">
+              <button type="button" class="posBtn" data-pos="top">上</button>
+              <button type="button" class="posBtn" data-pos="center">中央</button>
+              <button type="button" class="posBtn active" data-pos="bottom">下</button>
+            </div>
+          </div>
+          <div class="sliderRow">
+            <span class="groupLabel">文字サイズ：</span>
+            <input type="range" id="textSize" min="16" max="68" value="34">
+            <b><span id="textSizeVal">34</span>px</b>
           </div>
         </div>
       </div>
 
-      <!-- 位置とサイズ -->
-      <div class="textSliders">
-        <div class="posButtons">
-          <span class="subLabel">位置：</span>
-          <button type="button" class="posBtn" data-pos="top">上</button>
-          <button type="button" class="posBtn" data-pos="center">中央</button>
-          <button type="button" class="posBtn active" data-pos="bottom">下</button>
+      <!-- レイヤー2：イラスト設定パネル -->
+      <div id="panel-illust" class="layerPanel">
+        <div class="panelHeader">
+          <b>🎨 イラストレイヤーの設定</b>
+          <span class="subNote">切り抜いた絵の拡大・位置・透過を設定</span>
         </div>
-        <label class="sliderLabel">文字の大きさ
-          <input type="range" id="textSize" min="16" max="64" value="32">
-          <b><span id="textSizeVal">32</span>px</b>
-        </label>
+
+        <div class="toolBtns">
+          <button id="minus">− 小さく</button>
+          <button id="plus">＋ 大きく</button>
+          <button id="center">◎ 中央へ</button>
+          <button id="resetAdjust">↺ リセット</button>
+        </div>
+
+        <div class="transRow">
+          <button id="transparent" class="primary">✨ 絵のまわりを透明にする</button>
+          <span id="transState">透過 OFF</span>
+        </div>
+
+        <div class="borderRow">
+          <label class="borderToggle"><input type="checkbox" id="whiteBorder"> ⭕ イラストに白フチをつける</label>
+          <label class="borderWidth">太さ
+            <input type="range" id="borderWidth" min="1" max="20" value="6">
+            <b><span id="borderWidthValue">6</span>px</b>
+          </label>
+        </div>
+      </div>
+
+      <!-- レイヤー1：背景設定パネル -->
+      <div id="panel-bg" class="layerPanel">
+        <div class="panelHeader">
+          <b>🖼 はいけいレイヤーの設定</b>
+          <span class="subNote">無選択なら透明（標準の透過スタンプ）</span>
+        </div>
+
+        <div class="bgPaletteWrap">
+          <div class="colorList large" id="bgColorList">
+            <button class="cBtn active" data-bg="transparent" title="とうめい">
+              <span class="iconTrans">🚫</span>
+              <span class="cLabel">とうめい (標準)</span>
+            </button>
+            <button class="cBtn" data-bg="#ffffff" style="background:#ffffff; border:1px solid #bbb;" title="しろ">
+              <span class="cLabel">しろ</span>
+            </button>
+            <button class="cBtn" data-bg="#ffebf0" style="background:#ffebf0;" title="ピンク">
+              <span class="cLabel">ピンク</span>
+            </button>
+            <button class="cBtn" data-bg="#fff9db" style="background:#fff9db;" title="きいろ">
+              <span class="cLabel">きいろ</span>
+            </button>
+            <button class="cBtn" data-bg="#e7f5ff" style="background:#e7f5ff;" title="みずいろ">
+              <span class="cLabel">みずいろ</span>
+            </button>
+            <button class="cBtn" data-bg="#ebfbee" style="background:#ebfbee;" title="みんと">
+              <span class="cLabel">みんと</span>
+            </button>
+            <button class="cBtn" data-bg="#f3f0ff" style="background:#f3f0ff;" title="むらさき">
+              <span class="cLabel">むらさき</span>
+            </button>
+            <button class="cBtn" data-bg="#fff4e6" style="background:#fff4e6;" title="オレンジ">
+              <span class="cLabel">オレンジ</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 

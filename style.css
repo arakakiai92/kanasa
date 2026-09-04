@@ -1,13 +1,13 @@
 *{box-sizing:border-box}
-html,body{margin:0;background:#f7f7f8;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP","Hiragino Kaku Gothic ProN",sans-serif;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:#f6f7f9;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP","Hiragino Kaku Gothic ProN",sans-serif;-webkit-tap-highlight-color:transparent}
 body{padding-bottom:30px}
-header{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid #ddd;padding:10px 12px calc(9px + env(safe-area-inset-top))}
+header{position:sticky;top:0;z-index:30;background:#fff;border-bottom:1px solid #ddd;padding:10px 12px calc(9px + env(safe-area-inset-top))}
 h1{text-align:center;font-size:17px;margin:0 0 9px}
 .switch{display:flex;gap:7px}
 .switch button{flex:1;border:1px solid #bbb;background:#f3f3f3;border-radius:11px;padding:10px 5px;font-weight:800;font-size:15px;cursor:pointer}
 .switch button.active{background:#222;color:#fff}
 main{max-width:900px;margin:auto;padding:10px}
-.panel,.step,.results{background:#fff;border:1px solid #ddd;border-radius:14px;padding:12px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.03)}
+.panel,.step,.results{background:#fff;border:1px solid #e0e0e0;border-radius:14px;padding:12px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
 .toprow{display:flex;gap:8px}
 .toprow label:first-child{width:100px;font-size:12px;font-weight:700}
 .toprow select{width:100%;margin-top:4px;padding:9px;border:1px solid #aaa;border-radius:9px;background:#fff;font-size:16px}
@@ -18,10 +18,11 @@ main{max-width:900px;margin:auto;padding:10px}
 .stepTitle{display:flex;justify-content:space-between;align-items:center;font-size:16px;font-weight:800}
 .step p{font-size:12px;color:#666;margin:7px 0 9px}
 
-#stageWrap{position:relative;overflow:hidden;border-radius:10px;background:#e2e2e2;touch-action:none;user-select:none;-webkit-user-select:none;text-align:center}
+/* ①切り出しキャンバス */
+#stageWrap{position:relative;overflow:hidden;border-radius:10px;background:#dedede;touch-action:none;user-select:none;-webkit-user-select:none;text-align:center}
 #stage{display:block;margin:0 auto;width:100%;height:auto;max-height:60vh;object-fit:contain}
 
-/* 切り出し枠（指で移動・四隅でサイズ変更可能） */
+/* 切り出し枠 */
 .cropBox{
   position:absolute;
   border:3px solid #111;
@@ -37,14 +38,13 @@ main{max-width:900px;margin:auto;padding:10px}
   border:1px dashed rgba(255,255,255,.95);
   pointer-events:none;
 }
-/* 中央の移動アイコン（子供が一目でつかめるとわかる目印） */
 .cropBox:before{
   content:"✥";
   position:absolute;
   left:50%;top:50%;
   transform:translate(-50%,-50%);
   width:34px;height:34px;
-  background:rgba(255,255,255,.88);
+  background:rgba(255,255,255,.9);
   border:2px solid #222;
   border-radius:50%;
   display:flex;align-items:center;justify-content:center;
@@ -53,8 +53,6 @@ main{max-width:900px;margin:auto;padding:10px}
   box-shadow:0 2px 6px rgba(0,0,0,.25);
   z-index:4;
 }
-
-/* 四隅のハンドル（指でつかみやすい大きめサイズ 38px） */
 .cropBox i{
   position:absolute;
   width:38px;
@@ -76,66 +74,183 @@ main{max-width:900px;margin:auto;padding:10px}
 .subBtn{flex:1;padding:13px 8px;border:1px solid #bbb;border-radius:11px;background:#f0f0f0;font-size:14px;font-weight:800;color:#333;cursor:pointer}
 .sheetActions .primary.big{flex:2}
 
-/* 調整・合成画面 */
-#adjustStep{overflow:hidden}
-.adjustArea{position:relative;width:100%;background:repeating-conic-gradient(#ddd 0 25%,#fff 0 50%) 50%/16px 16px;border-radius:10px;overflow:hidden;touch-action:none;text-align:center}
-#preview{display:block;margin:0 auto;width:100%;height:auto;max-height:50vh;object-fit:contain}
+/* ②プレビュー画面 */
+.previewContainer{margin-bottom:12px}
+.adjustArea{
+  position:relative;
+  width:100%;
+  background:repeating-conic-gradient(#ddd 0 25%,#fff 0 50%) 50%/16px 16px;
+  border-radius:10px;
+  overflow:hidden;
+  touch-action:none;
+  user-select:none;
+  -webkit-user-select:none;
+  cursor:grab;
+}
+.adjustArea:active{cursor:grabbing}
+#preview{display:block;margin:0 auto;width:100%;height:auto;max-height:48vh;object-fit:contain}
+.previewTip{font-size:11px;color:#777;text-align:center;margin-top:5px}
 
-.big{width:100%;padding:13px;margin-top:10px;border-radius:11px;border:1px solid #999;font-size:15px;font-weight:800;background:#fff;cursor:pointer}
-.primary{background:#222!important;color:#fff;border-color:#222!important}
+/* ３レイヤー管理エリア */
+.layerManager{
+  background:#f9f9fa;
+  border:1px solid #e3e3e7;
+  border-radius:12px;
+  padding:10px;
+  margin-top:10px;
+}
+.layerStackTitle{
+  font-size:13px;
+  font-weight:800;
+  color:#333;
+  margin-bottom:8px;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.layerStackTitle .subNote{
+  font-size:11px;
+  color:#666;
+  font-weight:normal;
+}
 
-/* レイヤー切り替えタブ */
-.layerTabs{display:flex;gap:6px;margin-top:12px;border-bottom:2px solid #eee;padding-bottom:6px}
-.tabBtn{flex:1;padding:9px 4px;border:1px solid #ddd;background:#f5f5f5;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;color:#555}
-.tabBtn.active{background:#222;color:#fff;border-color:#222}
-.tabContent{display:none;padding-top:10px}
-.tabContent.active{display:block}
+/* レイヤースタックリスト */
+.layerStackList{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-bottom:12px;
+}
 
-/* タブ内共通パーツ */
-.subLabel{font-size:12px;font-weight:800;display:block;margin-bottom:6px;color:#444}
-.colorPalette{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.colorBtn{width:36px;height:36px;border-radius:50%;border:2px solid transparent;cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center;font-size:10px}
-.colorBtn span{display:none}
-.colorBtn[data-bg="transparent"]{background:#eee;border:1px dashed #999;width:auto;padding:0 10px;border-radius:18px;font-weight:700;color:#555}
-.colorBtn[data-bg="transparent"] span{display:inline;margin-left:3px}
-.colorBtn.active{border-color:#222;box-shadow:0 0 0 2px #fff inset, 0 2px 5px rgba(0,0,0,.3)}
-.colorPalette.small .colorBtn{width:30px;height:30px}
+.layerItem{
+  background:#fff;
+  border:2px solid #ddd;
+  border-radius:10px;
+  padding:8px 10px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  transition:border-color .15s, box-shadow .15s;
+}
+.layerItem.active{
+  border-color:#222;
+  box-shadow:0 3px 8px rgba(0,0,0,.08);
+}
 
-/* タブ1: えの調整 */
-.adjustTools{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px}
-.adjustTools button,.linkBtn,.transRow button,.resultHead button{padding:10px 5px;border:1px solid #aaa;border-radius:9px;background:#fff;font-weight:700;font-size:12px;cursor:pointer}
+.layerItemMain{
+  flex:1;
+  cursor:pointer;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.tabTop{display:flex;justify-content:space-between;align-items:center}
+.badge{font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;color:#fff}
+.badge-pos{background:#495057}
+.badge-top{background:#e03131!important}
+.badge-mid{background:#1971c2!important}
+.badge-bot{background:#5c7cfa!important}
+
+.tabState{font-size:11px;color:#666;font-weight:700}
+.tabName{font-size:14px;font-weight:800;color:#222}
+
+/* レイヤー順序入れ替えボタン群 */
+.layerOrderBtns{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.btnOrderUp, .btnOrderDown{
+  padding:5px 9px;
+  border:1px solid #ced4da;
+  background:#f8f9fa;
+  border-radius:6px;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+  color:#333;
+  line-height:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.btnOrderUp:active:not(:disabled), .btnOrderDown:active:not(:disabled){
+  background:#dee2e6;
+}
+.btnOrderUp:disabled, .btnOrderDown:disabled{
+  opacity:.3;
+  cursor:not-allowed;
+}
+
+/* レイヤー設定パネル */
+.layerPanel{display:none;background:#fff;border:1px solid #ddd;border-radius:10px;padding:12px}
+.layerPanel.active{display:block}
+.panelHeader{margin-bottom:12px;border-bottom:1px solid #eee;padding-bottom:6px}
+.panelHeader b{font-size:14px;color:#111;display:block}
+.subNote{font-size:11px;color:#666}
+
+/* 文字レイヤーのパーツ */
+.inputRow{display:flex;gap:6px;margin-bottom:8px}
+.inputRow input{flex:1;padding:11px;border:2px solid #bbb;border-radius:9px;font-size:16px;font-weight:700}
+.inputRow input:focus{border-color:#222;outline:none}
+.clearBtn{padding:0 14px;border:1px solid #ccc;background:#eee;border-radius:9px;font-size:16px;font-weight:800;cursor:pointer}
+.quickWords{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.quickWords span{font-size:11px;color:#666;font-weight:700}
+.qBtn{background:#f1f3f5;border:1px solid #ced4da;border-radius:14px;padding:4px 9px;font-size:12px;font-weight:700;cursor:pointer}
+.qBtn:active{background:#dee2e6}
+
+.settingGroup{margin-bottom:12px}
+.groupLabel{font-size:12px;font-weight:800;display:block;margin-bottom:5px;color:#333}
+.fontSelect{width:100%;padding:9px;border:1px solid #aaa;border-radius:8px;font-size:14px;font-weight:700;background:#fff}
+.twoColRow{display:grid;grid-template-columns:1fr 1fr;gap:10px;background:#fafafa;padding:9px;border-radius:9px;border:1px solid #eee;margin-bottom:12px}
+
+.colorList{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.colorList.large{gap:8px}
+.cBtn{width:32px;height:32px;border-radius:50%;border:2px solid transparent;cursor:pointer;position:relative}
+.cBtn.active{border-color:#222;box-shadow:0 0 0 2px #fff inset, 0 2px 4px rgba(0,0,0,.2)}
+.colorList.large .cBtn{
+  width:auto;
+  height:auto;
+  border-radius:8px;
+  padding:6px 10px;
+  font-size:12px;
+  font-weight:800;
+  display:flex;
+  align-items:center;
+  gap:4px;
+}
+.colorList.large .cBtn.active{border-color:#222;outline:2px solid #222}
+.colorList.large .cBtn[data-bg="transparent"]{background:#eee;border:1px dashed #888;color:#444}
+.strokeList{display:flex;gap:5px}
+.sBtn{flex:1;padding:7px 2px;border:1px solid #bbb;border-radius:7px;font-size:11px;font-weight:800;cursor:pointer}
+.sBtn.active{border-color:#222;outline:2px solid #222}
+
+.posRow{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.posBtns{display:flex;gap:5px}
+.posBtn{padding:6px 14px;border:1px solid #bbb;background:#fff;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer}
+.posBtn.active{background:#222;color:#fff;border-color:#222}
+.sliderRow{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800}
+.sliderRow input{flex:1}
+
+/* イラストレイヤーのパーツ */
+.toolBtns{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:10px}
+.toolBtns button,.linkBtn,.transRow button,.resultHead button{padding:10px 5px;border:1px solid #aaa;border-radius:9px;background:#fff;font-weight:700;font-size:12px;cursor:pointer}
 .linkBtn{padding:6px 12px}
-.transRow{display:flex;gap:7px;align-items:center;margin-top:8px}
+.transRow{display:flex;gap:7px;align-items:center;margin-bottom:10px}
 .transRow button{flex:1}
 .transRow span{font-size:11px;color:#666;min-width:65px;text-align:center}
-.borderRow{display:flex;gap:9px;align-items:center;margin-top:8px;padding:9px;border:1px solid #ddd;border-radius:10px;background:#fafafa}
+.borderRow{display:flex;gap:9px;align-items:center;padding:9px;border:1px solid #ddd;border-radius:10px;background:#fafafa}
 .borderToggle{font-size:12px;font-weight:800;white-space:nowrap;cursor:pointer}
 .borderToggle input{width:18px;height:18px;vertical-align:-4px}
 .borderWidth{display:flex;align-items:center;gap:5px;font-size:11px;color:#555;flex:1}
 .borderWidth input{flex:1;min-width:70px}
 .borderWidth b{min-width:28px;text-align:right;font-size:11px}
 
-/* タブ3: セリフ・文字調整 */
-.textRow input{width:100%;padding:10px;border:1px solid #aaa;border-radius:9px;font-size:15px;font-weight:700}
-.quickWords{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin:8px 0}
-.quickWords span{font-size:11px;color:#666;font-weight:700}
-.qBtn{background:#f0f2f5;border:1px solid #cbd0d6;border-radius:14px;padding:4px 9px;font-size:12px;cursor:pointer;font-weight:700}
-.qBtn:active{background:#ddd}
-.textControls{margin-top:8px}
-.textControls label{font-size:12px;font-weight:700;display:block}
-.textControls select{width:100%;margin-top:4px;padding:8px;border:1px solid #aaa;border-radius:8px;font-size:14px;background:#fff}
-.textRowMulti{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;background:#fafafa;padding:9px;border-radius:10px;border:1px solid #eee}
-.strokePalette{display:flex;gap:4px}
-.strokeBtn{flex:1;padding:6px 2px;border:1px solid #bbb;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer}
-.strokeBtn.active{border-color:#222;outline:2px solid #222}
-.textSliders{margin-top:10px}
-.posButtons{display:flex;align-items:center;gap:6px;margin-bottom:8px}
-.posBtn{padding:5px 12px;border:1px solid #bbb;background:#fff;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer}
-.posBtn.active{background:#222;color:#fff;border-color:#222}
-.sliderLabel{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700}
-.sliderLabel input{flex:1}
+.big{width:100%;padding:14px;margin-top:10px;border-radius:11px;border:1px solid #999;font-size:16px;font-weight:800;background:#fff;cursor:pointer}
+.primary{background:#222!important;color:#fff;border-color:#222!important}
 
-/* 保存・一覧画面 */
+/* 完成リスト・モーダル */
 .resultHead{display:flex;justify-content:space-between;align-items:center}
 .resultHead h2{font-size:15px;margin:0}
 .resultHead button:disabled{opacity:.4;cursor:not-allowed}
@@ -147,7 +262,6 @@ main{max-width:900px;margin:auto;padding:10px}
 .thumb img{display:block;width:100%;height:auto;object-fit:contain}
 .thumb span{position:absolute;left:4px;top:4px;background:#fff;border-radius:5px;padding:2px 5px;font-size:10px;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 
-/* モーダル */
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;padding:20px}
 .modal.show{display:flex}
 .modalContent{background:#fff;padding:16px;border-radius:14px;text-align:center;max-width:90%;box-shadow:0 4px 20px rgba(0,0,0,.3)}
@@ -156,4 +270,6 @@ main{max-width:900px;margin:auto;padding:10px}
 
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:22px;font-size:13px;opacity:0;transition:.2s;z-index:50;pointer-events:none;white-space:nowrap}
 #toast.show{opacity:1}
-@media(min-width:650px){.thumbs{grid-template-columns:repeat(6,1fr)}}
+@media(min-width:650px){
+  .thumbs{grid-template-columns:repeat(6,1fr)}
+}

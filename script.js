@@ -1,30 +1,42 @@
 const $ = s => document.querySelector(s);
 const stage = $("#stage"), sctx = stage.getContext("2d");
 const preview = $("#preview"), pctx = preview.getContext("2d");
-const wrap = $("#stageWrap"), crop = $("#cropBox"), adjustBox = $("#adjustBox");
+const wrap = $("#stageWrap"), crop = $("#cropBox");
+const adjustArea = $("#adjustArea");
 
 let mode = "sticker";
 let img = null;
 
-// 切り出し枠の状態（表示ピクセル座標系）
-let selectionRect = null; // { x, y, w, h }
+// ①切り出し枠の状態
+let selectionRect = null; // 表示ピクセル座標系 { x, y, w, h }
 let selection = null;     // 元画像座標系 { x, y, w, h }
 
-let adjust = { src: null, scale: 1, ox: 0, oy: 0 };
-let results = [];
+// ②３レイヤー構成設定
+// 重なり順：index 0 が一番手前（最前面）、index 2 が一番奥（最背面）
+let layerOrder = ["text", "illust", "bg"];
 
-// レイヤー設定
+// Layer: 背景レイヤー（無選択なら透明）
+let bgColor = "transparent";
+
+// Layer: イラストレイヤー
+let adjust = { src: null, scale: 1, ox: 0, oy: 0 };
 let bgTransparent = false;
 let whiteBorder = false;
-let bgColor = "transparent";
+
+// Layer: 文字（セリフ）レイヤー（無選択なら空・描画なし）
 let textConfig = {
   text: "",
   font: "'Mochiy Pop One', sans-serif",
   color: "#111111",
   stroke: "#ffffff",
-  pos: "bottom",
-  size: 32
+  pos: "bottom", // 'top' | 'center' | 'bottom'
+  size: 34,
+  customX: null,
+  customY: null
 };
+
+let currentLayer = "text"; // 現在選択中のレイヤー設定パネル
+let results = [];
 
 const SPEC = {
   sticker: { ratio: 370 / 320, w: 370, h: 320, label: "370 × 320 px（スタンプ用）" },
@@ -47,6 +59,7 @@ document.querySelectorAll(".switch button").forEach(b => b.onclick = () => {
 
 $("#count").onchange = () => { $("#total").textContent = $("#count").value; };
 
+// シート画像読み込み
 $("#file").onchange = e => {
   const f = e.target.files[0];
   if (!f) return;
@@ -54,14 +67,13 @@ $("#file").onchange = e => {
   im.onload = () => {
     img = im;
     results = [];
-    bgTransparent = false;
     setupCanvas();
     renderSheet();
     $("#sheetStep").classList.remove("hidden");
     $("#adjustStep").classList.add("hidden");
     resetSelection();
     refresh();
-    toast("シートを読み込みました！指で囲むか動かしてね");
+    toast("シートを読み込みました！指で囲むか枠を動かしてね");
   };
   im.src = URL.createObjectURL(f);
 };
@@ -78,7 +90,7 @@ function renderSheet() {
   sctx.drawImage(img, 0, 0, stage.width, stage.height);
 }
 
-// 枠の再描画と元画像座標の同期
+// 枠の表示・更新
 function renderCropBox() {
   if (!selectionRect) {
     crop.classList.add("hidden");
@@ -111,7 +123,6 @@ function renderCropBox() {
   };
 }
 
-// 枠のリセット
 function resetSelection() {
   selectionRect = null;
   renderCropBox();
@@ -122,7 +133,7 @@ $("#resetCrop").onclick = () => {
   toast("枠をリセットしました");
 };
 
-// 「この絵を囲む」ボタン（中央に標準枠を配置）
+// 「この絵を囲む」ボタン
 $("#startSelect").onclick = () => {
   if (!img) return;
   const r = SPEC[mode].ratio;
@@ -138,7 +149,7 @@ $("#startSelect").onclick = () => {
 
   selectionRect = { x, y, w, h };
   renderCropBox();
-  toast("枠を置きました！中央をつかんで移動、四隅で大きさ調整ができます");
+  toast("枠を置きました！中央で移動、四隅でサイズ変更できます");
 };
 
 function getStagePoint(e) {
@@ -149,9 +160,7 @@ function getStagePoint(e) {
   };
 }
 
-// ==========================================
-// ①切り出し画面：枠の「新規囲み」「位置移動」「サイズ変更」統合イベント
-// ==========================================
+// ①切り出し画面：ポインターイベント（囲む・動かす・サイズ変更）
 let cropDrag = null;
 
 wrap.addEventListener("pointerdown", e => {
@@ -164,26 +173,11 @@ wrap.addEventListener("pointerdown", e => {
   const isInsideCrop = (e.target === crop || crop.contains(e.target));
 
   if (handle) {
-    // 四隅のハンドルをつまんだ場合（サイズ変更）
-    cropDrag = {
-      kind: handle,
-      start: p,
-      orig: { ...selectionRect }
-    };
+    cropDrag = { kind: handle, start: p, orig: { ...selectionRect } };
   } else if (isInsideCrop && selectionRect) {
-    // 枠の中をつまんだ場合（位置移動）
-    cropDrag = {
-      kind: "move",
-      start: p,
-      orig: { ...selectionRect }
-    };
+    cropDrag = { kind: "move", start: p, orig: { ...selectionRect } };
   } else {
-    // 枠の外側をドラッグした場合（新しく囲み直す）
-    cropDrag = {
-      kind: "draw",
-      start: p,
-      orig: null
-    };
+    cropDrag = { kind: "draw", start: p, orig: null };
   }
 });
 
@@ -195,7 +189,6 @@ wrap.addEventListener("pointermove", e => {
   const sr = stage.getBoundingClientRect();
 
   if (cropDrag.kind === "move") {
-    // 枠の位置を移動（パン）
     const dx = p.x - cropDrag.start.x;
     const dy = p.y - cropDrag.start.y;
     const maxPosX = sr.width - cropDrag.orig.w;
@@ -209,7 +202,6 @@ wrap.addEventListener("pointermove", e => {
     };
     renderCropBox();
   } else if (cropDrag.kind === "draw") {
-    // 指でドラッグして新規作成
     let dx = p.x - cropDrag.start.x;
     let dy = p.y - cropDrag.start.y;
     let w = Math.abs(dx);
@@ -229,7 +221,6 @@ wrap.addEventListener("pointermove", e => {
     selectionRect = { x, y, w, h };
     renderCropBox();
   } else {
-    // 四隅のハンドルでサイズ変更（比率固定）
     const kind = cropDrag.kind;
     const orig = cropDrag.orig;
     const dx = p.x - cropDrag.start.x;
@@ -264,6 +255,7 @@ wrap.addEventListener("pointermove", e => {
 wrap.addEventListener("pointerup", () => { cropDrag = null; });
 wrap.addEventListener("pointercancel", () => { cropDrag = null; });
 
+// ②ステップ②への遷移
 $("#adjustBtn").onclick = () => {
   if (!selection) {
     toast("絵を指で囲んでから押してね");
@@ -277,7 +269,6 @@ $("#back").onclick = () => {
   $("#sheetStep").classList.remove("hidden");
 };
 
-// 元画像から高解像度のまま直接切り出し
 function cropFromOriginal(sel) {
   const c = document.createElement("canvas");
   c.width = Math.max(1, Math.round(sel.w));
@@ -288,75 +279,193 @@ function cropFromOriginal(sel) {
 
 function openAdjust() {
   const src = cropFromOriginal(selection);
+  
   adjust = { src, scale: 1, ox: 0, oy: 0 };
-
   preview.width = SPEC[mode].w;
   preview.height = SPEC[mode].h;
 
-  adjustBox.style.left = "0%";
-  adjustBox.style.top = "0%";
-  adjustBox.style.width = "100%";
-  adjustBox.style.height = "100%";
+  // 初期順序：文字(最前面) -> イラスト(中間) -> 背景(最背面)
+  layerOrder = ["text", "illust", "bg"];
 
-  $("#adjustStep").classList.remove("hidden");
-  $("#sheetStep").classList.add("hidden");
-  
+  // 背景レイヤー初期化
+  bgColor = "transparent";
   bgTransparent = false;
   whiteBorder = false;
   $("#whiteBorder").checked = false;
   $("#borderWidth").value = 6;
   $("#borderWidthValue").textContent = "6";
-  updateTransUI();
 
-  switchTab("tab-illust");
+  // 文字レイヤー初期化
+  textConfig.customX = null;
+  textConfig.customY = null;
+
+  $("#adjustStep").classList.remove("hidden");
+  $("#sheetStep").classList.add("hidden");
+
+  switchLayerTab("text");
+  updateLayerListUI();
   renderPreview();
 }
 
-// タブ切り替え
-function switchTab(tabId) {
-  document.querySelectorAll(".tabBtn").forEach(b => b.classList.toggle("active", b.dataset.tab === tabId));
-  document.querySelectorAll(".tabContent").forEach(c => c.classList.toggle("active", c.id === tabId));
-  
-  if (tabId === "tab-illust") adjustBox.classList.remove("hidden");
-  else adjustBox.classList.add("hidden");
+// レイヤーアイテム選択（設定パネルの表示切り替え）
+function switchLayerTab(layerId) {
+  currentLayer = layerId;
+  document.querySelectorAll(".layerItem").forEach(item => {
+    item.classList.toggle("active", item.dataset.layer === layerId);
+  });
+  document.querySelectorAll(".layerPanel").forEach(p => {
+    p.classList.toggle("active", p.id === `panel-${layerId}`);
+  });
 }
-document.querySelectorAll(".layerTabs .tabBtn").forEach(b => {
-  b.onclick = () => switchTab(b.dataset.tab);
+
+document.querySelectorAll(".layerItemMain").forEach(main => {
+  main.onclick = () => {
+    const parent = main.closest(".layerItem");
+    if (parent) switchLayerTab(parent.dataset.layer);
+  };
 });
 
-// レイヤー合成プレビュー描画
+// ==========================================
+// レイヤーの重なり順（入れ替え）機能
+// ==========================================
+function moveLayer(layerId, dir) {
+  const idx = layerOrder.indexOf(layerId);
+  if (idx === -1) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= layerOrder.length) return;
+
+  // スワップ
+  const temp = layerOrder[idx];
+  layerOrder[idx] = layerOrder[newIdx];
+  layerOrder[newIdx] = temp;
+
+  // 操作したレイヤーを選択状態にする
+  switchLayerTab(layerId);
+  updateLayerListUI();
+  renderPreview();
+
+  const posName = newIdx === 0 ? "一番手前" : (newIdx === 1 ? "中間" : "一番奥");
+  const layerName = layerId === "text" ? "文字" : (layerId === "illust" ? "イラスト" : "はいけい");
+  toast(`${layerName}を【${posName}】に移動しました`);
+}
+
+// ▲▼ボタンのイベント登録
+document.querySelectorAll(".btnOrderUp").forEach(btn => {
+  btn.onclick = e => {
+    e.stopPropagation();
+    moveLayer(btn.dataset.layer, -1); // 手前（index減少）
+  };
+});
+document.querySelectorAll(".btnOrderDown").forEach(btn => {
+  btn.onclick = e => {
+    e.stopPropagation();
+    moveLayer(btn.dataset.layer, 1);  // 奥（index増加）
+  };
+});
+
+// レイヤーリストのDOM並び順・バッジ・ボタン活性状態を更新
+function updateLayerListUI() {
+  const list = $("#layerStackList");
+
+  layerOrder.forEach((id, idx) => {
+    const item = $(`#item-${id}`);
+    if (item) list.appendChild(item); // DOM順序を同期
+
+    // バッジとボタンの状態
+    const badge = $(`#badge-${id}`);
+    const upBtn = item.querySelector(".btnOrderUp");
+    const downBtn = item.querySelector(".btnOrderDown");
+
+    if (badge) {
+      badge.classList.remove("badge-top", "badge-mid", "badge-bot");
+      if (idx === 0) {
+        badge.textContent = "第3層 (一番手前)";
+        badge.classList.add("badge-top");
+      } else if (idx === 1) {
+        badge.textContent = "第2層 (中間)";
+        badge.classList.add("badge-mid");
+      } else {
+        badge.textContent = "第1層 (一番奥)";
+        badge.classList.add("badge-bot");
+      }
+    }
+
+    if (upBtn) upBtn.disabled = (idx === 0);
+    if (downBtn) downBtn.disabled = (idx === layerOrder.length - 1);
+  });
+
+  updateLayerStatus();
+}
+
+// レイヤー状態テキストの更新
+function updateLayerStatus() {
+  const txt = textConfig.text.trim();
+  if (txt) {
+    $("#stateText").textContent = `"${txt.slice(0, 7)}${txt.length > 7 ? '…' : ''}"`;
+    $("#stateText").style.color = "#e03131";
+  } else {
+    $("#stateText").textContent = "無選択 (なし)";
+    $("#stateText").style.color = "#666";
+  }
+
+  let stIllust = "標準";
+  if (bgTransparent && whiteBorder) stIllust = "透過+白フチ";
+  else if (bgTransparent) stIllust = "透過ON";
+  $("#stateIllust").textContent = stIllust;
+
+  $("#stateBg").textContent = bgColor === "transparent" ? "とうめい (標準)" : "色つき";
+  $("#transState").textContent = bgTransparent ? "透過 ON" : "透過 OFF";
+  $("#transparent").textContent = bgTransparent ? "↩️ 透過を解除" : "✨ 絵のまわりを透明にする";
+}
+
+// ==========================================
+// ３レイヤー合成レンダリング（layerOrder順に最背面から描画）
+// ==========================================
 function renderPreview() {
   pctx.clearRect(0, 0, preview.width, preview.height);
 
-  // 1. 背景レイヤー
-  if (bgColor !== "transparent") {
-    pctx.fillStyle = bgColor;
-    pctx.fillRect(0, 0, preview.width, preview.height);
-  }
+  // 一番奥（indexの大きい方）から順に描画
+  const drawList = layerOrder.slice().reverse();
 
-  // 2. イラストレイヤー
+  drawList.forEach(layerId => {
+    if (layerId === "bg") {
+      drawBgLayer(pctx, preview.width, preview.height);
+    } else if (layerId === "illust") {
+      drawIllustLayer(pctx, preview.width, preview.height);
+    } else if (layerId === "text") {
+      drawTextLayer(pctx, preview.width, preview.height);
+    }
+  });
+
+  updateLayerStatus();
+}
+
+function drawBgLayer(ctx, w, h) {
+  if (bgColor !== "transparent") {
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, w, h);
+  }
+}
+
+function drawIllustLayer(ctx, w, h) {
   let illust = document.createElement("canvas");
-  illust.width = preview.width;
-  illust.height = preview.height;
+  illust.width = w;
+  illust.height = h;
   const ictx = illust.getContext("2d");
 
-  const iw = preview.width * adjust.scale;
-  const ih = (preview.width * adjust.scale / adjust.src.width) * adjust.src.height;
+  const iw = w * adjust.scale;
+  const ih = (w * adjust.scale / adjust.src.width) * adjust.src.height;
   ictx.drawImage(adjust.src, adjust.ox, adjust.oy, iw, ih);
 
   if (bgTransparent) illust = removeBackground(illust);
   if (whiteBorder && bgTransparent) illust = addWhiteBorder(illust, Number($("#borderWidth").value));
 
-  pctx.drawImage(illust, 0, 0);
-
-  // 3. セリフ（文字）レイヤー
-  if (textConfig.text.trim()) {
-    renderText(pctx, preview.width, preview.height);
-  }
+  ctx.drawImage(illust, 0, 0);
 }
 
-// セリフ描画（フチ＋自動位置合わせ）
-function renderText(ctx, w, h) {
+function drawTextLayer(ctx, w, h) {
+  if (textConfig.text.trim() === "") return;
+
   const txt = textConfig.text;
   const size = textConfig.size;
   ctx.save();
@@ -365,41 +474,170 @@ function renderText(ctx, w, h) {
   ctx.textBaseline = "middle";
 
   const lines = txt.split("\n");
-  const lineHeight = size * 1.15;
+  const lineHeight = size * 1.18;
   const totalH = lines.length * lineHeight;
 
-  let startY = h - totalH / 2 - 16;
-  if (textConfig.pos === "top") startY = 16 + totalH / 2;
-  if (textConfig.pos === "center") startY = h / 2;
+  let cx = w / 2;
+  let cy = h - totalH / 2 - 16;
 
-  const centerX = w / 2;
+  if (textConfig.customX !== null && textConfig.customY !== null) {
+    cx = textConfig.customX;
+    cy = textConfig.customY;
+  } else {
+    if (textConfig.pos === "top") cy = 16 + totalH / 2;
+    if (textConfig.pos === "center") cy = h / 2;
+  }
 
   lines.forEach((line, i) => {
-    const y = startY - ((lines.length - 1) * lineHeight) / 2 + i * lineHeight;
+    const y = cy - ((lines.length - 1) * lineHeight) / 2 + i * lineHeight;
 
     if (textConfig.stroke !== "none") {
       ctx.strokeStyle = textConfig.stroke;
-      ctx.lineWidth = Math.max(4, size * 0.22);
+      ctx.lineWidth = Math.max(5, size * 0.22);
       ctx.lineJoin = "round";
       ctx.miterLimit = 2;
-      ctx.strokeText(line, centerX, y);
+      ctx.strokeText(line, cx, y);
     }
 
     ctx.fillStyle = textConfig.color;
-    ctx.fillText(line, centerX, y);
+    ctx.fillText(line, cx, y);
   });
 
   ctx.restore();
 }
 
-function updateTransUI() {
-  $("#transState").textContent = bgTransparent ? "透過 ON" : "透過 OFF";
-  $("#transparent").textContent = bgTransparent ? "↩️ 透過を解除" : "✨ 絵のまわりを透明にする";
-}
+// プレビュー画面での直接ドラッグ操作
+let previewDrag = null;
 
-// イラスト微調整ボタン群
-$("#plus").onclick = () => { adjust.scale = Math.min(3, adjust.scale + 0.1); renderPreview(); };
-$("#minus").onclick = () => { adjust.scale = Math.max(0.4, adjust.scale - 0.1); renderPreview(); };
+adjustArea.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  adjustArea.setPointerCapture(e.pointerId);
+
+  const rect = preview.getBoundingClientRect();
+  const scaleFactor = preview.width / rect.width;
+  const px = (e.clientX - rect.left) * scaleFactor;
+  const py = (e.clientY - rect.top) * scaleFactor;
+
+  if (currentLayer === "text" && textConfig.text.trim()) {
+    let currentX = textConfig.customX !== null ? textConfig.customX : preview.width / 2;
+    let currentY = textConfig.customY !== null ? textConfig.customY : (
+      textConfig.pos === "top" ? 30 : (textConfig.pos === "center" ? preview.height / 2 : preview.height - 30)
+    );
+    previewDrag = {
+      target: "text",
+      startX: px,
+      startY: py,
+      origX: currentX,
+      origY: currentY
+    };
+  } else {
+    previewDrag = {
+      target: "illust",
+      startX: px,
+      startY: py,
+      origOx: adjust.ox,
+      origOy: adjust.oy
+    };
+  }
+});
+
+adjustArea.addEventListener("pointermove", e => {
+  if (!previewDrag) return;
+  e.preventDefault();
+  const rect = preview.getBoundingClientRect();
+  const scaleFactor = preview.width / rect.width;
+  const px = (e.clientX - rect.left) * scaleFactor;
+  const py = (e.clientY - rect.top) * scaleFactor;
+
+  const dx = px - previewDrag.startX;
+  const dy = py - previewDrag.startY;
+
+  if (previewDrag.target === "text") {
+    textConfig.customX = previewDrag.origX + dx;
+    textConfig.customY = previewDrag.origY + dy;
+    document.querySelectorAll(".posBtns .posBtn").forEach(b => b.classList.remove("active"));
+  } else if (previewDrag.target === "illust") {
+    adjust.ox = previewDrag.origOx + dx;
+    adjust.oy = previewDrag.origOy + dy;
+  }
+  renderPreview();
+});
+
+adjustArea.addEventListener("pointerup", () => { previewDrag = null; });
+adjustArea.addEventListener("pointercancel", () => { previewDrag = null; });
+
+// 文字レイヤー設定
+$("#stampText").oninput = e => {
+  textConfig.text = e.target.value;
+  renderPreview();
+};
+
+$("#clearTextBtn").onclick = () => {
+  $("#stampText").value = "";
+  textConfig.text = "";
+  textConfig.customX = null;
+  textConfig.customY = null;
+  renderPreview();
+  toast("文字を消しました");
+};
+
+document.querySelectorAll(".quickWords .qBtn").forEach(btn => {
+  btn.onclick = () => {
+    $("#stampText").value = btn.textContent;
+    textConfig.text = btn.textContent;
+    renderPreview();
+  };
+});
+
+$("#textFont").onchange = e => {
+  textConfig.font = e.target.value;
+  renderPreview();
+};
+
+document.querySelectorAll("#textColorList .cBtn").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll("#textColorList .cBtn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    textConfig.color = btn.dataset.color;
+    renderPreview();
+  };
+});
+
+document.querySelectorAll("#textStrokeList .sBtn").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll("#textStrokeList .sBtn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    textConfig.stroke = btn.dataset.stroke;
+    renderPreview();
+  };
+});
+
+document.querySelectorAll(".posBtns .posBtn").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".posBtns .posBtn").forEach(x => x.classList.remove("active"));
+    btn.classList.add("active");
+    textConfig.pos = btn.dataset.pos;
+    textConfig.customX = null;
+    textConfig.customY = null;
+    renderPreview();
+  };
+});
+
+$("#textSize").oninput = e => {
+  textConfig.size = Number(e.target.value);
+  $("#textSizeVal").textContent = e.target.value;
+  renderPreview();
+};
+
+// イラストレイヤー設定
+$("#plus").onclick = () => {
+  adjust.scale = Math.min(3, adjust.scale + 0.1);
+  renderPreview();
+};
+$("#minus").onclick = () => {
+  adjust.scale = Math.max(0.4, adjust.scale - 0.1);
+  renderPreview();
+};
 $("#center").onclick = () => {
   const ih = (preview.width * adjust.scale / adjust.src.width) * adjust.src.height;
   adjust.ox = (preview.width - preview.width * adjust.scale) / 2;
@@ -415,7 +653,6 @@ $("#resetAdjust").onclick = () => {
 
 $("#transparent").onclick = () => {
   bgTransparent = !bgTransparent;
-  updateTransUI();
   renderPreview();
 };
 
@@ -423,7 +660,6 @@ $("#whiteBorder").onchange = e => {
   whiteBorder = e.target.checked;
   if (whiteBorder && !bgTransparent) {
     bgTransparent = true;
-    updateTransUI();
   }
   renderPreview();
 };
@@ -433,142 +669,17 @@ $("#borderWidth").oninput = e => {
   if (bgTransparent) renderPreview();
 };
 
-// 背景パレット操作
-document.querySelectorAll("#bgColorPalette .colorBtn").forEach(btn => {
+// 背景レイヤー設定
+document.querySelectorAll("#bgColorList .cBtn").forEach(btn => {
   btn.onclick = () => {
-    document.querySelectorAll("#bgColorPalette .colorBtn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("#bgColorList .cBtn").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     bgColor = btn.dataset.bg;
     renderPreview();
   };
 });
 
-// セリフ設定
-$("#stampText").oninput = e => {
-  textConfig.text = e.target.value;
-  renderPreview();
-};
-
-document.querySelectorAll(".quickWords .qBtn").forEach(b => {
-  b.onclick = () => {
-    if (b.textContent === "消す") {
-      $("#stampText").value = "";
-    } else {
-      $("#stampText").value = b.textContent;
-    }
-    textConfig.text = $("#stampText").value;
-    renderPreview();
-  };
-});
-
-$("#textFont").onchange = e => {
-  textConfig.font = e.target.value;
-  renderPreview();
-};
-
-document.querySelectorAll("#textColorPalette .colorBtn").forEach(b => {
-  b.onclick = () => {
-    document.querySelectorAll("#textColorPalette .colorBtn").forEach(x => x.classList.remove("active"));
-    b.classList.add("active");
-    textConfig.color = b.dataset.color;
-    renderPreview();
-  };
-});
-
-document.querySelectorAll("#strokePalette .strokeBtn").forEach(b => {
-  b.onclick = () => {
-    document.querySelectorAll("#strokePalette .strokeBtn").forEach(x => x.classList.remove("active"));
-    b.classList.add("active");
-    textConfig.stroke = b.dataset.stroke;
-    renderPreview();
-  };
-});
-
-document.querySelectorAll(".posButtons .posBtn").forEach(b => {
-  b.onclick = () => {
-    document.querySelectorAll(".posButtons .posBtn").forEach(x => x.classList.remove("active"));
-    b.classList.add("active");
-    textConfig.pos = b.dataset.pos;
-    renderPreview();
-  };
-});
-
-$("#textSize").oninput = e => {
-  textConfig.size = Number(e.target.value);
-  $("#textSizeVal").textContent = e.target.value;
-  renderPreview();
-};
-
-// 調整枠のドラッグ & リサイズ（②編集画面用）
-let adrag = null;
-adjustBox.addEventListener("pointerdown", e => {
-  e.preventDefault();
-  const a = preview.getBoundingClientRect();
-  const b = adjustBox.getBoundingClientRect();
-  const p = { x: e.clientX - a.left, y: e.clientY - a.top };
-  const h = e.target.dataset.h;
-  adrag = { kind: h || "move", start: p, orig: { x: b.left - a.left, y: b.top - a.top, w: b.width, h: b.height }, area: a };
-  adjustBox.setPointerCapture(e.pointerId);
-});
-
-adjustBox.addEventListener("pointermove", e => {
-  if (!adrag) return;
-  e.preventDefault();
-  const p = { x: e.clientX - adrag.area.left, y: e.clientY - adrag.area.top };
-  const o = adrag.orig;
-  const r = SPEC[mode].ratio;
-  const W = adrag.area.width;
-  const H = adrag.area.height;
-  let x = o.x, y = o.y, w = o.w, h = o.h;
-  const dx = p.x - adrag.start.x;
-  const dy = p.y - adrag.start.y;
-
-  if (adrag.kind === "move") {
-    x = Math.max(0, Math.min(W - w, o.x + dx));
-    y = Math.max(0, Math.min(H - h, o.y + dy));
-  } else {
-    if (adrag.kind.includes("w")) { x = o.x + dx; w = o.w - dx; }
-    if (adrag.kind.includes("e")) { w = o.w + dx; }
-    if (adrag.kind.includes("n")) { y = o.y + dy; h = o.h - dy; }
-    if (adrag.kind.includes("s")) { h = o.h + dy; }
-
-    if (w < 40) w = 40;
-    h = w / r;
-
-    if (adrag.kind.includes("w")) x = o.x + o.w - w;
-    if (adrag.kind.includes("n")) y = o.y + o.h - h;
-
-    if (x < 0) { x = 0; w = o.x + o.w; h = w / r; }
-    if (y < 0) { y = 0; h = o.y + o.h; w = h * r; }
-    if (x + w > W) { w = W - x; h = w / r; }
-    if (y + h > H) { h = H - y; w = h * r; }
-  }
-
-  adjustBox.style.left = `${(x / W) * 100}%`;
-  adjustBox.style.top = `${(y / H) * 100}%`;
-  adjustBox.style.width = `${(w / W) * 100}%`;
-  adjustBox.style.height = `${(h / H) * 100}%`;
-});
-
-adjustBox.addEventListener("pointerup", () => {
-  if (!adrag) return;
-  adrag = null;
-  const a = preview.getBoundingClientRect();
-  const b = adjustBox.getBoundingClientRect();
-  const scale = b.width / a.width;
-  adjust.scale = Math.max(0.4, Math.min(3, 1 / scale));
-  adjust.ox = -((b.left - a.left) / a.width) * preview.width * adjust.scale;
-  adjust.oy = -((b.top - a.top) / a.height) * preview.height * adjust.scale;
-  
-  adjustBox.style.left = "0%";
-  adjustBox.style.top = "0%";
-  adjustBox.style.width = "100%";
-  adjustBox.style.height = "100%";
-  renderPreview();
-});
-adjustBox.addEventListener("pointercancel", () => { adrag = null; });
-
-// 高速背景透過
+// 背景透過処理
 function removeBackground(src) {
   const c = document.createElement("canvas");
   c.width = src.width;
@@ -630,7 +741,7 @@ function removeBackground(src) {
   return c;
 }
 
-// 高速白フチ合成
+// 白フチ合成
 function addWhiteBorder(src, px) {
   const c = document.createElement("canvas");
   c.width = src.width;
@@ -664,7 +775,7 @@ function addWhiteBorder(src, px) {
   return c;
 }
 
-// 最終画像書き出し
+// 最終画像書き出し（layerOrderの順序を完全に反映）
 async function getFinalCanvas() {
   await document.fonts.ready;
   const c = document.createElement("canvas");
@@ -672,28 +783,17 @@ async function getFinalCanvas() {
   c.height = SPEC[mode].h;
   const ctx = c.getContext("2d");
 
-  if (bgColor !== "transparent") {
-    ctx.fillStyle = bgColor;
-    ctx.fillRect(0, 0, c.width, c.height);
-  }
+  const drawList = layerOrder.slice().reverse();
 
-  let illust = document.createElement("canvas");
-  illust.width = c.width;
-  illust.height = c.height;
-  const ictx = illust.getContext("2d");
-
-  const iw = c.width * adjust.scale;
-  const ih = (c.width * adjust.scale / adjust.src.width) * adjust.src.height;
-  ictx.drawImage(adjust.src, adjust.ox, adjust.oy, iw, ih);
-
-  if (bgTransparent) illust = removeBackground(illust);
-  if (whiteBorder && bgTransparent) illust = addWhiteBorder(illust, Number($("#borderWidth").value));
-
-  ctx.drawImage(illust, 0, 0);
-
-  if (textConfig.text.trim()) {
-    renderText(ctx, c.width, c.height);
-  }
+  drawList.forEach(layerId => {
+    if (layerId === "bg") {
+      drawBgLayer(ctx, c.width, c.height);
+    } else if (layerId === "illust") {
+      drawIllustLayer(ctx, c.width, c.height);
+    } else if (layerId === "text") {
+      drawTextLayer(ctx, c.width, c.height);
+    }
+  });
 
   return c;
 }
