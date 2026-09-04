@@ -66,7 +66,7 @@ function updateMode() {
   const s = SPEC[mode];
   $("#spec").textContent = `切り抜き比率：${mode === "sticker" ? "370 : 320" : "1 : 1"} ／ 書き出し：${s.label}`;
   $("#total").textContent = $("#count").value;
-  if (img) resetSelection();
+  if (img) initOrAdjustSelection();
 }
 
 document.querySelectorAll(".switch button").forEach(b => b.onclick = () => {
@@ -78,7 +78,7 @@ document.querySelectorAll(".switch button").forEach(b => b.onclick = () => {
 
 $("#count").onchange = () => { $("#total").textContent = $("#count").value; };
 
-// シート画像読み込み（自動リサイズ対応）
+// シート画像読み込み（自動リサイズ＆比率枠自動生成対応）
 $("#file").onchange = e => {
   const f = e.target.files[0];
   if (!f) return;
@@ -117,9 +117,9 @@ $("#file").onchange = e => {
           renderSheet();
           $("#sheetStep").classList.remove("hidden");
           $("#adjustStep").classList.add("hidden");
-          resetSelection();
+          initOrAdjustSelection();
           refresh();
-          toast("シートを読み込みました！絵を指で囲んでね");
+          toast("シートを読み込みました！枠を動かしてね");
         };
         resizedImg.src = tempCanvas.toDataURL("image/jpeg", 0.9);
       } else {
@@ -130,9 +130,9 @@ $("#file").onchange = e => {
         renderSheet();
         $("#sheetStep").classList.remove("hidden");
         $("#adjustStep").classList.add("hidden");
-        resetSelection();
+        initOrAdjustSelection();
         refresh();
-        toast("シートを読み込みました！絵を指で囲んでね");
+        toast("シートを読み込みました！枠を動かしてね");
       }
     };
     im.onerror = () => toast("画像の読み込みに失敗しました。");
@@ -187,26 +187,28 @@ function renderCropBox() {
   };
 }
 
-function resetSelection() {
-  selectionRect = null;
-  renderCropBox();
-}
-
-$("#resetCrop").onclick = () => { resetSelection(); toast("枠をリセットしました"); };
-
-$("#startSelect").onclick = () => {
+// モードに応じた比率で自動的に枠を生成・調整する関数
+function initOrAdjustSelection() {
   if (!img) return;
   const r = SPEC[mode].ratio;
   const sr = stage.getBoundingClientRect();
-  let w = sr.width * 0.6;
+  if (sr.width === 0 || sr.height === 0) return;
+
+  let w = sr.width * 0.55;
   let h = w / r;
-  if (h > sr.height * 0.8) { h = sr.height * 0.8; w = h * r; }
+  if (h > sr.height * 0.75) {
+    h = sr.height * 0.75;
+    w = h * r;
+  }
   const x = (sr.width - w) / 2;
   const y = (sr.height - h) / 2;
+
   selectionRect = { x, y, w, h };
   renderCropBox();
-  toast("枠を表示しました！");
-};
+}
+
+$("#resetCrop").onclick = () => { initOrAdjustSelection(); toast("枠をリセットしました"); };
+$("#startSelect").onclick = () => { initOrAdjustSelection(); toast("切り出し枠を表示しました！"); };
 
 function getStagePoint(e) {
   const r = stage.getBoundingClientRect();
