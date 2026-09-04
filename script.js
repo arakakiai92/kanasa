@@ -27,7 +27,7 @@ let bgConfig = {
 
 // Layer: イラスト
 let adjust = { src: null, processedSrc: null, scale: 1, ox: 0, oy: 0, rotation: 0 };
-let bgTransparent = true; // ★デフォルトで透過ON！
+let bgTransparent = true; // ★最初からデフォルトで透過ON
 let bgTolerance = 22;
 let protectWhite = true;
 let illustBorder = false;
@@ -227,7 +227,9 @@ function getTouchPos(clientX, clientY) {
   };
 }
 
+// ==========================================
 // ① 切り出し画面のタッチ＆マウス操作
+// ==========================================
 let cropDrag = null;
 
 wrap.addEventListener("touchstart", e => {
@@ -425,7 +427,7 @@ function openAdjustNew() {
   $("#stampText").value = "";
 
   layerOrder = ["illust", "text", "bg"];
-  bgTransparent = true; // ★デフォルトで透過ON
+  bgTransparent = true; // デフォルト透過ON
   bgTolerance = 22;
   protectWhite = true;
   $("#bgToleranceSlider").value = 22;
@@ -881,7 +883,6 @@ $("#commonScaleSlider").oninput = e => {
   renderPreview();
 };
 
-// 傾き（回転）スライダーのイベント
 $("#commonRotationSlider").oninput = e => {
   const deg = Number(e.target.value);
   $("#commonRotationVal").textContent = deg;
@@ -994,8 +995,6 @@ function updateLayerStatus() {
   else if (bgConfig.style === "circle") $("#stateBg").textContent = "まる型";
   else if (bgConfig.style === "roundRect") $("#stateBg").textContent = "角丸";
   else if (bgConfig.style === "full") $("#stateBg").textContent = "全面";
-
-  $("#transState").textContent = bgTransparent ? "透過 ON" : "透過 OFF";
 }
 
 function updateIllustCache() {
@@ -1388,7 +1387,6 @@ function showImageModal(item, index) {
   currentModalIndex = index;
   $("#modalTitle").textContent = `${index + 1}個目のスタンプ`;
   $("#modalImg").src = item.url;
-  $("#imageModal").classList.remove("hidden");
   $("#imageModal").classList.add("show");
 }
 
