@@ -37,8 +37,11 @@
       <canvas id="stage"></canvas>
       <div id="cropBox" class="cropBox hidden"></div>
     </div>
-    <button id="startSelect" class="primary big">✂️ この絵を囲む</button>
-    <button id="adjustBtn" class="primary big hidden">次へ：細かく調整 →</button>
+    <div class="sheetActions">
+      <button id="resetCrop" class="subBtn hidden">↺ 枠をリセット</button>
+      <button id="startSelect" class="primary big">✂️ この絵を囲む</button>
+      <button id="adjustBtn" class="primary big hidden">次へ：細かく調整 →</button>
+    </div>
   </section>
 
   <section id="adjustStep" class="step hidden">
@@ -79,6 +82,16 @@
 </main>
 
 <div id="toast"></div>
+
+<!-- スマホ向け画像プレビュー＆長押し保存モーダル -->
+<div id="imageModal" class="modal">
+  <div class="modalContent">
+    <p>画像を長押しして「写真に追加」で保存できます</p>
+    <img id="modalImg" alt="完成画像">
+    <button id="modalClose" class="primary big">とじる</button>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="script.js"></script>
 </body>
