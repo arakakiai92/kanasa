@@ -73,10 +73,10 @@
                 <canvas id="stage" class="block mx-auto w-full h-auto max-h-[55vh] object-contain"></canvas>
                 <div id="cropBox" class="cropBox hidden absolute border-3 border-gray-900 bg-white/20 touch-none cursor-move">
                     <div class="cropCenterIcon absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 bg-white border-2 border-gray-900 rounded-full flex items-center justify-center text-lg shadow-md pointer-events-none">✥</div>
-                    <div class="handle handle-nw absolute w-11 h-11 -left-5 -top-5 cursor-nwse-resize"></div>
-                    <div class="handle handle-ne absolute w-11 h-11 -right-5 -top-5 cursor-nesw-resize"></div>
-                    <div class="handle handle-sw absolute w-11 h-11 -left-5 -bottom-5 cursor-nesw-resize"></div>
-                    <div class="handle handle-se absolute w-11 h-11 -right-5 -bottom-5 cursor-nwse-resize"></div>
+                    <div class="handle handle-nw absolute w-11 h-11 -left-5 -top-5 cursor-nwse-resize" data-h="nw"></div>
+                    <div class="handle handle-ne absolute w-11 h-11 -right-5 -top-5 cursor-nesw-resize" data-h="ne"></div>
+                    <div class="handle handle-sw absolute w-11 h-11 -left-5 -bottom-5 cursor-nesw-resize" data-h="sw"></div>
+                    <div class="handle handle-se absolute w-11 h-11 -right-5 -bottom-5 cursor-nwse-resize" data-h="se"></div>
                 </div>
             </div>
 
@@ -406,6 +406,10 @@
                                     <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-pink-100" data-bg="#ffebf0">ピンク</button>
                                     <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-blue-100" data-bg="#e7f5ff">みずいろ</button>
                                     <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-gray-900 text-white" data-bg="#222222">くろ</button>
+                                    <label class="customColorWrap relative w-7 h-7 rounded-full border border-dashed border-gray-400 bg-white flex items-center justify-center cursor-pointer overflow-hidden">
+                                        <input type="color" id="bgColorPicker" value="#fff9db" class="absolute -inset-2 w-12 h-12 opacity-0 cursor-pointer">
+                                        <span class="text-[10px]">🎨</span>
+                                    </label>
                                 </div>
                             </div>
                         </div>
