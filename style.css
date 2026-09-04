@@ -69,7 +69,6 @@ main{max-width:900px;margin:auto;padding:10px}
   z-index:4;
 }
 
-/* 四隅のハンドル（44px当たり判定＋30px白丸） */
 .handle{
   position:absolute;
   width:44px;
@@ -95,7 +94,6 @@ main{max-width:900px;margin:auto;padding:10px}
 .handle-sw{left:-22px;bottom:-22px;cursor:nesw-resize}
 .handle-se{right:-22px;bottom:-22px;cursor:nwse-resize}
 
-/* 切り出し枠の微調整パネル（十字キー） */
 .fineTunePanel{
   background:#f4f5f7;
   border:1px solid #ddd;
@@ -197,13 +195,27 @@ main{max-width:900px;margin:auto;padding:10px}
   object-fit:contain;
 }
 
-/* 安全余白ガイド（LINE公式推奨マージン） */
 .safeMarginGuide{
   position:absolute;
   inset:8px;
   border:1px dashed rgba(0,0,0,.25);
   border-radius:4px;
   pointer-events:none;
+}
+.activeLayerTag{
+  position:absolute;
+  left:8px;
+  top:8px;
+  background:rgba(34,34,34,.85);
+  color:#fff;
+  font-size:11px;
+  font-weight:800;
+  padding:4px 8px;
+  border-radius:6px;
+  pointer-events:none;
+  z-index:10;
+  backdrop-filter:blur(3px);
+  box-shadow:0 1px 4px rgba(0,0,0,.2);
 }
 .previewTip{font-size:11px;color:#777;text-align:center;margin-top:5px}
 
@@ -230,7 +242,6 @@ main{max-width:900px;margin:auto;padding:10px}
   font-weight:normal;
 }
 
-/* レイヤースタックリスト */
 .layerStackList{
   display:flex;
   flex-direction:column;
@@ -303,7 +314,7 @@ main{max-width:900px;margin:auto;padding:10px}
 .panelHeader b{font-size:14px;color:#111;display:block}
 .subNote{font-size:11px;color:#666}
 
-/* 文字レイヤーのパーツ */
+/* 文字レイヤー */
 .inputRow{display:flex;gap:6px;margin-bottom:8px}
 .inputRow input{flex:1;padding:11px;border:2px solid #bbb;border-radius:9px;font-size:16px;font-weight:700}
 .inputRow input:focus{border-color:#222;outline:none}
@@ -336,7 +347,6 @@ main{max-width:900px;margin:auto;padding:10px}
 .colorList.large .cBtn.active{border-color:#222;outline:2px solid #222}
 .colorList.large .cBtn[data-bg="transparent"]{background:#eee;border:1px dashed #888;color:#444}
 
-/* 自由なカラーピッカーボタン */
 .customColorWrap{
   position:relative;
   width:32px;
@@ -359,42 +369,16 @@ main{max-width:900px;margin:auto;padding:10px}
   opacity:0;
   cursor:pointer;
 }
-.customColorBadge{
-  font-size:16px;
-  pointer-events:none;
-}
+.customColorBadge{font-size:16px;pointer-events:none}
 
 .strokeList{display:flex;gap:5px}
 .sBtn{flex:1;padding:7px 2px;border:1px solid #bbb;border-radius:7px;font-size:11px;font-weight:800;cursor:pointer}
 .sBtn.active{border-color:#222;outline:2px solid #222}
 
-.posRow{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.posBtns{display:flex;gap:5px}
-.posBtn{padding:6px 14px;border:1px solid #bbb;background:#fff;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer}
-.posBtn.active{background:#222;color:#fff;border-color:#222}
 .sliderRow{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800}
 .sliderRow input{flex:1}
 
-.nudgeRow{
-  display:flex;
-  gap:5px;
-  align-items:center;
-  margin-top:8px;
-  flex-wrap:wrap;
-}
-.nudgeBtn{
-  padding:6px 10px;
-  border:1px solid #bbb;
-  background:#f8f9fa;
-  border-radius:6px;
-  font-size:11px;
-  font-weight:800;
-  cursor:pointer;
-}
-.nudgeBtn:active{background:#222;color:#fff}
-.nudgeBtn.sub{background:#eee;color:#555}
-
-/* イラストレイヤーのパーツ */
+/* ポジション微調整共通BOX */
 .illustPositionBox{
   background:#fafafa;
   border:1px solid #eee;
@@ -430,7 +414,6 @@ main{max-width:900px;margin:auto;padding:10px}
 .transRow button{flex:1;padding:10px 5px;border:1px solid #aaa;border-radius:9px;background:#fff;font-weight:700;font-size:12px;cursor:pointer}
 .transRow span{font-size:11px;color:#666;min-width:65px;text-align:center}
 
-/* イラストの縁カード */
 .borderCard{
   border:1px solid #ddd;
   border-radius:10px;
@@ -451,6 +434,29 @@ main{max-width:900px;margin:auto;padding:10px}
   border-top:1px dashed #d8d8d8;
 }
 .subLabel{font-size:11px;font-weight:800;display:block;margin-bottom:6px;color:#444}
+
+/* 背景シェイプボタン */
+.bgShapeBtns{
+  display:flex;
+  gap:6px;
+  margin-bottom:10px;
+}
+.shapeBtn{
+  flex:1;
+  padding:8px 4px;
+  border:1px solid #bbb;
+  background:#f8f9fa;
+  border-radius:8px;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+  color:#333;
+}
+.shapeBtn.active{
+  background:#222;
+  color:#fff;
+  border-color:#222;
+}
 
 .big{width:100%;padding:14px;margin-top:10px;border-radius:11px;border:1px solid #999;font-size:16px;font-weight:800;background:#fff;cursor:pointer}
 .primary{background:#222!important;color:#fff;border-color:#222!important}

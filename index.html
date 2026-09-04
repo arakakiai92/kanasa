@@ -35,7 +35,7 @@
     <div class="spec" id="spec"></div>
   </section>
 
-  <!-- ステップ①：切り出し画面（安定操作・微調整ボタン付き） -->
+  <!-- ステップ①：切り出し画面 -->
   <section id="sheetStep" class="step hidden">
     <div class="stepTitle"><span>① 切り出し範囲をえらぶ</span><b id="sheetProgress">1 / 16</b></div>
     <p class="stepDesc">絵を指で囲むか、枠を動かして位置・大きさを合わせてね。</p>
@@ -90,15 +90,16 @@
       <div class="adjustArea" id="adjustArea">
         <canvas id="preview"></canvas>
         <div class="safeMarginGuide" title="この点線の内側に収めると綺麗に表示されます"></div>
+        <div id="activeLayerTag" class="activeLayerTag">💬 文字レイヤー編集中</div>
       </div>
-      <div class="previewTip">💡 画面を直接指でなぞっても位置を動かせます（2本指ピンチで拡大縮小）</div>
+      <div class="previewTip">💡 画面を直接指でなぞると選択中レイヤーを移動（2本指ピンチで拡大縮小）</div>
     </div>
 
-    <!-- ３レイヤー重なり順コントローラー -->
+    <!-- レイヤー並べ替え＆選択マネージャー -->
     <div class="layerManager">
       <div class="layerStackTitle">
         <span>📑 レイヤーの重なり順（上が一番手前）</span>
-        <span class="subNote">▲▼ボタンで順番を入れ替えられます</span>
+        <span class="subNote">タップで編集切替、▲▼ボタンで重なり順を並べ替え</span>
       </div>
 
       <div class="layerStackList" id="layerStackList">
@@ -148,11 +149,11 @@
         </div>
       </div>
 
-      <!-- パネル3：文字設定 -->
+      <!-- パネル3：文字設定（拡大縮小・位置調整を完備） -->
       <div id="panel-text" class="layerPanel">
         <div class="panelHeader">
           <b>💬 文字レイヤーの設定</b>
-          <span class="subNote">文字を入れると一番上に重なります（空なら文字なし）</span>
+          <span class="subNote">入力した文字の大きさ・位置・フォント・色を調整</span>
         </div>
 
         <div class="inputRow">
@@ -183,7 +184,6 @@
           </select>
         </div>
 
-        <!-- 文字の色（パレット ＋ 自由カラーピッカー） -->
         <div class="twoColRow">
           <div class="settingGroup">
             <label class="groupLabel">文字の色</label>
@@ -198,7 +198,6 @@
               <button class="cBtn" data-color="#e64980" style="background:#e64980;" title="ピンク"></button>
               <button class="cBtn" data-color="#7048e8" style="background:#7048e8;" title="むらさき"></button>
               <button class="cBtn" data-color="#5c3c10" style="background:#5c3c10;" title="ちゃいろ"></button>
-              <!-- 自由な色ピッカー -->
               <label class="customColorWrap" title="すきな色をえらぶ">
                 <input type="color" id="textColorPicker" value="#111111">
                 <span class="customColorBadge">🎨</span>
@@ -216,36 +215,42 @@
           </div>
         </div>
 
+        <!-- 文字レイヤー：拡大縮小スライダー -->
         <div class="settingGroup">
-          <div class="posRow">
-            <span class="groupLabel">配置：</span>
-            <div class="posBtns">
-              <button type="button" class="posBtn" data-pos="top">上</button>
-              <button type="button" class="posBtn" data-pos="center">中央</button>
-              <button type="button" class="posBtn active" data-pos="bottom">下</button>
-            </div>
-          </div>
           <div class="sliderRow">
-            <span class="groupLabel">文字サイズ：</span>
-            <input type="range" id="textSize" min="16" max="72" value="34">
+            <span class="groupLabel">文字の大きさ：</span>
+            <input type="range" id="textSize" min="16" max="76" value="34">
             <b><span id="textSizeVal">34</span>px</b>
           </div>
-          <div class="nudgeRow">
-            <span class="groupLabel">文字の位置：</span>
-            <button type="button" id="textUp" class="nudgeBtn">▲ 上</button>
-            <button type="button" id="textDown" class="nudgeBtn">▼ 下</button>
-            <button type="button" id="textLeft" class="nudgeBtn">◀ 左</button>
-            <button type="button" id="textRight" class="nudgeBtn">▶ 右</button>
-            <button type="button" id="textResetPos" class="nudgeBtn sub">リセット</button>
+        </div>
+
+        <!-- 文字レイヤー：位置微調整コントローラー -->
+        <div class="illustPositionBox">
+          <span class="groupLabel">文字の位置微調整：</span>
+          <div class="illustControlsGrid">
+            <div class="dpad mini">
+              <button type="button" id="textUp" class="dpadBtn up">▲</button>
+              <div class="dpadMiddle">
+                <button type="button" id="textLeft" class="dpadBtn left">◀</button>
+                <button type="button" id="textCenterBtn" class="dpadBtn center" title="中央へ">◎</button>
+                <button type="button" id="textRight" class="dpadBtn right">▶</button>
+              </div>
+              <button type="button" id="textDown" class="dpadBtn down">▼</button>
+            </div>
+            <div class="quickActionBtns">
+              <button type="button" id="textPosTop" class="actionBtn">⬆ 上に配置</button>
+              <button type="button" id="textPosCenter" class="actionBtn">↕ 中央に配置</button>
+              <button type="button" id="textPosBottom" class="actionBtn">⬇ 下に配置</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- パネル2：イラスト設定 -->
+      <!-- パネル2：イラスト設定（拡大縮小・位置調整） -->
       <div id="panel-illust" class="layerPanel">
         <div class="panelHeader">
           <b>🎨 イラストレイヤーの設定</b>
-          <span class="subNote">切り抜いた絵の拡大縮小・位置・透過を設定</span>
+          <span class="subNote">切り抜いた絵の拡大縮小・位置・透過・フチを設定</span>
         </div>
 
         <div class="settingGroup">
@@ -257,7 +262,7 @@
         </div>
 
         <div class="illustPositionBox">
-          <span class="groupLabel">位置の微調整：</span>
+          <span class="groupLabel">イラストの位置微調整：</span>
           <div class="illustControlsGrid">
             <div class="dpad mini">
               <button type="button" id="illustUp" class="dpadBtn up">▲</button>
@@ -281,7 +286,6 @@
           <span id="transState">透過 OFF</span>
         </div>
 
-        <!-- イラストの縁（デフォルト：白、色変更・自由カラーピッカー対応） -->
         <div class="borderCard">
           <div class="borderRow">
             <label class="borderToggle"><input type="checkbox" id="illustBorderToggle"> ⭕ イラストにフチをつける</label>
@@ -302,7 +306,6 @@
               <button class="cBtn" data-color="#e03131" style="background:#e03131;" title="あか"></button>
               <button class="cBtn" data-color="#2f9e44" style="background:#2f9e44;" title="みどり"></button>
               <button class="cBtn" data-color="#7048e8" style="background:#7048e8;" title="むらさき"></button>
-              <!-- 自由なフチ色ピッカー -->
               <label class="customColorWrap" title="すきなフチの色をえらぶ">
                 <input type="color" id="illustBorderColorPicker" value="#ffffff">
                 <span class="customColorBadge">🎨</span>
@@ -312,14 +315,26 @@
         </div>
       </div>
 
-      <!-- パネル1：背景設定 -->
+      <!-- パネル1：背景設定（拡大縮小・位置調整・プレート形状対応） -->
       <div id="panel-bg" class="layerPanel">
         <div class="panelHeader">
           <b>🖼 はいけいレイヤーの設定</b>
-          <span class="subNote">無選択なら透明（標準の透過スタンプ）</span>
+          <span class="subNote">背景色・形を選び、サイズや位置を自由に調整できます</span>
         </div>
 
+        <!-- 背景の形状 -->
+        <div class="settingGroup">
+          <label class="groupLabel">はいけいの形：</label>
+          <div class="bgShapeBtns" id="bgShapeBtns">
+            <button type="button" class="shapeBtn active" data-shape="full">⬜ 全画面ベタ塗り</button>
+            <button type="button" class="shapeBtn" data-shape="roundRect">🔲 角丸プレート</button>
+            <button type="button" class="shapeBtn" data-shape="circle">⚪ まる型座布団</button>
+          </div>
+        </div>
+
+        <!-- 背景色パレット -->
         <div class="bgPaletteWrap">
+          <span class="groupLabel">はいけいの色：</span>
           <div class="colorList large" id="bgColorList">
             <button class="cBtn active" data-bg="transparent" title="とうめい">
               <span class="iconTrans">🚫</span>
@@ -346,6 +361,39 @@
             <button class="cBtn" data-bg="#fff4e6" style="background:#fff4e6;" title="オレンジ">
               <span class="cLabel">オレンジ</span>
             </button>
+            <label class="customColorWrap" title="すきな背景色をえらぶ">
+              <input type="color" id="bgColorPicker" value="#ffffff">
+              <span class="customColorBadge">🎨</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 背景レイヤー：拡大縮小スライダー -->
+        <div class="settingGroup" id="bgTransformGroup">
+          <div class="sliderRow">
+            <span class="groupLabel">はいけいの大きさ：</span>
+            <input type="range" id="bgScaleSlider" min="20" max="250" value="100">
+            <b><span id="bgScaleVal">100</span>%</b>
+          </div>
+        </div>
+
+        <!-- 背景レイヤー：位置微調整コントローラー -->
+        <div class="illustPositionBox">
+          <span class="groupLabel">はいけいの位置微調整：</span>
+          <div class="illustControlsGrid">
+            <div class="dpad mini">
+              <button type="button" id="bgUp" class="dpadBtn up">▲</button>
+              <div class="dpadMiddle">
+                <button type="button" id="bgLeft" class="dpadBtn left">◀</button>
+                <button type="button" id="bgCenterBtn" class="dpadBtn center" title="中央へ">◎</button>
+                <button type="button" id="bgRight" class="dpadBtn right">▶</button>
+              </div>
+              <button type="button" id="bgDown" class="dpadBtn down">▼</button>
+            </div>
+            <div class="quickActionBtns">
+              <button type="button" id="bgResetPos" class="actionBtn">↺ 中央・初期サイズ</button>
+              <button type="button" id="bgFitFull" class="actionBtn">🔲 全画面に合わせる</button>
+            </div>
           </div>
         </div>
       </div>
