@@ -17,21 +17,22 @@
 </head>
 <body class="text-gray-800 pb-8">
 
-    <!-- ヘッダー（ロゴとタイトル専用にしてスッキリ独立） -->
+    <!-- ヘッダー（スマホでも絶対に改行されない設計） -->
     <header class="bg-[#00C300] text-white shadow-md sticky top-0 z-40">
-        <div class="max-w-6xl mx-auto flex items-center px-4 py-3">
-            <img src="bottom-right.png" alt="シーサーアイコン" class="h-12 md:h-14 w-auto block object-contain">
-            <h1 class="text-base md:text-xl font-bold ml-3">LINEスタンプ・絵文字メーカー</h1>
+        <div class="max-w-6xl mx-auto flex items-center justify-between px-3 md:px-4 py-2.5 gap-2">
+            <div class="flex items-center min-w-0">
+                <img src="bottom-right.png" alt="シーサーアイコン" class="h-10 md:h-14 w-auto block object-contain shrink-0">
+                <h1 class="text-xs sm:text-sm md:text-xl font-bold ml-2 truncate">LINEスタンプ・絵文字メーカー</h1>
+            </div>
         </div>
     </header>
     
     <main class="p-4 max-w-6xl mx-auto space-y-6">
         
-        <!-- 設定・シート読み込みパネル（ここにスタンプ/絵文字の切り替えを配置して操作性アップ） -->
+        <!-- 設定・シート読み込みパネル -->
         <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
             <div>
                 <label class="block mb-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider">作る種類をえらぶ</label>
-                <!-- スマホで押しやすい大きなモード切替スイッチ -->
                 <div class="switch flex gap-2 bg-gray-100 p-1.5 rounded-xl">
                     <button class="active flex-1 py-2.5 text-xs md:text-sm font-bold rounded-lg transition bg-white shadow-sm text-gray-800" data-mode="sticker">🟢 スタンプを作る</button>
                     <button class="flex-1 py-2.5 text-xs md:text-sm font-bold rounded-lg transition text-gray-500 hover:text-gray-800" data-mode="emoji">🟣 絵文字を作る</button>
@@ -109,7 +110,7 @@
             </div>
         </section>
 
-        <!-- ステップ②：スマホ・PC最適化・３レイヤー個別編集画面 (PC対応2カラム) -->
+        <!-- ステップ②：スタンプをととのえる画面 -->
         <section id="adjustStep" class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200 hidden">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-base md:text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -119,7 +120,6 @@
                 <button id="back" class="linkBtn text-xs font-bold text-[#00C300] hover:underline">← 切り出しに戻る</button>
             </div>
 
-            <!-- ワークスペース (PCでは左右2カラム) -->
             <div class="workspace grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                 
                 <!-- 左カラム：プレビュー・タブ・クイック調整 -->
@@ -185,13 +185,19 @@
                         </div>
                     </div>
 
-                    <!-- 大きさ＆位置クイックコントローラー -->
+                    <!-- 大きさ＆傾き＆位置クイックコントローラー -->
                     <div class="quickTransformBox bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2.5">
                         <div class="sliderRow flex items-center gap-3 text-xs font-bold text-gray-700">
                             <span class="ctrlLabel min-w-[50px]" id="transformScaleLabel">大きさ：</span>
                             <input type="range" id="commonScaleSlider" min="40" max="300" value="100" class="flex-1">
                             <b class="scaleValueText min-w-[40px] text-right"><span id="commonScaleVal">100</span><span id="commonScaleUnit">%</span></b>
                         </div>
+                        <div class="sliderRow flex items-center gap-3 text-xs font-bold text-gray-700">
+                            <span class="ctrlLabel min-w-[50px]">傾き：</span>
+                            <input type="range" id="commonRotationSlider" min="-180" max="180" value="0" class="flex-1">
+                            <b class="scaleValueText min-w-[40px] text-right"><span id="commonRotationVal">0</span>°</b>
+                        </div>
+
                         <div class="transformControlsRow flex items-center justify-between pt-2 border-t border-gray-200/60 gap-2">
                             <div class="dpad mini flex flex-col items-center gap-0.5">
                                 <button type="button" id="ctrlUp" class="dpadBtn w-8 h-6 bg-white border border-gray-300 rounded text-xs font-bold">▲</button>
@@ -226,7 +232,7 @@
                         <div id="panel-illust" class="layerPanel active space-y-3">
                             <div class="panelHeader border-b border-gray-200 pb-2">
                                 <b class="text-sm font-bold text-gray-800">🎨 イラストの設定</b>
-                                <span class="subNote text-[11px] text-gray-500">消しゴムや背景透過・フチを設定できます</span>
+                                <span class="subNote text-[11px] text-gray-500">消しゴムや透過感度、フチを設定できます</span>
                             </div>
 
                             <div class="eraserCard bg-amber-50/70 border border-amber-200 rounded-xl p-3">
@@ -246,12 +252,9 @@
                                 </div>
                             </div>
 
-                            <div class="transRow flex gap-2 items-center">
-                                <button id="transparent" class="flex-1 py-2.5 bg-gray-900 text-white rounded-xl font-bold text-xs shadow-sm">✨ 絵のまわりを透明にする</button>
-                                <span id="transState" class="text-xs text-gray-500 font-bold min-w-[60px] text-center">透過 OFF</span>
-                            </div>
-
-                            <div id="transOptionsWrap" class="transOptionsCard bg-white border border-gray-200 rounded-xl p-3 hidden space-y-2">
+                            <!-- ★透過ボタンを廃止し、最初から微調整（感度・白ぬけ防止）パネルを常時表示 -->
+                            <div class="transOptionsCard bg-white border border-gray-200 rounded-xl p-3 space-y-2">
+                                <div class="text-xs font-bold text-gray-800">✨ 背景透過の微調整</div>
                                 <label class="protectToggle flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
                                     <input type="checkbox" id="protectWhiteToggle" checked class="w-4 h-4">
                                     🛡️ 白ぬけ防止（キャラの白を守る）
@@ -406,7 +409,7 @@
                                     <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-white" data-bg="#ffffff">しろ</button>
                                     <button class="cBtn active px-3 py-1.5 rounded-lg border text-xs font-bold bg-yellow-100" data-bg="#fff9db">きいろ</button>
                                     <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-pink-100" data-bg="#ffebf0">ピンク</button>
-                                    <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-e7f5ff" data-bg="#e7f5ff">みずいろ</button>
+                                    <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-blue-100" data-bg="#e7f5ff">みずいろ</button>
                                     <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-gray-900 text-white" data-bg="#222222">くろ</button>
                                     <label class="customColorWrap relative w-7 h-7 rounded-full border border-dashed border-gray-400 bg-white flex items-center justify-center cursor-pointer overflow-hidden">
                                         <input type="color" id="bgColorPicker" value="#fff9db" class="absolute -inset-2 w-12 h-12 opacity-0 cursor-pointer">
@@ -439,7 +442,7 @@
         <img src="bottom-right.png" alt="シーサーロゴ" class="h-9 w-auto object-contain block">
     </footer>
 
-    <div id="toast" class="fixed left-1/2 bottom-6 -translate-x-1/2 translate-y-10 bg-gray-900 text-white px-5 py-2.5 rounded-full text-xs font-bold opacity-0 transition-all duration-300 pointer-events-none z-50 shadow-lg"></div>
+    <div id="toast" class="fixed left-1/2 bottom-6 -translate-x-1/2 translateY-10 bg-gray-900 text-white px-5 py-2.5 rounded-full text-xs font-bold opacity-0 transition-all duration-300 pointer-events-none z-50 shadow-lg"></div>
 
     <!-- 画像プレビュー・再編集モーダル -->
     <div id="imageModal" class="modal fixed inset-0 bg-gray-900/70 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
@@ -456,6 +459,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script src="script.js"></script>
+    <script src="script_2.js"></script>
 </body>
 </html>
