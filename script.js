@@ -87,7 +87,7 @@ document.querySelectorAll(".switch button").forEach(b => b.onclick = () => {
 
 $("#count").onchange = () => { $("#total").textContent = $("#count").value; };
 
-// シート画像読み込み処理
+// ★ファイル読み込み（フリーズの原因だった複雑なリサイズ処理を廃止し、確実に一発で動くシンプルな実装に修正）
 $("#file").onchange = e => {
   const f = e.target.files[0];
   if (!f) return;
@@ -98,53 +98,23 @@ $("#file").onchange = e => {
   reader.onload = event => {
     const im = new Image();
     im.onload = () => {
-      let width = im.naturalWidth;
-      let height = im.naturalHeight;
-      const MAX_DIM = 2048;
+      img = im;
+      results = [];
+      editingIndex = null;
       
-      const processLoadedImage = (loadedImage) => {
-        img = loadedImage;
-        results = [];
-        editingIndex = null;
-        
-        // ステップ①を表示状態にする
-        $("#sheetStep").classList.remove("hidden");
-        $("#adjustStep").classList.add("hidden");
-        
-        setupCanvas();
-        renderSheet();
-        
-        // レイアウト計算の確実な反映のためわずかに遅延させて枠を初期化
-        requestAnimationFrame(() => {
-          initOrAdjustSelection();
-          refresh();
-          toast("シートを読み込みました！枠を動かしてね");
-        });
-      };
-
-      if (width > MAX_DIM || height > MAX_DIM) {
-        if (width > height) {
-          height = Math.round((height * MAX_DIM) / width);
-          width = MAX_DIM;
-        } else {
-          width = Math.round((width * MAX_DIM) / height);
-          height = MAX_DIM;
-        }
-        
-        const tempCanvas = document.createElement("canvas");
-        tempCanvas.width = width;
-        tempCanvas.height = height;
-        const tctx = tempCanvas.getContext("2d");
-        tctx.drawImage(im, 0, 0, width, height);
-        
-        const resizedImg = new Image();
-        resizedImg.onload = () => processLoadedImage(resizedImg);
-        resizedImg.src = tempCanvas.toDataURL("image/jpeg", 0.9);
-      } else {
-        processLoadedImage(im);
-      }
+      // ステップ①を表示状態にする
+      $("#sheetStep").classList.remove("hidden");
+      $("#adjustStep").classList.add("hidden");
+      
+      setupCanvas();
+      renderSheet();
+      initOrAdjustSelection();
+      refresh();
+      toast("シートを読み込みました！枠を動かしてね");
     };
-    im.onerror = () => toast("画像の読み込みに失敗しました。");
+    im.onerror = () => {
+      toast("画像の読み込みに失敗しました。");
+    };
     im.src = event.target.result;
   };
   reader.readAsDataURL(f);
