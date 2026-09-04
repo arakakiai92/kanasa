@@ -12,14 +12,13 @@ let selectionRect = null; // { x, y, w, h }
 let selection = null;     // 元画像座標系 { x, y, w, h }
 
 // ②３レイヤー構成設定
-// layerOrder: [一番手前(最前面), 中間, 一番奥(最背面)]
 let layerOrder = ["illust", "text", "bg"];
 
 // Layer: 背景
 let bgConfig = {
   style: "none", // 'none' | 'image' | 'circle' | 'roundRect' | 'full'
   color: "#fff9db",
-  image: null,   // 背景画像（Imageオブジェクト）
+  image: null,
   scale: 1,
   ox: 0,
   oy: 0
@@ -28,8 +27,8 @@ let bgConfig = {
 // Layer: イラスト
 let adjust = { src: null, processedSrc: null, scale: 1, ox: 0, oy: 0 };
 let bgTransparent = false;
-let bgTolerance = 22;      // 透過のつよさ（5〜60）
-let protectWhite = true;   // 白ぬけ防止（輪郭線保護）
+let bgTolerance = 22;
+let protectWhite = true;
 let illustBorder = false;
 let illustBorderColor = "#ffffff";
 
@@ -51,10 +50,10 @@ let eraserRadius = 14;
 let eraserUndoStack = [];
 let lastErasePoint = null;
 
-let currentLayer = "illust"; // スマホ操作の初期選択は「イラスト」
+let currentLayer = "illust"; // 初期選択：イラスト
 let results = [];
-let editingIndex = null;     // 再編集中のカット番号 (null: 新規作成)
-let currentModalIndex = null;// モーダルで表示中のカット番号
+let editingIndex = null;
+let currentModalIndex = null;
 
 const SPEC = {
   sticker: { ratio: 370 / 320, w: 370, h: 320, label: "370 × 320 px（スタンプ用）" },
@@ -77,7 +76,7 @@ document.querySelectorAll(".switch button").forEach(b => b.onclick = () => {
 
 $("#count").onchange = () => { $("#total").textContent = $("#count").value; };
 
-// シート画像読み込み（Androidのメモリ不足・高解像度写真フリーズ防止の自動リサイズ対応）
+// シート画像読み込み
 $("#file").onchange = e => {
   const f = e.target.files[0];
   if (!f) return;
@@ -88,62 +87,19 @@ $("#file").onchange = e => {
   reader.onload = event => {
     const im = new Image();
     im.onload = () => {
-      let width = im.naturalWidth;
-      let height = im.naturalHeight;
-      const MAX_DIM = 2048;
-      
-      if (width > MAX_DIM || height > MAX_DIM) {
-        if (width > height) {
-          height = Math.round((height * MAX_DIM) / width);
-          width = MAX_DIM;
-        } else {
-          width = Math.round((width * MAX_DIM) / height);
-          height = MAX_DIM;
-        }
-        
-        const tempCanvas = document.createElement("canvas");
-        tempCanvas.width = width;
-        tempCanvas.height = height;
-        const tctx = tempCanvas.getContext("2d");
-        tctx.drawImage(im, 0, 0, width, height);
-        
-        const resizedImg = new Image();
-        resizedImg.onload = () => {
-          img = resizedImg;
-          results = [];
-          editingIndex = null;
-          setupCanvas();
-          renderSheet();
-          $("#sheetStep").classList.remove("hidden");
-          $("#adjustStep").classList.add("hidden");
-          resetSelection();
-          refresh();
-          toast("シートを読み込みました！絵を指で囲んでね");
-        };
-        resizedImg.onerror = () => {
-          toast("リサイズ画像の生成に失敗しました。");
-        };
-        resizedImg.src = tempCanvas.toDataURL("image/jpeg", 0.9);
-      } else {
-        img = im;
-        results = [];
-        editingIndex = null;
-        setupCanvas();
-        renderSheet();
-        $("#sheetStep").classList.remove("hidden");
-        $("#adjustStep").classList.add("hidden");
-        resetSelection();
-        refresh();
-        toast("シートを読み込みました！絵を指で囲んでね");
-      }
+      img = im;
+      results = [];
+      editingIndex = null;
+      setupCanvas();
+      renderSheet();
+      $("#sheetStep").classList.remove("hidden");
+      $("#adjustStep").classList.add("hidden");
+      resetSelection();
+      refresh();
+      toast("シートを読み込みました！絵を指で囲んでね");
     };
-    im.onerror = () => {
-      toast("画像の読み込みに失敗しました。別の画像をお試しください。");
-    };
+    im.onerror = () => toast("画像の読み込みに失敗しました。");
     im.src = event.target.result;
-  };
-  reader.onerror = () => {
-    toast("ファイルの読み込みに失敗しました。");
   };
   reader.readAsDataURL(f);
 };
@@ -225,13 +181,15 @@ $("#startSelect").onclick = () => {
 
 function getStagePoint(e) {
   const r = stage.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
   return {
-    x: Math.max(0, Math.min(r.width, e.clientX - r.left)),
-    y: Math.max(0, Math.min(r.height, e.clientY - r.top))
+    x: Math.max(0, Math.min(r.width, clientX - r.left)),
+    y: Math.max(0, Math.min(r.height, clientY - r.top))
   };
 }
 
-// ①切り出し画面ドラッグ＆リサイズ
+// ①切り出し画面のタッチ・マウス操作
 let cropDrag = null;
 
 wrap.addEventListener("pointerdown", e => {
@@ -244,24 +202,11 @@ wrap.addEventListener("pointerdown", e => {
   const isInsideCrop = (e.target === crop || crop.contains(e.target));
 
   if (handleEl) {
-    cropDrag = {
-      type: "resize",
-      handle: handleEl.dataset.h,
-      startP: p,
-      orig: { ...selectionRect }
-    };
+    cropDrag = { type: "resize", handle: handleEl.dataset.h, startP: p, orig: { ...selectionRect } };
   } else if (isInsideCrop && selectionRect) {
-    cropDrag = {
-      type: "move",
-      startP: p,
-      orig: { ...selectionRect }
-    };
+    cropDrag = { type: "move", startP: p, orig: { ...selectionRect } };
   } else {
-    cropDrag = {
-      type: "draw",
-      startP: p,
-      orig: null
-    };
+    cropDrag = { type: "draw", startP: p, orig: null };
   }
 });
 
@@ -275,69 +220,37 @@ wrap.addEventListener("pointermove", e => {
   if (cropDrag.type === "move") {
     const dx = p.x - cropDrag.startP.x;
     const dy = p.y - cropDrag.startP.y;
-    const maxPosX = Math.max(0, sr.width - cropDrag.orig.w);
-    const maxPosY = Math.max(0, sr.height - cropDrag.orig.h);
-
     selectionRect = {
-      x: Math.max(0, Math.min(maxPosX, cropDrag.orig.x + dx)),
-      y: Math.max(0, Math.min(maxPosY, cropDrag.orig.y + dy)),
+      x: Math.max(0, Math.min(sr.width - cropDrag.orig.w, cropDrag.orig.x + dx)),
+      y: Math.max(0, Math.min(sr.height - cropDrag.orig.h, cropDrag.orig.y + dy)),
       w: cropDrag.orig.w,
       h: cropDrag.orig.h
     };
     renderCropBox();
-
   } else if (cropDrag.type === "draw") {
     let dx = p.x - cropDrag.startP.x;
     let dy = p.y - cropDrag.startP.y;
-    let w = Math.abs(dx);
-    let h = Math.abs(dy);
-
-    if (w / h > r) h = w / r;
-    else w = h * r;
-
+    let w = Math.abs(dx), h = Math.abs(dy);
+    if (w / h > r) h = w / r; else w = h * r;
     if (w < 20 || h < 20) return;
-
     let x = dx < 0 ? cropDrag.startP.x - w : cropDrag.startP.x;
     let y = dy < 0 ? cropDrag.startP.y - h : cropDrag.startP.y;
-
-    x = Math.max(0, Math.min(sr.width - w, x));
-    y = Math.max(0, Math.min(sr.height - h, y));
-
-    selectionRect = { x, y, w, h };
+    selectionRect = {
+      x: Math.max(0, Math.min(sr.width - w, x)),
+      y: Math.max(0, Math.min(sr.height - h, y)),
+      w, h
+    };
     renderCropBox();
-
   } else if (cropDrag.type === "resize") {
-    const h = cropDrag.handle;
+    const handle = cropDrag.handle;
     const orig = cropDrag.orig;
-
-    let ax = (h.includes("w")) ? (orig.x + orig.w) : orig.x;
-    let ay = (h.includes("n")) ? (orig.y + orig.h) : orig.y;
-
+    let ax = handle.includes("w") ? orig.x + orig.w : orig.x;
+    let ay = handle.includes("n") ? orig.y + orig.h : orig.y;
     let newW = Math.abs(p.x - ax);
     let newH = newW / r;
-
     if (newW < 36) { newW = 36; newH = newW / r; }
-
-    let nx = (h.includes("w")) ? (ax - newW) : ax;
-    let ny = (h.includes("n")) ? (ay - newH) : ay;
-
-    if (nx < 0) {
-      nx = 0; newW = ax; newH = newW / r;
-      if (h.includes("n")) ny = ay - newH;
-    }
-    if (ny < 0) {
-      ny = 0; newH = ay; newW = newH * r;
-      if (h.includes("w")) nx = ax - newW;
-    }
-    if (nx + newW > sr.width) {
-      newW = sr.width - nx; newH = newW / r;
-      if (h.includes("n")) ny = ay - newH;
-    }
-    if (ny + newH > sr.height) {
-      newH = sr.height - ny; newW = newH * r;
-      if (h.includes("w")) nx = ax - newW;
-    }
-
+    let nx = handle.includes("w") ? ax - newW : ax;
+    let ny = handle.includes("n") ? ay - newH : ay;
     selectionRect = { x: nx, y: ny, w: newW, h: newH };
     renderCropBox();
   }
@@ -349,11 +262,8 @@ wrap.addEventListener("pointercancel", () => { cropDrag = null; });
 function nudgeCrop(dx, dy) {
   if (!selectionRect) return;
   const sr = stage.getBoundingClientRect();
-  const maxPosX = Math.max(0, sr.width - selectionRect.w);
-  const maxPosY = Math.max(0, sr.height - selectionRect.h);
-
-  selectionRect.x = Math.max(0, Math.min(maxPosX, selectionRect.x + dx));
-  selectionRect.y = Math.max(0, Math.min(maxPosY, selectionRect.y + dy));
+  selectionRect.x = Math.max(0, Math.min(sr.width - selectionRect.w, selectionRect.x + dx));
+  selectionRect.y = Math.max(0, Math.min(sr.height - selectionRect.h, selectionRect.y + dy));
   renderCropBox();
 }
 
@@ -363,20 +273,11 @@ function scaleCrop(factor) {
   const sr = stage.getBoundingClientRect();
   const cx = selectionRect.x + selectionRect.w / 2;
   const cy = selectionRect.y + selectionRect.h / 2;
-
   let newW = selectionRect.w * factor;
   let newH = newW / r;
-
   if (newW < 36) { newW = 36; newH = newW / r; }
-  if (newW > sr.width) { newW = sr.width; newH = newW / r; }
-  if (newH > sr.height) { newH = sr.height; newW = newH * r; }
-
-  let nx = cx - newW / 2;
-  let ny = cy - newH / 2;
-
-  nx = Math.max(0, Math.min(sr.width - newW, nx));
-  ny = Math.max(0, Math.min(sr.height - newH, ny));
-
+  let nx = Math.max(0, Math.min(sr.width - newW, cx - newW / 2));
+  let ny = Math.max(0, Math.min(sr.height - newH, cy - newH / 2));
   selectionRect = { x: nx, y: ny, w: newW, h: newH };
   renderCropBox();
 }
@@ -391,17 +292,12 @@ $("#cropCenter").onclick = () => {
   selectionRect.x = (sr.width - selectionRect.w) / 2;
   selectionRect.y = (sr.height - selectionRect.h) / 2;
   renderCropBox();
-  toast("枠を中央に配置しました");
 };
 $("#cropZoomIn").onclick = () => scaleCrop(1.08);
 $("#cropZoomOut").onclick = () => scaleCrop(0.92);
 
-// ②個別編集画面への遷移（新規作成）
 $("#adjustBtn").onclick = () => {
-  if (!selection) {
-    toast("絵を指で囲んでから押してね");
-    return;
-  }
+  if (!selection) { toast("絵を指で囲んでから押してね"); return; }
   editingIndex = null;
   openAdjustNew();
 };
@@ -420,7 +316,6 @@ function cropFromOriginal(sel) {
   return c;
 }
 
-// 新規作成時の初期化
 function openAdjustNew() {
   const src = cropFromOriginal(selection);
   preview.width = SPEC[mode].w;
@@ -429,15 +324,7 @@ function openAdjustNew() {
   adjust = { src, processedSrc: null, scale: 1, ox: 0, oy: 0 };
   centerIllust();
 
-  bgConfig = {
-    style: "none",
-    color: "#fff9db",
-    image: null,
-    scale: 1,
-    ox: 0,
-    oy: 0
-  };
-
+  bgConfig = { style: "none", color: "#fff9db", image: null, scale: 1, ox: 0, oy: 0 };
   textConfig.ox = preview.width / 2;
   textConfig.oy = preview.height - 40;
   textConfig.text = "";
@@ -480,18 +367,15 @@ function openAdjustNew() {
   renderPreview();
 }
 
-// 過去の完成カットを再編集する際の復元処理
 function openAdjustForEdit(savedState) {
   preview.width = SPEC[mode].w;
   preview.height = SPEC[mode].h;
 
-  // 1. イラスト復元
   adjust.src = savedState.adjust.src;
   adjust.scale = savedState.adjust.scale;
   adjust.ox = savedState.adjust.ox;
   adjust.oy = savedState.adjust.oy;
 
-  // 2. 文字復元
   textConfig = { ...savedState.textConfig };
   $("#stampText").value = textConfig.text || "";
   $("#textFont").value = textConfig.font || "'Mochiy Pop One', sans-serif";
@@ -503,7 +387,6 @@ function openAdjustForEdit(savedState) {
     b.classList.toggle("active", b.dataset.stroke === textConfig.stroke);
   });
 
-  // 3. 背景復元
   bgConfig = {
     style: savedState.bgConfig.style || "none",
     color: savedState.bgConfig.color || "#fff9db",
@@ -513,7 +396,6 @@ function openAdjustForEdit(savedState) {
     oy: savedState.bgConfig.oy || 0
   };
 
-  // 4. 重なり順・透過・フチ設定の復元
   layerOrder = [...savedState.layerOrder];
   bgTransparent = savedState.bgTransparent;
   bgTolerance = savedState.bgTolerance !== undefined ? savedState.bgTolerance : 22;
@@ -558,7 +440,7 @@ function centerIllust() {
 }
 
 // ==========================================
-// 消しゴム機能（手動タッチ消去＆Undo）
+// 消しゴム機能
 // ==========================================
 function setEraserMode(active) {
   isEraserActive = active;
@@ -566,9 +448,7 @@ function setEraserMode(active) {
   $("#eraserToggleBtn").classList.toggle("active", isEraserActive);
   $("#eraserOptionsWrap").classList.toggle("hidden", !isEraserActive);
   adjustArea.classList.toggle("erasing", isEraserActive);
-  if (!isEraserActive) {
-    $("#eraserCursor").classList.add("hidden");
-  }
+  if (!isEraserActive) $("#eraserCursor").classList.add("hidden");
 }
 
 function updateEraserUI() {
@@ -577,13 +457,9 @@ function updateEraserUI() {
 }
 
 $("#eraserToggleBtn").onclick = () => {
-  if (currentLayer !== "illust") {
-    switchLayer("illust");
-  }
+  if (currentLayer !== "illust") switchLayer("illust");
   setEraserMode(!isEraserActive);
-  if (isEraserActive) {
-    toast("消しゴムON：プレビューをなぞって不要な部分を消せます");
-  }
+  if (isEraserActive) toast("消しゴムON：プレビューをなぞって不要な部分を消せます");
 };
 
 document.querySelectorAll(".eSizeBtn").forEach(btn => {
@@ -645,10 +521,8 @@ function updateEraserCursorPos(clientX, clientY) {
   const rect = adjustArea.getBoundingClientRect();
   const x = clientX - rect.left;
   const y = clientY - rect.top;
-
   const displayScale = rect.width / preview.width;
   const diameter = eraserRadius * 2 * displayScale;
-
   cursor.style.width = `${diameter}px`;
   cursor.style.height = `${diameter}px`;
   cursor.style.left = `${x}px`;
@@ -657,13 +531,185 @@ function updateEraserCursorPos(clientX, clientY) {
 }
 
 // ==========================================
+// スマホ（iPhone/Android）完全対応の【スマートタッチ＆ドラッグ＆ピンチズーム】
+// ==========================================
+let touchMode = null; // 'drag' or 'pinch'
+let touchStartX = 0, touchStartY = 0;
+let origOx = 0, origOy = 0;
+let initialDist = 0;
+let initialScale = 1;
+
+adjustArea.addEventListener("touchstart", e => {
+  e.preventDefault();
+  const rect = preview.getBoundingClientRect();
+  const scaleFactor = preview.width / rect.width;
+
+  // 消しゴムモード中
+  if (isEraserActive && currentLayer === "illust" && e.touches.length === 1) {
+    if (adjust.src) {
+      const sctx = adjust.src.getContext("2d");
+      const snapshot = sctx.getImageData(0, 0, adjust.src.width, adjust.src.height);
+      eraserUndoStack.push(snapshot);
+      if (eraserUndoStack.length > 10) eraserUndoStack.shift();
+      updateEraserUI();
+    }
+    const px = (e.touches[0].clientX - rect.left) * scaleFactor;
+    const py = (e.touches[0].clientY - rect.top) * scaleFactor;
+    lastErasePoint = { x: px, y: py };
+    eraseAtCoords(lastErasePoint, null);
+    updateIllustCache();
+    renderPreview();
+    updateEraserCursorPos(e.touches[0].clientX, e.touches[0].clientY);
+    return;
+  }
+
+  // 1本指タッチ時：スマートタッチ切り替え（文字の近くか、キャラの近くかを自動判定して操作対象にする）
+  if (e.touches.length === 1 && !isEraserActive) {
+    const px = (e.touches[0].clientX - rect.left) * scaleFactor;
+    const py = (e.touches[0].clientY - rect.top) * scaleFactor;
+
+    if (textConfig.text && textConfig.text.trim() !== "") {
+      const distToText = Math.hypot(px - textConfig.ox, py - textConfig.oy);
+      const iw = preview.width * adjust.scale;
+      const ih = (preview.width * adjust.scale / adjust.src.width) * adjust.src.height;
+      const illustCenterX = adjust.ox + iw / 2;
+      const illustCenterY = adjust.oy + ih / 2;
+      const distToIllust = Math.hypot(px - illustCenterX, py - illustCenterY);
+
+      // 文字に近い場合は自動で文字レイヤーに切り替え
+      if (distToText < 90 && distToText < distToIllust) {
+        switchLayer("text");
+      } else {
+        switchLayer("illust");
+      }
+    }
+  }
+
+  if (e.touches.length === 1) {
+    touchMode = 'drag';
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    if (currentLayer === "illust") { origOx = adjust.ox; origOy = adjust.oy; }
+    else if (currentLayer === "text") { origOx = textConfig.ox; origOy = textConfig.oy; }
+    else if (currentLayer === "bg") { origOx = bgConfig.ox; origOy = bgConfig.oy; }
+  } else if (e.touches.length === 2) {
+    touchMode = 'pinch';
+    initialDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    if (currentLayer === "illust") initialScale = adjust.scale;
+    else if (currentLayer === "text") initialScale = textConfig.size;
+    else if (currentLayer === "bg") initialScale = bgConfig.scale;
+  }
+}, { passive: false });
+
+adjustArea.addEventListener("touchmove", e => {
+  e.preventDefault();
+  const rect = preview.getBoundingClientRect();
+  const scaleFactor = preview.width / rect.width;
+
+  if (isEraserActive && currentLayer === "illust" && e.touches.length === 1) {
+    updateEraserCursorPos(e.touches[0].clientX, e.touches[0].clientY);
+    if (lastErasePoint) {
+      const px = (e.touches[0].clientX - rect.left) * scaleFactor;
+      const py = (e.touches[0].clientY - rect.top) * scaleFactor;
+      const currentP = { x: px, y: py };
+      eraseAtCoords(lastErasePoint, currentP);
+      lastErasePoint = currentP;
+      updateIllustCache();
+      renderPreview();
+    }
+    return;
+  }
+
+  if (touchMode === 'drag' && e.touches.length === 1) {
+    const dx = (e.touches[0].clientX - touchStartX) * scaleFactor;
+    const dy = (e.touches[0].clientY - touchStartY) * scaleFactor;
+
+    if (currentLayer === "illust") {
+      adjust.ox = origOx + dx;
+      adjust.oy = origOy + dy;
+    } else if (currentLayer === "text") {
+      textConfig.ox = origOx + dx;
+      textConfig.oy = origOy + dy;
+    } else if (currentLayer === "bg") {
+      bgConfig.ox = origOx + dx;
+      bgConfig.oy = origOy + dy;
+    }
+    renderPreview();
+  } else if (touchMode === 'pinch' && e.touches.length === 2) {
+    const currentDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    if (initialDist > 0) {
+      const ratio = currentDist / initialDist;
+      if (currentLayer === "illust") {
+        adjust.scale = Math.max(0.4, Math.min(3.0, initialScale * ratio));
+      } else if (currentLayer === "text") {
+        textConfig.size = Math.round(Math.max(16, Math.min(76, initialScale * ratio)));
+      } else if (currentLayer === "bg") {
+        bgConfig.scale = Math.max(0.2, Math.min(3.0, initialScale * ratio));
+      }
+      syncCommonScaleSlider();
+      renderPreview();
+    }
+  }
+}, { passive: false });
+
+adjustArea.addEventListener("touchend", e => {
+  lastErasePoint = null;
+  if (isEraserActive) $("#eraserCursor").classList.add("hidden");
+
+  if (e.touches.length === 0) {
+    touchMode = null;
+  } else if (e.touches.length === 1) {
+    touchMode = 'drag';
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    if (currentLayer === "illust") { origOx = adjust.ox; origOy = adjust.oy; }
+    else if (currentLayer === "text") { origOx = textConfig.ox; origOy = textConfig.oy; }
+    else if (currentLayer === "bg") { origOx = bgConfig.ox; origOy = bgConfig.oy; }
+  }
+});
+
+// マウス用フォールバック
+adjustArea.addEventListener("mousedown", e => {
+  if (isEraserActive && currentLayer === "illust") {
+    if (adjust.src) {
+      const sctx = adjust.src.getContext("2d");
+      eraserUndoStack.push(sctx.getImageData(0, 0, adjust.src.width, adjust.src.height));
+      if (eraserUndoStack.length > 10) eraserUndoStack.shift();
+      updateEraserUI();
+    }
+    const rect = preview.getBoundingClientRect();
+    const sf = preview.width / rect.width;
+    lastErasePoint = { x: (e.clientX - rect.left) * sf, y: (e.clientY - rect.top) * sf };
+    eraseAtCoords(lastErasePoint, null);
+    updateIllustCache();
+    renderPreview();
+  }
+});
+adjustArea.addEventListener("mousemove", e => {
+  if (isEraserActive && currentLayer === "illust" && lastErasePoint) {
+    const rect = preview.getBoundingClientRect();
+    const sf = preview.width / rect.width;
+    const currentP = { x: (e.clientX - rect.left) * sf, y: (e.clientY - rect.top) * sf };
+    eraseAtCoords(lastErasePoint, currentP);
+    lastErasePoint = currentP;
+    updateIllustCache();
+    renderPreview();
+  }
+});
+adjustArea.addEventListener("mouseup", () => { lastErasePoint = null; });
+
+// ==========================================
 // レイヤー切り替え＆クイックコントローラー連動
 // ==========================================
 function switchLayer(layerId) {
   currentLayer = layerId;
-  if (currentLayer !== "illust" && isEraserActive) {
-    setEraserMode(false);
-  }
+  if (currentLayer !== "illust" && isEraserActive) setEraserMode(false);
 
   document.querySelectorAll(".layerTabBar .tabBtn").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.layer === layerId);
@@ -696,38 +742,30 @@ function syncCommonScaleSlider() {
   const unit = $("#commonScaleUnit");
 
   if (currentLayer === "illust") {
-    slider.min = 40;
-    slider.max = 300;
+    slider.min = 40; slider.max = 300;
     slider.value = Math.round(adjust.scale * 100);
     label.textContent = "絵の大きさ：";
-    val.textContent = slider.value;
-    unit.textContent = "%";
+    val.textContent = slider.value; unit.textContent = "%";
   } else if (currentLayer === "text") {
-    slider.min = 16;
-    slider.max = 76;
+    slider.min = 16; slider.max = 76;
     slider.value = textConfig.size;
     label.textContent = "文字の大きさ：";
-    val.textContent = slider.value;
-    unit.textContent = "px";
+    val.textContent = slider.value; unit.textContent = "px";
   } else if (currentLayer === "bg") {
-    slider.min = 20;
-    slider.max = 300;
+    slider.min = 20; slider.max = 300;
     slider.value = Math.round(bgConfig.scale * 100);
     label.textContent = "背景の大きさ：";
-    val.textContent = slider.value;
-    unit.textContent = "%";
+    val.textContent = slider.value; unit.textContent = "%";
   }
 }
 
 $("#commonScaleSlider").oninput = e => {
   const v = Number(e.target.value);
   $("#commonScaleVal").textContent = v;
-
   if (currentLayer === "illust") {
     const oldScale = adjust.scale;
     const newScale = v / 100;
-    const cx = preview.width / 2;
-    const cy = preview.height / 2;
+    const cx = preview.width / 2, cy = preview.height / 2;
     adjust.ox = cx - (cx - adjust.ox) * (newScale / oldScale);
     adjust.oy = cy - (cy - adjust.oy) * (newScale / oldScale);
     adjust.scale = newScale;
@@ -740,16 +778,9 @@ $("#commonScaleSlider").oninput = e => {
 };
 
 function nudgeCurrentLayer(dx, dy) {
-  if (currentLayer === "illust") {
-    adjust.ox += dx;
-    adjust.oy += dy;
-  } else if (currentLayer === "text") {
-    textConfig.ox += dx;
-    textConfig.oy += dy;
-  } else if (currentLayer === "bg") {
-    bgConfig.ox += dx;
-    bgConfig.oy += dy;
-  }
+  if (currentLayer === "illust") { adjust.ox += dx; adjust.oy += dy; }
+  else if (currentLayer === "text") { textConfig.ox += dx; textConfig.oy += dy; }
+  else if (currentLayer === "bg") { bgConfig.ox += dx; bgConfig.oy += dy; }
   renderPreview();
 }
 
@@ -759,88 +790,31 @@ $("#ctrlLeft").onclick = () => nudgeCurrentLayer(-6, 0);
 $("#ctrlRight").onclick = () => nudgeCurrentLayer(6, 0);
 
 $("#ctrlCenter").onclick = () => {
-  if (currentLayer === "illust") {
-    centerIllust();
-    toast("イラストを中央に戻しました");
-  } else if (currentLayer === "text") {
-    textConfig.ox = preview.width / 2;
-    toast("文字を左右中央に配置しました");
-  } else if (currentLayer === "bg") {
-    bgConfig.ox = 0;
-    bgConfig.oy = 0;
-    toast("はいけいを中央に戻しました");
-  }
+  if (currentLayer === "illust") centerIllust();
+  else if (currentLayer === "text") textConfig.ox = preview.width / 2;
+  else if (currentLayer === "bg") { bgConfig.ox = 0; bgConfig.oy = 0; }
   renderPreview();
 };
 
-$("#centerIllustBtn").onclick = () => {
-  centerIllust();
-  renderPreview();
-  toast("イラストを中央に戻しました");
-};
-$("#fitWidth").onclick = () => {
-  adjust.scale = preview.width / adjust.src.width;
-  centerIllust();
-  syncCommonScaleSlider();
-  renderPreview();
-};
-$("#fitHeight").onclick = () => {
-  adjust.scale = preview.height / adjust.src.height;
-  centerIllust();
-  syncCommonScaleSlider();
-  renderPreview();
-};
+$("#centerIllustBtn").onclick = () => { centerIllust(); renderPreview(); };
+$("#fitWidth").onclick = () => { adjust.scale = preview.width / adjust.src.width; centerIllust(); syncCommonScaleSlider(); renderPreview(); };
+$("#fitHeight").onclick = () => { adjust.scale = preview.height / adjust.src.height; centerIllust(); syncCommonScaleSlider(); renderPreview(); };
 
-$("#textPosTop").onclick = () => {
-  textConfig.ox = preview.width / 2;
-  textConfig.oy = 34;
-  renderPreview();
-};
-$("#textPosCenter").onclick = () => {
-  textConfig.ox = preview.width / 2;
-  textConfig.oy = preview.height / 2;
-  renderPreview();
-};
-$("#textPosBottom").onclick = () => {
-  textConfig.ox = preview.width / 2;
-  textConfig.oy = preview.height - 40;
-  renderPreview();
-};
+$("#textPosTop").onclick = () => { textConfig.ox = preview.width / 2; textConfig.oy = 34; renderPreview(); };
+$("#textPosCenter").onclick = () => { textConfig.ox = preview.width / 2; textConfig.oy = preview.height / 2; renderPreview(); };
+$("#textPosBottom").onclick = () => { textConfig.ox = preview.width / 2; textConfig.oy = preview.height - 40; renderPreview(); };
 
-$("#bgCenterBtn").onclick = () => {
-  bgConfig.ox = 0;
-  bgConfig.oy = 0;
-  renderPreview();
-  toast("はいけいを中央に戻しました");
-};
-$("#bgFitFull").onclick = () => {
-  bgConfig.style = "full";
-  bgConfig.ox = 0;
-  bgConfig.oy = 0;
-  bgConfig.scale = 1;
-  updateBgUI();
-  syncCommonScaleSlider();
-  renderPreview();
-  toast("画面いっぱいに広げました");
-};
-$("#bgResetPos").onclick = () => {
-  bgConfig.ox = 0;
-  bgConfig.oy = 0;
-  bgConfig.scale = 1;
-  updateBgUI();
-  syncCommonScaleSlider();
-  renderPreview();
-  toast("はいけいを初期位置・標準サイズに戻しました");
-};
+$("#bgCenterBtn").onclick = () => { bgConfig.ox = 0; bgConfig.oy = 0; renderPreview(); };
+$("#bgFitFull").onclick = () => { bgConfig.style = "full"; bgConfig.ox = 0; bgConfig.oy = 0; bgConfig.scale = 1; updateBgUI(); syncCommonScaleSlider(); renderPreview(); };
+$("#bgResetPos").onclick = () => { bgConfig.ox = 0; bgConfig.oy = 0; bgConfig.scale = 1; updateBgUI(); syncCommonScaleSlider(); renderPreview(); };
 
 // ==========================================
 // 重なり順ドロワー
 // ==========================================
 $("#toggleOrderDrawer").onclick = () => {
   const drawer = $("#layerOrderDrawer");
-  const isHidden = drawer.classList.contains("hidden");
-  drawer.classList.toggle("hidden", !isHidden);
-  $("#toggleOrderDrawer").classList.toggle("active", isHidden);
+  drawer.classList.toggle("hidden");
+  $("#toggleOrderDrawer").classList.toggle("active");
 };
 $("#closeOrderDrawer").onclick = () => {
   $("#layerOrderDrawer").classList.add("hidden");
@@ -852,17 +826,11 @@ function moveLayer(layerId, dir) {
   if (idx === -1) return;
   const newIdx = idx + dir;
   if (newIdx < 0 || newIdx >= layerOrder.length) return;
-
   const temp = layerOrder[idx];
   layerOrder[idx] = layerOrder[newIdx];
   layerOrder[newIdx] = temp;
-
   updateLayerListUI();
   renderPreview();
-
-  const posName = newIdx === 0 ? "一番手前" : (newIdx === 1 ? "中間" : "一番奥");
-  const layerName = layerId === "text" ? "文字" : (layerId === "illust" ? "イラスト" : "はいけい");
-  toast(`${layerName}を【${posName}】に移動しました`);
 }
 
 document.querySelectorAll(".btnOrderUp").forEach(btn => {
@@ -877,23 +845,14 @@ function updateLayerListUI() {
   layerOrder.forEach((id, idx) => {
     const item = $(`#item-${id}`);
     if (item) list.appendChild(item);
-
     const badge = $(`#badge-${id}`);
     const upBtn = item.querySelector(".btnOrderUp");
     const downBtn = item.querySelector(".btnOrderDown");
-
     if (badge) {
       badge.classList.remove("badge-top", "badge-mid", "badge-bot");
-      if (idx === 0) {
-        badge.textContent = "第3層 (一番手前)";
-        badge.classList.add("badge-top");
-      } else if (idx === 1) {
-        badge.textContent = "第2層 (中間)";
-        badge.classList.add("badge-mid");
-      } else {
-        badge.textContent = "第1層 (一番奥)";
-        badge.classList.add("badge-bot");
-      }
+      if (idx === 0) { badge.textContent = "第3層 (一番手前)"; badge.classList.add("badge-top"); }
+      else if (idx === 1) { badge.textContent = "第2層 (中間)"; badge.classList.add("badge-mid"); }
+      else { badge.textContent = "第1層 (一番奥)"; badge.classList.add("badge-bot"); }
     }
     if (upBtn) upBtn.disabled = (idx === 0);
     if (downBtn) downBtn.disabled = (idx === layerOrder.length - 1);
@@ -912,38 +871,23 @@ function updateLayerStatus() {
   }
 
   let stIllust = "標準";
-  if (bgTransparent && illustBorder) {
-    stIllust = illustBorderColor.toLowerCase() === "#ffffff" ? "透過+白フチ" : "透過+カラーフチ";
-  } else if (bgTransparent) {
-    stIllust = "透過ON";
-  }
+  if (bgTransparent && illustBorder) stIllust = "透過+フチ";
+  else if (bgTransparent) stIllust = "透過ON";
   $("#stateIllust").textContent = stIllust;
 
-  if (bgConfig.style === "none" || (bgConfig.style !== "image" && bgConfig.color === "transparent")) {
-    $("#stateBg").textContent = "背景なし (透明)";
-  } else if (bgConfig.style === "image") {
-    $("#stateBg").textContent = "📷 写真・画像";
-  } else if (bgConfig.style === "circle") {
-    $("#stateBg").textContent = "⚪ まる型背景";
-  } else if (bgConfig.style === "roundRect") {
-    $("#stateBg").textContent = "🔲 角丸プレート";
-  } else if (bgConfig.style === "full") {
-    $("#stateBg").textContent = "⬜ 全面カラー";
-  }
+  if (bgConfig.style === "none") $("#stateBg").textContent = "背景なし (透明)";
+  else if (bgConfig.style === "image") $("#stateBg").textContent = "📷 写真・画像";
+  else if (bgConfig.style === "circle") $("#stateBg").textContent = "⚪ まる型背景";
+  else if (bgConfig.style === "roundRect") $("#stateBg").textContent = "🔲 角丸プレート";
+  else if (bgConfig.style === "full") $("#stateBg").textContent = "⬜ 全面カラー";
 
   $("#transState").textContent = bgTransparent ? "透過 ON" : "透過 OFF";
   $("#transparent").textContent = bgTransparent ? "↩️ 透過を解除" : "✨ 絵のまわりを透明にする";
 }
 
-// イラストレイヤーの透過・フチ画像キャッシュ生成
 function updateIllustCache() {
   if (!adjust.src) return;
-
-  if (!bgTransparent) {
-    adjust.processedSrc = adjust.src;
-    return;
-  }
-
+  if (!bgTransparent) { adjust.processedSrc = adjust.src; return; }
   let c = removeBackground(adjust.src, bgTolerance, protectWhite);
   if (illustBorder) {
     const px = Number($("#borderWidth").value);
@@ -953,86 +897,47 @@ function updateIllustCache() {
 }
 
 // ==========================================
-// ３レイヤー合成描画（最背面から手前へ）
+// ３レイヤー合成描画
 // ==========================================
 function renderPreview() {
   pctx.clearRect(0, 0, preview.width, preview.height);
-
   const drawList = layerOrder.slice().reverse();
   drawList.forEach(layerId => {
     if (layerId === "bg") drawBgLayer(pctx, preview.width, preview.height);
     else if (layerId === "illust") drawIllustLayer(pctx, preview.width, preview.height);
     else if (layerId === "text") drawTextLayer(pctx, preview.width, preview.height);
   });
-
   updateLayerStatus();
 }
 
-// 背景レイヤー描画（写真・図形・全面カラーの拡大縮小・位置調整対応）
 function drawBgLayer(ctx, w, h) {
   if (bgConfig.style === "none") return;
-
   ctx.save();
-
-  // 1. 背景写真・画像
   if (bgConfig.style === "image") {
     if (bgConfig.image) {
-      const imgW = bgConfig.image.width;
-      const imgH = bgConfig.image.height;
+      const imgW = bgConfig.image.width, imgH = bgConfig.image.height;
       let baseW = w, baseH = h;
-      const canvasRatio = w / h;
-      const imgRatio = imgW / imgH;
-
-      if (imgRatio > canvasRatio) {
-        baseH = h;
-        baseW = h * imgRatio;
-      } else {
-        baseW = w;
-        baseH = w / imgRatio;
-      }
-
-      const drawW = baseW * bgConfig.scale;
-      const drawH = baseH * bgConfig.scale;
-      const cx = w / 2 + bgConfig.ox;
-      const cy = h / 2 + bgConfig.oy;
-
+      const canvasRatio = w / h, imgRatio = imgW / imgH;
+      if (imgRatio > canvasRatio) { baseH = h; baseW = h * imgRatio; }
+      else { baseW = w; baseH = w / imgRatio; }
+      const drawW = baseW * bgConfig.scale, drawH = baseH * bgConfig.scale;
+      const cx = w / 2 + bgConfig.ox, cy = h / 2 + bgConfig.oy;
       ctx.drawImage(bgConfig.image, cx - drawW / 2, cy - drawH / 2, drawW, drawH);
     }
     ctx.restore();
     return;
   }
-
-  // 2. 単色・プレート・まる型
-  if (!bgConfig.color || bgConfig.color === "transparent") {
-    ctx.restore();
-    return;
-  }
-
+  if (!bgConfig.color || bgConfig.color === "transparent") { ctx.restore(); return; }
   ctx.fillStyle = bgConfig.color;
-  const baseW = w * 0.85;
-  const baseH = h * 0.85;
-  const pw = baseW * bgConfig.scale;
-  const ph = baseH * bgConfig.scale;
-  const cx = w / 2 + bgConfig.ox;
-  const cy = h / 2 + bgConfig.oy;
-
+  const pw = w * 0.85 * bgConfig.scale, ph = h * 0.85 * bgConfig.scale;
+  const cx = w / 2 + bgConfig.ox, cy = h / 2 + bgConfig.oy;
   if (bgConfig.style === "full") {
-    const fw = w * bgConfig.scale;
-    const fh = h * bgConfig.scale;
-    ctx.fillRect(cx - fw / 2, cy - fh / 2, fw, fh);
+    ctx.fillRect(cx - (w * bgConfig.scale) / 2, cy - (h * bgConfig.scale) / 2, w * bgConfig.scale, h * bgConfig.scale);
   } else if (bgConfig.style === "circle") {
-    const r = Math.min(pw, ph) / 2;
-    ctx.beginPath();
-    ctx.arc(cx, cy, Math.max(1, r), 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, Math.max(1, Math.min(pw, ph) / 2), 0, Math.PI * 2); ctx.fill();
   } else if (bgConfig.style === "roundRect") {
-    const rx = cx - pw / 2;
-    const ry = cy - ph / 2;
-    const radius = Math.min(pw, ph) * 0.15;
-    drawRoundedRect(ctx, rx, ry, pw, ph, radius);
-    ctx.fill();
+    drawRoundedRect(ctx, cx - pw / 2, cy - ph / 2, pw, ph, Math.min(pw, ph) * 0.15); ctx.fill();
   }
-
   ctx.restore();
 }
 
@@ -1053,7 +958,6 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
 function drawIllustLayer(ctx, w, h) {
   const src = adjust.processedSrc || adjust.src;
   if (!src) return;
-
   const iw = w * adjust.scale;
   const ih = (w * adjust.scale / adjust.src.width) * adjust.src.height;
   ctx.drawImage(src, adjust.ox, adjust.oy, iw, ih);
@@ -1061,219 +965,57 @@ function drawIllustLayer(ctx, w, h) {
 
 function drawTextLayer(ctx, w, h) {
   if (textConfig.text.trim() === "") return;
-
-  const txt = textConfig.text;
-  const size = textConfig.size;
+  const txt = textConfig.text, size = textConfig.size;
   ctx.save();
   ctx.font = `900 ${size}px ${textConfig.font}`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
-  const lines = txt.split("\\n");
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const lines = txt.split("\n");
   const lineHeight = size * 1.18;
-  const totalH = lines.length * lineHeight;
-
-  const cx = textConfig.ox;
-  const cy = textConfig.oy;
-
+  const cx = textConfig.ox, cy = textConfig.oy;
   lines.forEach((line, i) => {
     const y = cy - ((lines.length - 1) * lineHeight) / 2 + i * lineHeight;
-
     if (textConfig.stroke !== "none") {
       ctx.strokeStyle = textConfig.stroke;
       ctx.lineWidth = Math.max(5, size * 0.22);
-      ctx.lineJoin = "round";
-      ctx.miterLimit = 2;
+      ctx.lineJoin = "round"; ctx.miterLimit = 2;
       ctx.strokeText(line, cx, y);
     }
-
     ctx.fillStyle = textConfig.color;
     ctx.fillText(line, cx, y);
   });
-
   ctx.restore();
 }
 
 // ==========================================
-// プレビュー画面：全レイヤー共通の直接ドラッグ＆ピンチズーム
-// ==========================================
-let activePointers = new Map();
-let initialPinchDistance = null;
-let initialPinchScale = 1;
-let previewDragStart = null;
-
-adjustArea.addEventListener("pointerdown", e => {
-  e.preventDefault();
-  adjustArea.setPointerCapture(e.pointerId);
-  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
-  const rect = preview.getBoundingClientRect();
-  const scaleFactor = preview.width / rect.width;
-  const px = (e.clientX - rect.left) * scaleFactor;
-  const py = (e.clientY - rect.top) * scaleFactor;
-
-  if (isEraserActive && currentLayer === "illust" && activePointers.size === 1) {
-    if (adjust.src) {
-      const sctx = adjust.src.getContext("2d");
-      const snapshot = sctx.getImageData(0, 0, adjust.src.width, adjust.src.height);
-      eraserUndoStack.push(snapshot);
-      if (eraserUndoStack.length > 10) eraserUndoStack.shift();
-      updateEraserUI();
-    }
-    lastErasePoint = { x: px, y: py };
-    eraseAtCoords(lastErasePoint, null);
-    updateIllustCache();
-    renderPreview();
-    updateEraserCursorPos(e.clientX, e.clientY);
-    return;
-  }
-
-  if (activePointers.size === 1) {
-    if (currentLayer === "text") {
-      previewDragStart = {
-        layer: "text",
-        startX: px,
-        startY: py,
-        origX: textConfig.ox,
-        origY: textConfig.oy
-      };
-    } else if (currentLayer === "illust") {
-      previewDragStart = {
-        layer: "illust",
-        startX: px,
-        startY: py,
-        origX: adjust.ox,
-        origOy: adjust.oy
-      };
-    } else if (currentLayer === "bg") {
-      previewDragStart = {
-        layer: "bg",
-        startX: px,
-        startY: py,
-        origX: bgConfig.ox,
-        origY: bgConfig.oy
-      };
-    }
-  } else if (activePointers.size === 2) {
-    const pts = Array.from(activePointers.values());
-    initialPinchDistance = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-    if (currentLayer === "text") initialPinchScale = textConfig.size;
-    else if (currentLayer === "illust") initialPinchScale = adjust.scale;
-    else if (currentLayer === "bg") initialPinchScale = bgConfig.scale;
-    previewDragStart = null;
-  }
-});
-
-adjustArea.addEventListener("pointermove", e => {
-  if (!activePointers.has(e.pointerId)) return;
-  e.preventDefault();
-  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
-  const rect = preview.getBoundingClientRect();
-  const scaleFactor = preview.width / rect.width;
-  const px = (e.clientX - rect.left) * scaleFactor;
-  const py = (e.clientY - rect.top) * scaleFactor;
-
-  if (isEraserActive && currentLayer === "illust") {
-    updateEraserCursorPos(e.clientX, e.clientY);
-    if (lastErasePoint) {
-      const currentP = { x: px, y: py };
-      eraseAtCoords(lastErasePoint, currentP);
-      lastErasePoint = currentP;
-      updateIllustCache();
-      renderPreview();
-    }
-    return;
-  }
-
-  if (activePointers.size === 2 && initialPinchDistance) {
-    const pts = Array.from(activePointers.values());
-    const currentDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-    const ratio = currentDist / initialPinchDistance;
-
-    if (currentLayer === "text") {
-      textConfig.size = Math.round(Math.max(16, Math.min(76, initialPinchScale * ratio)));
-    } else if (currentLayer === "illust") {
-      adjust.scale = Math.max(0.4, Math.min(3.0, initialPinchScale * ratio));
-    } else if (currentLayer === "bg") {
-      bgConfig.scale = Math.max(0.2, Math.min(3.0, initialPinchScale * ratio));
-    }
-    syncCommonScaleSlider();
-    renderPreview();
-    return;
-  }
-
-  if (previewDragStart && activePointers.size === 1) {
-    const dx = px - previewDragStart.startX;
-    const dy = py - previewDragStart.startY;
-
-    if (previewDragStart.layer === "text") {
-      textConfig.ox = previewDragStart.origX + dx;
-      textConfig.oy = previewDragStart.origY + dy;
-    } else if (previewDragStart.layer === "illust") {
-      adjust.ox = previewDragStart.origX + dx;
-      adjust.oy = previewDragStart.origY + dy;
-    } else if (previewDragStart.layer === "bg") {
-      bgConfig.ox = previewDragStart.origX + dx;
-      bgConfig.oy = previewDragStart.origY + dy;
-    }
-    renderPreview();
-  }
-});
-
-function endPointer(e) {
-  activePointers.delete(e.pointerId);
-  if (activePointers.size < 2) initialPinchDistance = null;
-  if (activePointers.size === 0) {
-    previewDragStart = null;
-    lastErasePoint = null;
-    if (isEraserActive) $("#eraserCursor").classList.add("hidden");
-  }
-}
-adjustArea.addEventListener("pointerup", endPointer);
-adjustArea.addEventListener("pointercancel", endPointer);
-
-// ==========================================
-// 詳細設定：イラストレイヤー
+// 詳細設定イベント
 // ==========================================
 $("#transparent").onclick = () => {
   bgTransparent = !bgTransparent;
   $("#transOptionsWrap").classList.toggle("hidden", !bgTransparent);
-  updateIllustCache();
-  renderPreview();
+  updateIllustCache(); renderPreview();
 };
 
 $("#protectWhiteToggle").onchange = e => {
   protectWhite = e.target.checked;
-  updateIllustCache();
-  renderPreview();
-  toast(protectWhite ? "白ぬけ防止をONにしました" : "白ぬけ防止をOFFにしました");
+  updateIllustCache(); renderPreview();
 };
 
 $("#bgToleranceSlider").oninput = e => {
   bgTolerance = Number(e.target.value);
   $("#bgToleranceVal").textContent = e.target.value;
-  updateIllustCache();
-  renderPreview();
+  updateIllustCache(); renderPreview();
 };
 
 $("#illustBorderToggle").onchange = e => {
   illustBorder = e.target.checked;
-  if (illustBorder && !bgTransparent) {
-    bgTransparent = true;
-    $("#transOptionsWrap").classList.remove("hidden");
-  }
+  if (illustBorder && !bgTransparent) { bgTransparent = true; $("#transOptionsWrap").classList.remove("hidden"); }
   $("#illustBorderColorWrap").classList.toggle("hidden", !illustBorder);
-  updateIllustCache();
-  renderPreview();
+  updateIllustCache(); renderPreview();
 };
 
 $("#borderWidth").oninput = e => {
   $("#borderWidthValue").textContent = e.target.value;
-  if (illustBorder && bgTransparent) {
-    updateIllustCache();
-    renderPreview();
-  }
+  if (illustBorder && bgTransparent) { updateIllustCache(); renderPreview(); }
 };
 
 document.querySelectorAll("#illustBorderColorList .cBtn").forEach(btn => {
@@ -1282,103 +1024,56 @@ document.querySelectorAll("#illustBorderColorList .cBtn").forEach(btn => {
     btn.classList.add("active");
     illustBorderColor = btn.dataset.color;
     $("#illustBorderColorPicker").value = illustBorderColor;
-    updateIllustCache();
-    renderPreview();
+    updateIllustCache(); renderPreview();
   };
 });
 
 $("#illustBorderColorPicker").oninput = e => {
   document.querySelectorAll("#illustBorderColorList .cBtn").forEach(b => b.classList.remove("active"));
   illustBorderColor = e.target.value;
-  updateIllustCache();
-  renderPreview();
+  updateIllustCache(); renderPreview();
 };
 
-// ==========================================
-// 詳細設定：文字レイヤー
-// ==========================================
-$("#stampText").oninput = e => {
-  textConfig.text = e.target.value;
-  renderPreview();
-};
-
-$("#clearTextBtn").onclick = () => {
-  $("#stampText").value = "";
-  textConfig.text = "";
-  renderPreview();
-  toast("文字を消しました");
-};
-
+$("#stampText").oninput = e => { textConfig.text = e.target.value; renderPreview(); };
+$("#clearTextBtn").onclick = () => { $("#stampText").value = ""; textConfig.text = ""; renderPreview(); };
 document.querySelectorAll(".quickWords .qBtn").forEach(btn => {
-  btn.onclick = () => {
-    $("#stampText").value = btn.textContent;
-    textConfig.text = btn.textContent;
-    renderPreview();
-  };
+  btn.onclick = () => { $("#stampText").value = btn.textContent; textConfig.text = btn.textContent; renderPreview(); };
 });
-
-$("#textFont").onchange = e => {
-  textConfig.font = e.target.value;
-  renderPreview();
-};
+$("#textFont").onchange = e => { textConfig.font = e.target.value; renderPreview(); };
 
 document.querySelectorAll("#textColorList .cBtn").forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll("#textColorList .cBtn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    textConfig.color = btn.dataset.color;
-    $("#textColorPicker").value = textConfig.color;
-    renderPreview();
+    btn.classList.add("active"); textConfig.color = btn.dataset.color;
+    $("#textColorPicker").value = textConfig.color; renderPreview();
   };
 });
 $("#textColorPicker").oninput = e => {
   document.querySelectorAll("#textColorList .cBtn").forEach(b => b.classList.remove("active"));
-  textConfig.color = e.target.value;
-  renderPreview();
+  textConfig.color = e.target.value; renderPreview();
 };
-
 document.querySelectorAll("#textStrokeList .sBtn").forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll("#textStrokeList .sBtn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    textConfig.stroke = btn.dataset.stroke;
-    renderPreview();
+    btn.classList.add("active"); textConfig.stroke = btn.dataset.stroke; renderPreview();
   };
 });
 
-// ==========================================
-// 詳細設定：背景レイヤー（写真・タイプ選択）
-// ==========================================
 function updateBgUI() {
   const style = bgConfig.style;
-  const isNone = (style === "none");
-  const isImg = (style === "image");
-
-  document.querySelectorAll(".bgStyleCard").forEach(card => {
-    card.classList.toggle("active", card.dataset.style === style);
-  });
-
-  // 各セクションの表示/非表示
+  const isNone = (style === "none"), isImg = (style === "image");
+  document.querySelectorAll(".bgStyleCard").forEach(card => card.classList.toggle("active", card.dataset.style === style));
   $("#bgNoneNotice").classList.toggle("hidden", !isNone);
   $("#bgImageControls").classList.toggle("hidden", !isImg);
   $("#bgColorControls").classList.toggle("hidden", isNone || isImg);
+  $("#bgImageStatus").classList.toggle("hidden", !(isImg && bgConfig.image));
 
-  // 背景画像ステータス
-  const imgStatus = $("#bgImageStatus");
-  if (isImg && bgConfig.image) {
-    imgStatus.classList.remove("hidden");
-  } else {
-    imgStatus.classList.add("hidden");
-  }
-
-  // 色パレットのアクティブ状態
   document.querySelectorAll("#bgColorList .cBtn").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.bg && btn.dataset.bg.toLowerCase() === bgConfig.color.toLowerCase());
   });
   const picker = $("#bgColorPicker");
   if (picker) picker.value = (bgConfig.color && bgConfig.color.startsWith("#")) ? bgConfig.color : "#fff9db";
 
-  // カード内アイコンプレビューの色
   const previewColor = isNone ? "#fff9db" : bgConfig.color;
   ["iconPreviewCircle", "iconPreviewPlate", "iconPreviewFull"].forEach(id => {
     const el = document.getElementById(id);
@@ -1386,115 +1081,67 @@ function updateBgUI() {
   });
 }
 
-// 背景スタイルカード選択
 document.querySelectorAll(".bgStyleCard").forEach(card => {
   card.onclick = () => {
-    const style = card.dataset.style;
-    bgConfig.style = style;
-
-    if (style !== "none" && style !== "image" && (!bgConfig.color || bgConfig.color === "transparent")) {
+    bgConfig.style = card.dataset.style;
+    if (bgConfig.style !== "none" && bgConfig.style !== "image" && (!bgConfig.color || bgConfig.color === "transparent")) {
       bgConfig.color = "#fff9db";
     }
-
-    updateBgUI();
-    syncCommonScaleSlider();
-    renderPreview();
-
-    const nameMap = {
-      none: "背景なし（透明）",
-      image: "写真・画像",
-      circle: "まる型座布団",
-      roundRect: "角丸プレート",
-      full: "全画面カラー"
-    };
-    toast(`背景を「${nameMap[style]}」にしました`);
+    updateBgUI(); syncCommonScaleSlider(); renderPreview();
   };
 });
 
-// 背景画像アップロード処理
 $("#bgFileInput").onchange = e => {
   const f = e.target.files[0];
   if (!f) return;
   const im = new Image();
   im.onload = () => {
-    bgConfig.image = im;
-    bgConfig.style = "image";
-    updateBgUI();
-    syncCommonScaleSlider();
-    renderPreview();
-    toast("背景写真をセットしました！大きさや位置も調整できます");
+    bgConfig.image = im; bgConfig.style = "image";
+    updateBgUI(); syncCommonScaleSlider(); renderPreview();
+    toast("背景写真をセットしました！");
   };
   im.src = URL.createObjectURL(f);
 };
 
-// 背景画像削除ボタン
 $("#removeBgImgBtn").onclick = () => {
-  bgConfig.image = null;
-  bgConfig.style = "none";
+  bgConfig.image = null; bgConfig.style = "none";
   $("#bgFileInput").value = "";
-  updateBgUI();
-  syncCommonScaleSlider();
-  renderPreview();
-  toast("背景画像を削除しました");
+  updateBgUI(); syncCommonScaleSlider(); renderPreview();
 };
 
-// 背景色パレットボタン
 document.querySelectorAll("#bgColorList .cBtn").forEach(btn => {
-  btn.onclick = () => {
-    bgConfig.color = btn.dataset.bg;
-    updateBgUI();
-    renderPreview();
-  };
+  btn.onclick = () => { bgConfig.color = btn.dataset.bg; updateBgUI(); renderPreview(); };
 });
-
-// 背景色カラーピッカー
 $("#bgColorPicker").oninput = e => {
   document.querySelectorAll("#bgColorList .cBtn").forEach(b => b.classList.remove("active"));
-  bgConfig.color = e.target.value;
-  updateBgUI();
-  renderPreview();
+  bgConfig.color = e.target.value; updateBgUI(); renderPreview();
 };
 
 // ==========================================
-// 高精度・白ぬけ防止 背景透過アルゴリズム
+// 背景透過・フチ・書き出し処理
 // ==========================================
 function removeBackground(src, tolerance = 22, protect = true) {
   const c = document.createElement("canvas");
-  c.width = src.width;
-  c.height = src.height;
+  c.width = src.width; c.height = src.height;
   const x = c.getContext("2d");
   x.drawImage(src, 0, 0);
-
   const imgData = x.getImageData(0, 0, c.width, c.height);
-  const a = imgData.data, w = c.width, h = c.height;
-  const total = w * h;
+  const a = imgData.data, w = c.width, h = c.height, total = w * h;
 
   const sampleCorners = [0, w - 1, (h - 1) * w, total - 1];
   let sumR = 0, sumG = 0, sumB = 0, count = 0;
   for (let cp of sampleCorners) {
-    if (a[cp * 4 + 3] > 10) {
-      sumR += a[cp * 4];
-      sumG += a[cp * 4 + 1];
-      sumB += a[cp * 4 + 2];
-      count++;
-    }
+    if (a[cp * 4 + 3] > 10) { sumR += a[cp * 4]; sumG += a[cp * 4 + 1]; sumB += a[cp * 4 + 2]; count++; }
   }
   const bgR = count ? Math.round(sumR / count) : 255;
   const bgG = count ? Math.round(sumG / count) : 255;
   const bgB = count ? Math.round(sumB / count) : 255;
 
-  const tol = tolerance;
   const isLine = new Uint8Array(total);
-
   for (let p = 0; p < total; p++) {
     const idx = p * 4;
     if (a[idx + 3] < 10) continue;
-    const diff = Math.max(
-      Math.abs(a[idx] - bgR),
-      Math.abs(a[idx + 1] - bgG),
-      Math.abs(a[idx + 2] - bgB)
-    );
-    if (diff > tol) {
+    if (Math.max(Math.abs(a[idx] - bgR), Math.abs(a[idx + 1] - bgG), Math.abs(a[idx + 2] - bgB)) > tolerance) {
       isLine[p] = 1;
     }
   }
@@ -1513,73 +1160,50 @@ function removeBackground(src, tolerance = 22, protect = true) {
         }
       }
     }
-  } else {
-    wall.set(isLine);
-  }
+  } else { wall.set(isLine); }
 
   const visited = new Uint8Array(total);
   const q = new Int32Array(total);
   let head = 0, tail = 0;
-
   for (let xx = 0; xx < w; xx++) {
-    const topP = xx, botP = (h - 1) * w + xx;
-    if (!visited[topP] && !wall[topP]) { visited[topP] = 1; q[tail++] = topP; }
+    if (!visited[xx] && !wall[xx]) { visited[xx] = 1; q[tail++] = xx; }
+    const botP = (h - 1) * w + xx;
     if (!visited[botP] && !wall[botP]) { visited[botP] = 1; q[tail++] = botP; }
   }
   for (let yy = 0; yy < h; yy++) {
-    const leftP = yy * w, rightP = yy * w + w - 1;
+    const leftP = yy * w;
     if (!visited[leftP] && !wall[leftP]) { visited[leftP] = 1; q[tail++] = leftP; }
+    const rightP = yy * w + w - 1;
     if (!visited[rightP] && !wall[rightP]) { visited[rightP] = 1; q[tail++] = rightP; }
   }
 
   while (head < tail) {
     const p = q[head++];
     const xx = p % w, yy = (p / w) | 0;
-
-    if (xx > 0) {
-      const np = p - 1;
-      if (!visited[np] && !wall[np]) { visited[np] = 1; q[tail++] = np; }
-    }
-    if (xx < w - 1) {
-      const np = p + 1;
-      if (!visited[np] && !wall[np]) { visited[np] = 1; q[tail++] = np; }
-    }
-    if (yy > 0) {
-      const np = p - w;
-      if (!visited[np] && !wall[np]) { visited[np] = 1; q[tail++] = np; }
-    }
-    if (yy < h - 1) {
-      const np = p + w;
-      if (!visited[np] && !wall[np]) { visited[np] = 1; q[tail++] = np; }
-    }
+    if (xx > 0 && !visited[p - 1] && !wall[p - 1]) { visited[p - 1] = 1; q[tail++] = p - 1; }
+    if (xx < w - 1 && !visited[p + 1] && !wall[p + 1]) { visited[p + 1] = 1; q[tail++] = p + 1; }
+    if (yy > 0 && !visited[p - w] && !wall[p - w]) { visited[p - w] = 1; q[tail++] = p - w; }
+    if (yy < h - 1 && !visited[p + w] && !wall[p + w]) { visited[p + w] = 1; q[tail++] = p + w; }
   }
 
   for (let p = 0; p < total; p++) {
-    if (visited[p]) {
-      a[p * 4 + 3] = 0;
-    }
+    if (visited[p]) a[p * 4 + 3] = 0;
   }
-
   x.putImageData(imgData, 0, 0);
   return c;
 }
 
-// イラストのフチ合成
 function addIllustBorder(src, px, color = "#ffffff") {
   const margin = px + 2;
   const c = document.createElement("canvas");
-  c.width = src.width + margin * 2;
-  c.height = src.height + margin * 2;
+  c.width = src.width + margin * 2; c.height = src.height + margin * 2;
   const ctx = c.getContext("2d");
-
   const mask = document.createElement("canvas");
-  mask.width = c.width;
-  mask.height = c.height;
+  mask.width = c.width; mask.height = c.height;
   const mctx = mask.getContext("2d");
   mctx.drawImage(src, margin, margin);
   mctx.globalCompositeOperation = "source-in";
-  mctx.fillStyle = color;
-  mctx.fillRect(0, 0, mask.width, mask.height);
+  mctx.fillStyle = color; mctx.fillRect(0, 0, mask.width, mask.height);
 
   const r = Math.max(1, px);
   const steps = Math.max(16, Math.min(36, r * 4));
@@ -1587,109 +1211,60 @@ function addIllustBorder(src, px, color = "#ffffff") {
     const angle = (i * 2 * Math.PI) / steps;
     ctx.drawImage(mask, Math.cos(angle) * r, Math.sin(angle) * r);
   }
-  if (r > 3) {
-    const innerR = r / 2;
-    for (let i = 0; i < 8; i++) {
-      const angle = (i * 2 * Math.PI) / 8;
-      ctx.drawImage(mask, Math.cos(angle) * innerR, Math.sin(angle) * innerR);
-    }
-  }
   ctx.drawImage(mask, 0, 0);
   ctx.drawImage(src, margin, margin);
   return c;
 }
 
-// 最終画像書き出し
 async function getFinalCanvas() {
   await document.fonts.ready;
   const c = document.createElement("canvas");
-  c.width = SPEC[mode].w;
-  c.height = SPEC[mode].h;
+  c.width = SPEC[mode].w; c.height = SPEC[mode].h;
   const ctx = c.getContext("2d");
-
   const drawList = layerOrder.slice().reverse();
   drawList.forEach(layerId => {
     if (layerId === "bg") drawBgLayer(ctx, c.width, c.height);
     else if (layerId === "illust") drawIllustLayer(ctx, c.width, c.height);
     else if (layerId === "text") drawTextLayer(ctx, c.width, c.height);
   });
-
   return c;
 }
 
 function download(blob, name) {
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(a.href), 1500);
 }
 
-// 保存ボタン（新規保存 or 上書き保存）
 $("#save").onclick = async () => {
   if (editingIndex === null && results.length >= Number($("#count").value)) {
-    toast("設定した個数に達しています");
-    return;
+    toast("設定した個数に達しています"); return;
   }
-
   const c = await getFinalCanvas();
   c.toBlob(blob => {
     const savedState = {
-      adjust: {
-        src: adjust.src,
-        scale: adjust.scale,
-        ox: adjust.ox,
-        oy: adjust.oy
-      },
+      adjust: { src: adjust.src, scale: adjust.scale, ox: adjust.ox, oy: adjust.oy },
       textConfig: JSON.parse(JSON.stringify(textConfig)),
-      bgConfig: {
-        style: bgConfig.style,
-        color: bgConfig.color,
-        image: bgConfig.image,
-        scale: bgConfig.scale,
-        ox: bgConfig.ox,
-        oy: bgConfig.oy
-      },
+      bgConfig: { style: bgConfig.style, color: bgConfig.color, image: bgConfig.image, scale: bgConfig.scale, ox: bgConfig.ox, oy: bgConfig.oy },
       layerOrder: [...layerOrder],
-      bgTransparent,
-      bgTolerance,
-      protectWhite,
-      illustBorder,
-      illustBorderColor,
+      bgTransparent, bgTolerance, protectWhite, illustBorder, illustBorderColor,
       borderWidth: Number($("#borderWidth").value)
     };
 
     if (editingIndex !== null) {
-      const n = editingIndex + 1;
-      const updatedItem = {
-        blob,
-        url: URL.createObjectURL(blob),
-        name: `${mode}_${String(n).padStart(2, "0")}.png`,
-        state: savedState
-      };
-      results[editingIndex] = updatedItem;
+      results[editingIndex] = { blob, url: URL.createObjectURL(blob), name: `${mode}_${String(editingIndex + 1).padStart(2, "0")}.png`, state: savedState };
       editingIndex = null;
       refresh();
-      $("#adjustStep").classList.add("hidden");
-      $("#sheetStep").classList.remove("hidden");
-      resetSelection();
-      toast(`${n}個目を修正して上書き保存しました！`);
+      $("#adjustStep").classList.add("hidden"); $("#sheetStep").classList.remove("hidden");
+      resetSelection(); toast("上書き保存しました！");
     } else {
       const n = results.length + 1;
-      const newItem = {
-        blob,
-        url: URL.createObjectURL(blob),
-        name: `${mode}_${String(n).padStart(2, "0")}.png`,
-        state: savedState
-      };
-      results.push(newItem);
+      results.push({ blob, url: URL.createObjectURL(blob), name: `${mode}_${String(n).padStart(2, "0")}.png`, state: savedState });
       refresh();
-      $("#adjustStep").classList.add("hidden");
-      $("#sheetStep").classList.remove("hidden");
-      resetSelection();
-      toast(`${n}個目を保存しました！`);
+      $("#adjustStep").classList.add("hidden"); $("#sheetStep").classList.remove("hidden");
+      resetSelection(); toast(`${n}個目を保存しました！`);
     }
   }, "image/png");
 };
@@ -1699,7 +1274,6 @@ function refresh() {
   $("#total").textContent = $("#count").value;
   $("#zip").disabled = !results.length;
   $("#thumbs").innerHTML = "";
-
   results.forEach((r, i) => {
     const d = document.createElement("div");
     d.className = "thumb";
@@ -1707,52 +1281,38 @@ function refresh() {
     d.onclick = () => showImageModal(r, i);
     $("#thumbs").appendChild(d);
   });
-
-  const bad = results.filter(r => r.blob.size > 1024 * 1024).length;
-  $("#checks").innerHTML = `<div class="${bad ? 'warn' : 'ok'}">${bad ? '⚠️ 1MBを超える画像があります' : '✅ PNG形式・規定サイズで保存中（タップして再編集・写真保存可能）'}</div>`;
+  $("#checks").innerHTML = `<div class="ok">✅ 順調に作成中です（タップして再編集可能）</div>`;
 }
 
 function showImageModal(item, index) {
   currentModalIndex = index;
-  const modal = $("#imageModal");
   $("#modalTitle").textContent = `${index + 1}個目のスタンプ`;
   $("#modalImg").src = item.url;
-  modal.classList.add("show");
+  $("#imageModal").classList.add("show");
 }
 
-$("#modalClose").onclick = () => {
-  $("#imageModal").classList.remove("show");
-};
+$("#modalClose").onclick = () => $("#imageModal").classList.remove("show");
 
 $("#modalEditBtn").onclick = () => {
   if (currentModalIndex === null || !results[currentModalIndex]) return;
   const item = results[currentModalIndex];
   $("#imageModal").classList.remove("show");
-
-  if (!item.state) {
-    toast("このカットの編集履歴がありません");
-    return;
-  }
-
+  if (!item.state) { toast("編集履歴がありません"); return; }
   editingIndex = currentModalIndex;
   openAdjustForEdit(item.state);
 };
 
 $("#modalDeleteBtn").onclick = () => {
   if (currentModalIndex === null || !results[currentModalIndex]) return;
-  if (confirm(`${currentModalIndex + 1}個目のスタンプを削除しますか？`)) {
+  if (confirm(`${currentModalIndex + 1}個目を削除しますか？`)) {
     results.splice(currentModalIndex, 1);
     $("#imageModal").classList.remove("show");
-    refresh();
-    toast("スタンプを削除しました");
+    refresh(); toast("削除しました");
   }
 };
 
 $("#zip").onclick = async () => {
-  if (!window.JSZip) {
-    toast("ZIP機能の読み込みに失敗しました");
-    return;
-  }
+  if (!window.JSZip) { toast("ZIP機能の読み込みに失敗しました"); return; }
   toast("ZIPを作成中...");
   const z = new JSZip();
   results.forEach(r => z.file(r.name, r.blob));
@@ -1769,9 +1329,7 @@ function toast(t) {
 }
 
 document.fonts.ready.then(() => {
-  if ($("#adjustStep").classList.contains("hidden") === false) {
-    renderPreview();
-  }
+  if ($("#adjustStep").classList.contains("hidden") === false) renderPreview();
 });
 
 updateMode();
