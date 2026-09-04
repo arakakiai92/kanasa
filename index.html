@@ -52,8 +52,9 @@
                 </div>
                 <div class="w-full md:flex-1">
                     <label class="block mb-1 text-xs font-bold text-gray-500 uppercase tracking-wider">シート画像</label>
-                    <label class="uploadBtn block w-full text-sm text-gray-500 border-2 border-dashed border-gray-300 rounded-xl p-2.5 text-center bg-green-50/50 hover:bg-green-50 cursor-pointer transition font-bold text-[#00C300]">
-                        <input id="file" type="file" accept="image/*" class="hidden" />
+                    <!-- ★インプットをラベルの外に出して、for属性で紐付け（スマホでの二重発火・フチバグを完全解消） -->
+                    <input id="file" type="file" accept="image/*" class="hidden" />
+                    <label for="file" class="uploadBtn block w-full text-sm text-gray-500 border-2 border-dashed border-gray-300 rounded-xl p-2.5 text-center bg-green-50/50 hover:bg-green-50 cursor-pointer transition font-bold text-[#00C300]">
                         📷 シート画像を選ぶ（自動リサイズ対応）
                     </label>
                 </div>
@@ -444,7 +445,7 @@
 
     <div id="toast" class="fixed left-1/2 bottom-6 -translate-x-1/2 translate-y-10 bg-gray-900 text-white px-5 py-2.5 rounded-full text-xs font-bold opacity-0 transition-all duration-300 pointer-events-none z-50 shadow-lg"></div>
 
-    <!-- 画像プレビュー・再編集モーダル（hiddenクラスをCSSで完全に上書き制御） -->
+    <!-- 画像プレビュー・再編集モーダル -->
     <div id="imageModal" class="modal fixed inset-0 bg-gray-900/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="modalContent bg-white p-5 rounded-2xl text-center max-w-[92%] w-80 shadow-xl space-y-3">
             <p class="modalTitle text-sm font-bold text-gray-800" id="modalTitle">完成カット</p>
@@ -459,6 +460,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script src="script_2.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
