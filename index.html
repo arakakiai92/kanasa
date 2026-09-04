@@ -1,485 +1,455 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="theme-color" content="#ffffff">
-<title>LINEスタンプ・絵文字メーカー</title>
-<!-- Google Fonts (商用利用フリー日本語フォント + 角丸追加) -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Hachi+Maru+Pop&family=Kiwi+Maru:wght@500;900&family=M+PLUS+Rounded+1c:wght@700&family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LINEスタンプ・絵文字メーカー</title>
+    
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <!-- Google Fonts (商用利用フリー日本語フォント + M+ 丸ゴシック) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Hachi+Maru+Pop&family=Kiwi+Maru:wght@500;900&family=M+PLUS+Rounded+1c:wght@700&family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css">
 </head>
-<body>
-<header>
-  <h1>LINEスタンプ・絵文字メーカー</h1>
-  <div class="switch">
-    <button class="active" data-mode="sticker">🟢 スタンプ</button>
-    <button data-mode="emoji">🟣 絵文字</button>
-  </div>
-</header>
+<body class="text-gray-800 pb-8">
 
-<main>
-  <!-- 設定・シート読み込み -->
-  <section class="panel">
-    <div class="toprow">
-      <label>作る個数
-        <select id="count"><option>8</option><option selected>16</option><option>24</option><option>32</option><option>40</option></select>
-      </label>
-      <label class="upload">
-        <input id="file" type="file" accept="image/*">
-        📷 シートを読み込む
-      </label>
-    </div>
-    <div class="spec" id="spec"></div>
-  </section>
-
-  <!-- ステップ①：切り出し画面 -->
-  <section id="sheetStep" class="step hidden">
-    <div class="stepTitle"><span>① 切り出し範囲をえらぶ</span><b id="sheetProgress">1 / 16</b></div>
-    <p class="stepDesc">絵を指で囲むか、枠を動かして位置・大きさを合わせてね。</p>
+    <!-- ヘッダー (LINE売上分析アプリと完全統一) -->
+    <header class="bg-[#00C300] text-white shadow-md sticky top-0 z-40">
+        <div class="max-w-6xl mx-auto flex items-center justify-between px-4">
+            <div class="flex items-center">
+                <img src="bottom-right.png" alt="シーサーアイコン" class="h-14 md:h-16 w-auto block object-contain">
+                <h1 class="text-base md:text-xl font-bold ml-3 py-4">LINEスタンプ・絵文字メーカー</h1>
+            </div>
+            <!-- モード切替スイッチ -->
+            <div class="switch flex gap-1 bg-black/10 p-1 rounded-xl">
+                <button class="active px-3 py-1.5 text-xs md:text-sm font-bold rounded-lg transition" data-mode="sticker">🟢 スタンプ</button>
+                <button class="px-3 py-1.5 text-xs md:text-sm font-bold rounded-lg transition" data-mode="emoji">🟣 絵文字</button>
+            </div>
+        </div>
+    </header>
     
-    <div id="stageWrap">
-      <canvas id="stage"></canvas>
-      <div id="cropBox" class="cropBox hidden">
-        <div class="cropCenterIcon">✥</div>
-        <div class="handle handle-nw" data-h="nw"></div>
-        <div class="handle handle-ne" data-h="ne"></div>
-        <div class="handle handle-sw" data-h="sw"></div>
-        <div class="handle handle-se" data-h="se"></div>
-      </div>
-    </div>
-
-    <!-- 切り出し枠の微調整コントローラー -->
-    <div id="cropFineTune" class="fineTunePanel hidden">
-      <div class="fineTuneLabel">枠の微調整（タップで少しずつ動かせます）</div>
-      <div class="fineTuneControls">
-        <div class="dpad">
-          <button type="button" id="cropUp" class="dpadBtn up">▲</button>
-          <div class="dpadMiddle">
-            <button type="button" id="cropLeft" class="dpadBtn left">◀</button>
-            <button type="button" id="cropCenter" class="dpadBtn center" title="中央へ">◎</button>
-            <button type="button" id="cropRight" class="dpadBtn right">▶</button>
-          </div>
-          <button type="button" id="cropDown" class="dpadBtn down">▼</button>
-        </div>
-        <div class="sizeTune">
-          <button type="button" id="cropZoomOut" class="tuneBtn">− 枠を小さく</button>
-          <button type="button" id="cropZoomIn" class="tuneBtn">＋ 枠を大きく</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="sheetActions">
-      <button id="resetCrop" class="subBtn hidden">↺ 枠をリセット</button>
-      <button id="startSelect" class="primary big">✂️ この絵を囲む</button>
-      <button id="adjustBtn" class="primary big hidden">次へ：レイヤー編集 →</button>
-    </div>
-  </section>
-
-  <!-- ステップ②：スマホ最適化・３レイヤー個別編集画面 -->
-  <section id="adjustStep" class="step hidden">
-    <div class="stepTitle">
-      <span id="adjustStepTitle">② スタンプをととのえる</span>
-      <button id="back" class="linkBtn">← 切り出しに戻る</button>
-    </div>
-    
-    <!-- プレビューエリア -->
-    <div class="previewContainer">
-      <div class="adjustArea" id="adjustArea">
-        <canvas id="preview"></canvas>
-        <div class="safeMarginGuide" title="この点線の内側に収めると綺麗に表示されます"></div>
-        <div id="eraserCursor" class="eraserCursor hidden"></div>
-        <div id="activeLayerTag" class="activeLayerTag">🎨 イラスト編集中</div>
-      </div>
-      <div class="previewTip">💡 画面を直接なぞって移動、2本指ピンチで拡大縮小できます</div>
-    </div>
-
-    <!-- レイヤー選択タブバー -->
-    <div class="layerTabBar">
-      <button type="button" class="tabBtn active" data-layer="illust">🎨 イラスト</button>
-      <button type="button" class="tabBtn" data-layer="text">💬 文字</button>
-      <button type="button" class="tabBtn" data-layer="bg">🖼 背景</button>
-      <button type="button" id="toggleOrderDrawer" class="orderToggleBtn" title="重なり順を変更">🔃 順序</button>
-    </div>
-
-    <!-- 重なり順ドロワー -->
-    <div id="layerOrderDrawer" class="orderDrawer hidden">
-      <div class="drawerHeader">
-        <b>📑 レイヤーの重なり順（上が一番手前）</b>
-        <button type="button" id="closeOrderDrawer" class="drawerCloseBtn">✕ とじる</button>
-      </div>
-      <div class="layerStackList" id="layerStackList">
-        <div class="layerItem" id="item-text" data-layer="text">
-          <div class="layerItemMain">
-            <div class="tabTop">
-              <span class="badge badge-pos" id="badge-text">第3層 (一番手前)</span>
-              <span class="tabState" id="stateText">無選択 (なし)</span>
+    <main class="p-4 max-w-6xl mx-auto space-y-6">
+        
+        <!-- 設定・シート読み込みパネル -->
+        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200">
+            <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div class="w-full md:w-auto">
+                    <label class="block mb-1 text-xs font-bold text-gray-500 uppercase tracking-wider">作る個数</label>
+                    <select id="count" class="w-full md:w-36 p-2.5 border border-gray-300 rounded-xl bg-gray-50 text-sm font-bold text-gray-700 focus:ring-[#00C300] focus:border-[#00C300]">
+                        <option>8</option>
+                        <option selected>16</option>
+                        <option>24</option>
+                        <option>32</option>
+                        <option>40</option>
+                    </select>
+                </div>
+                <div class="w-full md:flex-1">
+                    <label class="block mb-1 text-xs font-bold text-gray-500 uppercase tracking-wider">シート画像</label>
+                    <label class="uploadBtn block w-full text-sm text-gray-500 border-2 border-dashed border-gray-300 rounded-xl p-2.5 text-center bg-green-50/50 hover:bg-green-50 cursor-pointer transition font-bold text-[#00C300]">
+                        <input id="file" type="file" accept="image/*" class="hidden" />
+                        📷 シート画像を選ぶ（自動リサイズ対応）
+                    </label>
+                </div>
             </div>
-            <div class="tabName">💬 文字（セリフ）</div>
-          </div>
-          <div class="layerOrderBtns">
-            <button type="button" class="btnOrderUp" data-layer="text" title="手前へ">▲ 手前</button>
-            <button type="button" class="btnOrderDown" data-layer="text" title="奥へ">▼ 奥</button>
-          </div>
+            <div class="spec text-xs text-gray-500 mt-3 font-medium" id="spec"></div>
         </div>
 
-        <div class="layerItem" id="item-illust" data-layer="illust">
-          <div class="layerItemMain">
-            <div class="tabTop">
-              <span class="badge badge-pos" id="badge-illust">第2層 (中間)</span>
-              <span class="tabState" id="stateIllust">標準</span>
+        <!-- ステップ①：切り出し画面 -->
+        <section id="sheetStep" class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200 hidden">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-base md:text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <span class="bg-[#00C300] text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs">1</span>
+                    切り出し範囲をえらぶ
+                </h2>
+                <b id="sheetProgress" class="bg-gray-100 px-3 py-1 rounded-full text-xs font-bold text-gray-600">1 / 16</b>
             </div>
-            <div class="tabName">🎨 イラスト</div>
-          </div>
-          <div class="layerOrderBtns">
-            <button type="button" class="btnOrderUp" data-layer="illust" title="手前へ">▲ 手前</button>
-            <button type="button" class="btnOrderDown" data-layer="illust" title="奥へ">▼ 奥</button>
-          </div>
-        </div>
+            <p class="text-xs text-gray-500 mb-4">絵を指で囲むか、枠を動かして位置・大きさを合わせてね。</p>
+            
+            <div id="stageWrap" class="relative overflow-hidden rounded-xl bg-gray-200 text-center touch-none select-none">
+                <canvas id="stage" class="block mx-auto w-full h-auto max-h-[55vh] object-contain"></canvas>
+                <div id="cropBox" class="cropBox hidden absolute border-3 border-gray-900 bg-white/20 touch-none cursor-move">
+                    <div class="cropCenterIcon absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 bg-white border-2 border-gray-900 rounded-full flex items-center justify-center text-lg shadow-md pointer-events-none">✥</div>
+                    <div class="handle handle-nw absolute w-11 h-11 -left-5 -top-5 cursor-nwse-resize"></div>
+                    <div class="handle handle-ne absolute w-11 h-11 -right-5 -top-5 cursor-nesw-resize"></div>
+                    <div class="handle handle-sw absolute w-11 h-11 -left-5 -bottom-5 cursor-nesw-resize"></div>
+                    <div class="handle handle-se absolute w-11 h-11 -right-5 -bottom-5 cursor-nwse-resize"></div>
+                </div>
+            </div>
 
-        <div class="layerItem" id="item-bg" data-layer="bg">
-          <div class="layerItemMain">
-            <div class="tabTop">
-              <span class="badge badge-pos" id="badge-bg">第1層 (一番奥)</span>
-              <span class="tabState" id="stateBg">背景なし (透明)</span>
+            <!-- 切り出し枠の微調整コントローラー -->
+            <div id="cropFineTune" class="fineTunePanel bg-gray-50 border border-gray-200 rounded-xl p-3 mt-4 hidden">
+                <div class="fineTuneLabel text-xs font-bold text-gray-600 mb-2 text-center">枠の微調整（タップで少しずつ動かせます）</div>
+                <div class="fineTuneControls flex gap-4 items-center justify-center">
+                    <div class="dpad flex flex-col items-center gap-1">
+                        <button type="button" id="cropUp" class="dpadBtn w-10 h-8 bg-white border border-gray-300 rounded font-bold text-xs">▲</button>
+                        <div class="dpadMiddle flex gap-1">
+                            <button type="button" id="cropLeft" class="dpadBtn w-10 h-8 bg-white border border-gray-300 rounded font-bold text-xs">◀</button>
+                            <button type="button" id="cropCenter" class="dpadBtn w-10 h-8 bg-white border border-gray-300 rounded font-bold text-sm">◎</button>
+                            <button type="button" id="cropRight" class="dpadBtn w-10 h-8 bg-white border border-gray-300 rounded font-bold text-xs">▶</button>
+                        </div>
+                        <button type="button" id="cropDown" class="dpadBtn w-10 h-8 bg-white border border-gray-300 rounded font-bold text-xs">▼</button>
+                    </div>
+                    <div class="sizeTune flex flex-col gap-2">
+                        <button type="button" id="cropZoomOut" class="tuneBtn px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold">− 枠を小さく</button>
+                        <button type="button" id="cropZoomIn" class="tuneBtn px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold">＋ 枠を大きく</button>
+                    </div>
+                </div>
             </div>
-            <div class="tabName">🖼 はいけい</div>
-          </div>
-          <div class="layerOrderBtns">
-            <button type="button" class="btnOrderUp" data-layer="bg" title="手前へ">▲ 手前</button>
-            <button type="button" class="btnOrderDown" data-layer="bg" title="奥へ">▼ 奥</button>
-          </div>
+
+            <div class="sheetActions flex gap-3 mt-4">
+                <button id="resetCrop" class="subBtn px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-bold text-sm text-gray-700 hidden">↺ リセット</button>
+                <button id="startSelect" class="primary bigBtn flex-1 py-3.5 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-base shadow-sm transition">✂️ この絵を囲む</button>
+                <button id="adjustBtn" class="primary bigBtn flex-1 py-3.5 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-base shadow-sm transition hidden">次へ：レイヤー編集 →</button>
+            </div>
+        </section>
+
+        <!-- ステップ②：スマホ・PC最適化・３レイヤー個別編集画面 (PC対応2カラム) -->
+        <section id="adjustStep" class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200 hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-base md:text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <span class="bg-[#00C300] text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs">2</span>
+                    <span id="adjustStepTitle">スタンプをととのえる</span>
+                </h2>
+                <button id="back" class="linkBtn text-xs font-bold text-[#00C300] hover:underline">← 切り出しに戻る</button>
+            </div>
+
+            <!-- ワークスペース (PCでは左右2カラム) -->
+            <div class="workspace grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                
+                <!-- 左カラム：プレビュー・タブ・クイック調整 -->
+                <div class="workspaceLeft space-y-4">
+                    <div class="previewContainer">
+                        <div class="adjustArea relative w-full rounded-xl overflow-hidden touch-none select-none border border-gray-200 shadow-sm" id="adjustArea">
+                            <canvas id="preview" class="block mx-auto w-full h-auto max-h-[40vh] object-contain"></canvas>
+                            <div class="safeMarginGuide absolute inset-2 border border-dashed border-gray-400/40 rounded pointer-events-none"></div>
+                            <div id="eraserCursor" class="eraserCursor hidden absolute pointer-events-none rounded-full"></div>
+                            <div id="activeLayerTag" class="activeLayerTag absolute left-2 top-2 bg-gray-900/80 text-white text-[11px] font-bold px-2.5 py-1 rounded-md backdrop-blur">🎨 イラスト編集中</div>
+                        </div>
+                        <div class="previewTip text-[11px] text-gray-500 text-center mt-1.5">💡 画面をなぞって移動、2本指ピンチで拡大・縮小・回転ができます</div>
+                    </div>
+
+                    <!-- レイヤー選択タブバー -->
+                    <div class="layerTabBar flex gap-2">
+                        <button type="button" class="tabBtn active flex-1 py-2.5 border border-gray-200 rounded-xl font-bold text-xs bg-white text-gray-600 transition" data-layer="illust">🎨 イラスト</button>
+                        <button type="button" class="tabBtn flex-1 py-2.5 border border-gray-200 rounded-xl font-bold text-xs bg-white text-gray-600 transition" data-layer="text">💬 文字</button>
+                        <button type="button" class="tabBtn flex-1 py-2.5 border border-gray-200 rounded-xl font-bold text-xs bg-white text-gray-600 transition" data-layer="bg">🖼 背景</button>
+                        <button type="button" id="toggleOrderDrawer" class="orderToggleBtn px-3 py-2.5 border border-gray-200 rounded-xl font-bold text-xs bg-gray-50 text-gray-700" title="重なり順を変更">🔃 順序</button>
+                    </div>
+
+                    <!-- 重なり順ドロワー -->
+                    <div id="layerOrderDrawer" class="orderDrawer bg-gray-50 border border-gray-200 rounded-xl p-3 hidden space-y-2">
+                        <div class="drawerHeader flex justify-between items-center text-xs font-bold text-gray-700">
+                            <span>📑 レイヤーの重なり順（上が手前）</span>
+                            <button type="button" id="closeOrderDrawer" class="px-2 py-0.5 bg-white border border-gray-300 rounded text-xs">✕</button>
+                        </div>
+                        <div class="layerStackList space-y-1.5" id="layerStackList">
+                            <div class="layerItem bg-white border border-gray-200 rounded-lg p-2.5 flex items-center justify-between" id="item-text" data-layer="text">
+                                <div>
+                                    <span class="badge text-[10px] font-bold px-1.5 py-0.5 rounded text-white bg-red-500" id="badge-text">第3層</span>
+                                    <span class="text-xs font-bold ml-1">💬 文字</span>
+                                    <span class="text-[10px] text-gray-400 block" id="stateText">無選択</span>
+                                </div>
+                                <div class="layerOrderBtns flex gap-1">
+                                    <button type="button" class="btnOrderUp px-2 py-1 bg-gray-100 rounded text-xs font-bold" data-layer="text">▲</button>
+                                    <button type="button" class="btnOrderDown px-2 py-1 bg-gray-100 rounded text-xs font-bold" data-layer="text">▼</button>
+                                </div>
+                            </div>
+                            <div class="layerItem bg-white border border-gray-200 rounded-lg p-2.5 flex items-center justify-between" id="item-illust" data-layer="illust">
+                                <div>
+                                    <span class="badge text-[10px] font-bold px-1.5 py-0.5 rounded text-white bg-blue-500" id="badge-illust">第2層</span>
+                                    <span class="text-xs font-bold ml-1">🎨 イラスト</span>
+                                    <span class="text-[10px] text-gray-400 block" id="stateIllust">標準</span>
+                                </div>
+                                <div class="layerOrderBtns flex gap-1">
+                                    <button type="button" class="btnOrderUp px-2 py-1 bg-gray-100 rounded text-xs font-bold" data-layer="illust">▲</button>
+                                    <button type="button" class="btnOrderDown px-2 py-1 bg-gray-100 rounded text-xs font-bold" data-layer="illust">▼</button>
+                                </div>
+                            </div>
+                            <div class="layerItem bg-white border border-gray-200 rounded-lg p-2.5 flex items-center justify-between" id="item-bg" data-layer="bg">
+                                <div>
+                                    <span class="badge text-[10px] font-bold px-1.5 py-0.5 rounded text-white bg-purple-500" id="badge-bg">第1層</span>
+                                    <span class="text-xs font-bold ml-1">🖼 はいけい</span>
+                                    <span class="text-[10px] text-gray-400 block" id="stateBg">背景なし</span>
+                                </div>
+                                <div class="layerOrderBtns flex gap-1">
+                                    <button type="button" class="btnOrderUp px-2 py-1 bg-gray-100 rounded text-xs font-bold" data-layer="bg">▲</button>
+                                    <button type="button" class="btnOrderDown px-2 py-1 bg-gray-100 rounded text-xs font-bold" data-layer="bg">▼</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 大きさ＆位置クイックコントローラー -->
+                    <div class="quickTransformBox bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2.5">
+                        <div class="sliderRow flex items-center gap-3 text-xs font-bold text-gray-700">
+                            <span class="ctrlLabel min-w-[50px]" id="transformScaleLabel">大きさ：</span>
+                            <input type="range" id="commonScaleSlider" min="40" max="300" value="100" class="flex-1">
+                            <b class="scaleValueText min-w-[40px] text-right"><span id="commonScaleVal">100</span><span id="commonScaleUnit">%</span></b>
+                        </div>
+                        <div class="transformControlsRow flex items-center justify-between pt-2 border-t border-gray-200/60 gap-2">
+                            <div class="dpad mini flex flex-col items-center gap-0.5">
+                                <button type="button" id="ctrlUp" class="dpadBtn w-8 h-6 bg-white border border-gray-300 rounded text-xs font-bold">▲</button>
+                                <div class="dpadMiddle flex gap-0.5">
+                                    <button type="button" id="ctrlLeft" class="dpadBtn w-8 h-6 bg-white border border-gray-300 rounded text-xs font-bold">◀</button>
+                                    <button type="button" id="ctrlCenter" class="dpadBtn w-8 h-6 bg-white border border-gray-300 rounded text-xs font-bold">◎</button>
+                                    <button type="button" id="ctrlRight" class="dpadBtn w-8 h-6 bg-white border border-gray-300 rounded text-xs font-bold">▶</button>
+                                </div>
+                                <button type="button" id="ctrlDown" class="dpadBtn w-8 h-6 bg-white border border-gray-300 rounded text-xs font-bold">▼</button>
+                            </div>
+                            <div class="quickShortcuts flex-1 flex flex-col gap-1.5" id="shortcutsIllust">
+                                <button type="button" id="centerIllustBtn" class="shortcutBtn py-1 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700">◎ まんなか</button>
+                                <button type="button" id="fitWidth" class="shortcutBtn py-1 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700">↔ 横幅に合わせる</button>
+                            </div>
+                            <div class="quickShortcuts hidden flex-1 flex flex-col gap-1.5" id="shortcutsText">
+                                <button type="button" id="textPosTop" class="shortcutBtn py-1 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700">⬆ 上に置く</button>
+                                <button type="button" id="textPosBottom" class="shortcutBtn py-1 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700">⬇ 下に置く</button>
+                            </div>
+                            <div class="quickShortcuts hidden flex-1 flex flex-col gap-1.5" id="shortcutsBg">
+                                <button type="button" id="bgCenterBtn" class="shortcutBtn py-1 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700">◎ まんなか</button>
+                                <button type="button" id="bgFitFull" class="shortcutBtn py-1 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700">🔲 画面いっぱい</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右カラム：詳細設定パネル群 -->
+                <div class="workspaceRight lg:sticky lg:top-24 space-y-4">
+                    <div class="detailsArea bg-gray-50 border border-gray-200 rounded-xl p-4">
+                        
+                        <!-- パネル：イラスト設定 -->
+                        <div id="panel-illust" class="layerPanel active space-y-3">
+                            <div class="panelHeader border-b border-gray-200 pb-2">
+                                <b class="text-sm font-bold text-gray-800">🎨 イラストの設定</b>
+                                <span class="subNote text-[11px] text-gray-500">消しゴムや背景透過・フチを設定できます</span>
+                            </div>
+
+                            <div class="eraserCard bg-amber-50/70 border border-amber-200 rounded-xl p-3">
+                                <div class="eraserTopRow flex gap-2">
+                                    <button type="button" id="eraserToggleBtn" class="eraserBtn flex-1 py-2 px-3 border border-orange-400 bg-white text-orange-600 rounded-lg font-bold text-xs transition">🧹 消しゴム：OFF</button>
+                                    <button type="button" id="eraserUndoBtn" class="px-3 py-2 bg-white border border-gray-300 rounded-lg font-bold text-xs disabled:opacity-40" disabled>↩️ 戻す</button>
+                                </div>
+                                <div id="eraserOptionsWrap" class="eraserOptions mt-2.5 pt-2.5 border-t border-amber-200/60 hidden">
+                                    <div class="eraserSizeRow flex items-center gap-2 flex-wrap">
+                                        <span class="text-[11px] font-bold text-gray-600">太さ：</span>
+                                        <button type="button" class="eSizeBtn px-2.5 py-1 bg-white border border-gray-300 rounded text-xs font-bold" data-size="8">極細</button>
+                                        <button type="button" class="eSizeBtn px-2.5 py-1 bg-white border border-gray-300 rounded text-xs font-bold" data-size="16">細</button>
+                                        <button type="button" class="eSizeBtn active px-2.5 py-1 bg-gray-900 text-white rounded text-xs font-bold" data-size="28">中</button>
+                                        <button type="button" class="eSizeBtn px-2.5 py-1 bg-white border border-gray-300 rounded text-xs font-bold" data-size="46">太</button>
+                                        <button type="button" class="eSizeBtn px-2.5 py-1 bg-white border border-gray-300 rounded text-xs font-bold" data-size="70">極太</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="transRow flex gap-2 items-center">
+                                <button id="transparent" class="flex-1 py-2.5 bg-gray-900 text-white rounded-xl font-bold text-xs shadow-sm">✨ 絵のまわりを透明にする</button>
+                                <span id="transState" class="text-xs text-gray-500 font-bold min-w-[60px] text-center">透過 OFF</span>
+                            </div>
+
+                            <div id="transOptionsWrap" class="transOptionsCard bg-white border border-gray-200 rounded-xl p-3 hidden space-y-2">
+                                <label class="protectToggle flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
+                                    <input type="checkbox" id="protectWhiteToggle" checked class="w-4 h-4">
+                                    🛡️ 白ぬけ防止（キャラの白を守る）
+                                </label>
+                                <div class="flex items-center gap-2 pt-1 text-xs font-bold text-gray-600">
+                                    <span>透過のつよさ：</span>
+                                    <input type="range" id="bgToleranceSlider" min="5" max="60" value="22" class="flex-1">
+                                    <span id="bgToleranceVal">22</span>
+                                </div>
+                            </div>
+
+                            <div class="borderCard bg-white border border-gray-200 rounded-xl p-3 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <label class="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
+                                        <input type="checkbox" id="illustBorderToggle" class="w-4 h-4"> ⭕ フチをつける
+                                    </label>
+                                    <div class="flex items-center gap-2 text-xs font-bold text-gray-600">
+                                        <span>太さ:</span>
+                                        <input type="range" id="borderWidth" min="1" max="20" value="6" class="w-20">
+                                        <span id="borderWidthValue">6</span>px
+                                    </div>
+                                </div>
+                                <div id="illustBorderColorWrap" class="borderColorGroup pt-2 border-t border-gray-200 hidden">
+                                    <span class="block text-[11px] font-bold text-gray-600 mb-1.5">フチの色：</span>
+                                    <div class="colorList flex gap-1.5 items-center flex-wrap" id="illustBorderColorList">
+                                        <button class="cBtn active w-7 h-7 rounded-full bg-white border border-gray-300" data-color="#ffffff"></button>
+                                        <button class="cBtn w-7 h-7 rounded-full bg-gray-900 border border-transparent" data-color="#111111"></button>
+                                        <button class="cBtn w-7 h-7 rounded-full bg-pink-100 border border-gray-200" data-color="#ffebf0"></button>
+                                        <button class="cBtn w-7 h-7 rounded-full bg-yellow-300 border border-transparent" data-color="#ffd43b"></button>
+                                        <button class="cBtn w-7 h-7 rounded-full bg-blue-100 border border-gray-200" data-color="#e7f5ff"></button>
+                                        <button class="cBtn w-7 h-7 rounded-full bg-red-500 border border-transparent" data-color="#e03131"></button>
+                                        <label class="customColorWrap relative w-7 h-7 rounded-full border border-dashed border-gray-400 bg-white flex items-center justify-center cursor-pointer overflow-hidden">
+                                            <input type="color" id="illustBorderColorPicker" value="#ffffff" class="absolute -inset-2 w-12 h-12 opacity-0 cursor-pointer">
+                                            <span class="text-[10px]">🎨</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- パネル：文字設定 -->
+                        <div id="panel-text" class="layerPanel space-y-3">
+                            <div class="panelHeader border-b border-gray-200 pb-2">
+                                <b class="text-sm font-bold text-gray-800">💬 文字の設定</b>
+                                <span class="subNote text-[11px] text-gray-500">セリフの入力やフォント、色を変更できます</span>
+                            </div>
+
+                            <div class="inputRow flex gap-2">
+                                <input type="text" id="stampText" placeholder="セリフを入力してね" maxlength="25" class="flex-1 p-2.5 border border-gray-300 rounded-xl text-sm font-bold">
+                                <button type="button" id="clearTextBtn" class="px-3 bg-gray-200 hover:bg-gray-300 rounded-xl font-bold text-xs">✕</button>
+                            </div>
+
+                            <div class="quickWords flex gap-1.5 flex-wrap items-center">
+                                <span class="text-[11px] font-bold text-gray-500">よく使う：</span>
+                                <button type="button" class="qBtn px-2.5 py-1 bg-white border border-gray-300 rounded-full text-xs font-bold">ありがとう！</button>
+                                <button type="button" class="qBtn px-2.5 py-1 bg-white border border-gray-300 rounded-full text-xs font-bold">OK</button>
+                                <button type="button" class="qBtn px-2.5 py-1 bg-white border border-gray-300 rounded-full text-xs font-bold">りょうかい！</button>
+                                <button type="button" class="qBtn px-2.5 py-1 bg-white border border-gray-300 rounded-full text-xs font-bold">わーい！</button>
+                            </div>
+
+                            <div class="settingGroup">
+                                <label class="block text-xs font-bold text-gray-600 mb-1">フォント（丸ゴシック対応）</label>
+                                <select id="textFont" class="w-full p-2.5 border border-gray-300 rounded-xl text-xs font-bold bg-white">
+                                    <option value="'M PLUS Rounded 1c', sans-serif" selected>M+ 丸ゴシック (すっきりキレイな角丸)</option>
+                                    <option value="'Mochiy Pop One', sans-serif">モッチーポップ (かわいいポップ体)</option>
+                                    <option value="'Zen Maru Gothic', sans-serif">丸ゴシック (太めの丸ゴシック)</option>
+                                    <option value="'Hachi Maru Pop', cursive">はちまるポップ (ゆるかわ手書き風)</option>
+                                    <option value="'Dela Gothic One', sans-serif">デラゴシック (極太文字)</option>
+                                </select>
+                            </div>
+
+                            <div class="twoColRow grid grid-cols-2 gap-3 bg-white p-3 border border-gray-200 rounded-xl">
+                                <div>
+                                    <label class="block text-[11px] font-bold text-gray-600 mb-1.5">文字の色</label>
+                                    <div class="colorList flex gap-1.5 flex-wrap" id="textColorList">
+                                        <button class="cBtn active w-6 h-6 rounded-full bg-gray-900 border border-gray-300" data-color="#111111"></button>
+                                        <button class="cBtn w-6 h-6 rounded-full bg-white border border-gray-300" data-color="#ffffff"></button>
+                                        <button class="cBtn w-6 h-6 rounded-full bg-red-600" data-color="#e03131"></button>
+                                        <button class="cBtn w-6 h-6 rounded-full bg-blue-600" data-color="#1971c2"></button>
+                                        <button class="cBtn w-6 h-6 rounded-full bg-yellow-400" data-color="#ffd43b"></button>
+                                        <label class="customColorWrap relative w-6 h-6 rounded-full border border-dashed border-gray-400 bg-white flex items-center justify-center cursor-pointer overflow-hidden">
+                                            <input type="color" id="textColorPicker" value="#111111" class="absolute -inset-2 w-10 h-10 opacity-0 cursor-pointer">
+                                            <span class="text-[9px]">🎨</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-gray-600 mb-1.5">フチどり</label>
+                                    <div class="strokeList flex gap-1" id="textStrokeList">
+                                        <button class="sBtn active flex-1 py-1 bg-gray-900 text-white rounded text-[11px] font-bold" data-stroke="#ffffff">白フチ</button>
+                                        <button class="sBtn flex-1 py-1 bg-gray-100 rounded text-[11px] font-bold" data-stroke="#111111">黒</button>
+                                        <button class="sBtn flex-1 py-1 bg-gray-100 rounded text-[11px] font-bold" data-stroke="none">なし</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- パネル：背景設定 -->
+                        <div id="panel-bg" class="layerPanel space-y-3">
+                            <div class="panelHeader border-b border-gray-200 pb-2">
+                                <b class="text-sm font-bold text-gray-800">🖼 はいけいの設定</b>
+                                <span class="subNote text-[11px] text-gray-500">絵の後ろに敷く背景のタイプを選べます</span>
+                            </div>
+
+                            <div class="settingGroup">
+                                <label class="block text-xs font-bold text-gray-600 mb-1.5">背景スタイル：</label>
+                                <div class="bgStyleGrid grid grid-cols-3 gap-2">
+                                    <button type="button" class="bgStyleCard active p-2 border border-gray-300 rounded-xl bg-white flex flex-col items-center gap-1" data-style="none">
+                                        <div class="w-7 h-7 rounded bg-gray-100 border border-dashed border-gray-400 flex items-center justify-center text-xs">🚫</div>
+                                        <span class="text-[11px] font-bold">なし(透明)</span>
+                                    </button>
+                                    <button type="button" class="bgStyleCard p-2 border border-gray-300 rounded-xl bg-white flex flex-col items-center gap-1" data-style="image">
+                                        <div class="w-7 h-7 rounded bg-blue-50 border border-blue-200 flex items-center justify-center text-xs">📷</div>
+                                        <span class="text-[11px] font-bold">写真</span>
+                                    </button>
+                                    <button type="button" class="bgStyleCard p-2 border border-gray-300 rounded-xl bg-white flex flex-col items-center gap-1" data-style="circle">
+                                        <div class="w-7 h-7 rounded-full bg-yellow-100 border border-yellow-300 flex items-center justify-center text-xs">⭐</div>
+                                        <span class="text-[11px] font-bold">まる型</span>
+                                    </button>
+                                    <button type="button" class="bgStyleCard p-2 border border-gray-300 rounded-xl bg-white flex flex-col items-center gap-1" data-style="roundRect">
+                                        <div class="w-7 h-7 rounded-lg bg-yellow-100 border border-yellow-300"></div>
+                                        <span class="text-[11px] font-bold">角丸</span>
+                                    </button>
+                                    <button type="button" class="bgStyleCard p-2 border border-gray-300 rounded-xl bg-white flex flex-col items-center gap-1" data-style="full">
+                                        <div class="w-7 h-7 rounded bg-yellow-100 border border-yellow-300"></div>
+                                        <span class="text-[11px] font-bold">全面</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="bgNoneNotice" class="bgNoneCard bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-2">
+                                <span class="text-lg">✅</span>
+                                <div class="text-[11px] text-green-800 font-medium">
+                                    <b>背景なし（透明）</b>：一番使われる標準スタイルです。
+                                </div>
+                            </div>
+
+                            <div id="bgImageControls" class="bgUploadCard hidden bg-white border border-blue-200 rounded-xl p-3">
+                                <label class="bgFileLabel block bg-blue-600 hover:bg-blue-700 text-white text-center py-2 rounded-lg font-bold text-xs cursor-pointer">
+                                    <input type="file" id="bgFileInput" accept="image/*" class="hidden">
+                                    📷 背景の写真を選ぶ
+                                </label>
+                                <div id="bgImageStatus" class="bgImgStatus flex justify-between items-center mt-2 text-xs font-bold hidden">
+                                    <span id="bgImageName">画像セット済み</span>
+                                    <button type="button" id="removeBgImgBtn" class="text-red-500 hover:underline">削除</button>
+                                </div>
+                            </div>
+
+                            <div id="bgColorControls" class="hidden">
+                                <label class="block text-xs font-bold text-gray-600 mb-1.5">背景カラー：</label>
+                                <div class="colorList flex gap-2 items-center flex-wrap" id="bgColorList">
+                                    <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-white" data-bg="#ffffff">しろ</button>
+                                    <button class="cBtn active px-3 py-1.5 rounded-lg border text-xs font-bold bg-yellow-100" data-bg="#fff9db">きいろ</button>
+                                    <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-pink-100" data-bg="#ffebf0">ピンク</button>
+                                    <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-blue-100" data-bg="#e7f5ff">みずいろ</button>
+                                    <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-gray-900 text-white" data-bg="#222222">くろ</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="save" class="primary bigBtn w-full py-3.5 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-base shadow-sm transition">💾 このスタンプを保存する</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ステップ③：完成一覧アルバム -->
+        <section class="results bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200">
+            <div class="resultHead flex justify-between items-center">
+                <h2 class="text-base font-bold text-gray-800">完成アルバム <span id="done">0</span> / <span id="total">16</span></h2>
+                <button id="zip" class="primary zipBtn px-4 py-2 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-xs shadow-sm transition disabled:opacity-40" disabled>📦 ZIPで全部保存</button>
+            </div>
+            <div id="checks" class="text-xs mt-2 font-medium"></div>
+            <div id="thumbs" class="thumbs grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 mt-4"></div>
+        </section>
+    </main>
+
+    <!-- フッター (LINE売上分析アプリと完全統一) -->
+    <footer class="max-w-6xl mx-auto px-4 py-6 text-xs text-gray-400 border-t border-gray-100 mt-12 flex flex-col sm:flex-row justify-end items-center sm:items-end gap-2">
+        <p class="leading-none pb-0.5">© 2026 <a href="https://store.line.me/search/ja?q=arakakiai" target="_blank" rel="noopener noreferrer" class="text-[#00C300] hover:text-[#009900] transition font-bold">ARAKAKIAIworks</a>. All Rights Reserved.</p>
+        <img src="bottom-right.png" alt="シーサーロゴ" class="h-9 w-auto object-contain block">
+    </footer>
+
+    <div id="toast" class="fixed left-1/2 bottom-6 -translate-x-1/2 translate-y-10 bg-gray-900 text-white px-5 py-2.5 rounded-full text-xs font-bold opacity-0 transition-all duration-300 pointer-events-none z-50 shadow-lg"></div>
+
+    <!-- 画像プレビュー・再編集モーダル -->
+    <div id="imageModal" class="modal fixed inset-0 bg-gray-900/70 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
+        <div class="modalContent bg-white p-5 rounded-2xl text-center max-w-[92%] w-80 shadow-xl space-y-3">
+            <p class="modalTitle text-sm font-bold text-gray-800" id="modalTitle">完成カット</p>
+            <img id="modalImg" alt="完成画像" class="max-w-[180px] max-h-[180px] mx-auto border border-gray-200 rounded-xl bg-gray-100 object-contain">
+            <div class="modalActions flex flex-col gap-2">
+                <button type="button" id="modalEditBtn" class="primary py-3 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-sm shadow-sm transition">✏️ このカットを再編集する</button>
+                <button type="button" id="modalDeleteBtn" class="py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs transition">🗑️ 削除</button>
+                <button type="button" id="modalClose" class="py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition">とじる</button>
+            </div>
+            <p class="modalTip text-[10px] text-gray-400">※ 画像を長押しすると「写真に追加」で保存できます</p>
         </div>
-      </div>
     </div>
 
-    <!-- プレビュー直下常駐：大きさ＆位置クイックコントローラー -->
-    <div class="quickTransformBox">
-      <div class="sliderRow">
-        <span class="ctrlLabel" id="transformScaleLabel">絵の大きさ：</span>
-        <input type="range" id="commonScaleSlider" min="40" max="300" value="100">
-        <b class="scaleValueText"><span id="commonScaleVal">100</span><span id="commonScaleUnit">%</span></b>
-      </div>
-
-      <div class="transformControlsRow">
-        <div class="dpad mini">
-          <button type="button" id="ctrlUp" class="dpadBtn up">▲</button>
-          <div class="dpadMiddle">
-            <button type="button" id="ctrlLeft" class="dpadBtn left">◀</button>
-            <button type="button" id="ctrlCenter" class="dpadBtn center" title="中央へ">◎</button>
-            <button type="button" id="ctrlRight" class="dpadBtn right">▶</button>
-          </div>
-          <button type="button" id="ctrlDown" class="dpadBtn down">▼</button>
-        </div>
-
-        <div class="quickShortcuts" id="shortcutsIllust">
-          <button type="button" id="centerIllustBtn" class="shortcutBtn">◎ まんなか</button>
-          <button type="button" id="fitWidth" class="shortcutBtn">↔ 横幅に合わせる</button>
-          <button type="button" id="fitHeight" class="shortcutBtn">↕ 縦幅に合わせる</button>
-        </div>
-        <div class="quickShortcuts hidden" id="shortcutsText">
-          <button type="button" id="textPosTop" class="shortcutBtn">⬆ 上に置く</button>
-          <button type="button" id="textPosCenter" class="shortcutBtn">↕ 中央に置く</button>
-          <button type="button" id="textPosBottom" class="shortcutBtn">⬇ 下に置く</button>
-        </div>
-        <div class="quickShortcuts hidden" id="shortcutsBg">
-          <button type="button" id="bgCenterBtn" class="shortcutBtn">◎ まんなか</button>
-          <button type="button" id="bgFitFull" class="shortcutBtn">🔲 画面いっぱいに</button>
-          <button type="button" id="bgResetPos" class="shortcutBtn">↺ 初期サイズ</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 詳細設定エリア -->
-    <div class="detailsArea">
-      <!-- パネル：イラスト詳細設定 -->
-      <div id="panel-illust" class="layerPanel active">
-        <div class="panelHeader">
-          <b>🎨 イラストの詳細設定</b>
-          <span class="subNote">消しゴムや背景透過・フチを設定できます</span>
-        </div>
-
-        <!-- 手動タッチ消しゴムカード -->
-        <div class="eraserCard">
-          <div class="eraserTopRow">
-            <button type="button" id="eraserToggleBtn" class="eraserBtn">🧹 消しゴムモード：OFF</button>
-            <button type="button" id="eraserUndoBtn" class="subBtn" disabled>↩️ 元に戻す</button>
-          </div>
-          <div id="eraserOptionsWrap" class="eraserOptions hidden">
-            <div class="eraserSizeRow">
-              <span class="subLabel">太さ：</span>
-              <button type="button" class="eSizeBtn" data-size="8">極細</button>
-              <button type="button" class="eSizeBtn" data-size="16">細</button>
-              <button type="button" class="eSizeBtn active" data-size="28">中</button>
-              <button type="button" class="eSizeBtn" data-size="46">太</button>
-              <button type="button" class="eSizeBtn" data-size="70">極太</button>
-            </div>
-            <div class="tipNote">💡 消しゴムONの間は、プレビュー画面を指でなぞると不要な部分や隣の絵を消せます</div>
-          </div>
-        </div>
-
-        <div class="transRow">
-          <button id="transparent" class="primary">✨ 絵のまわりを透明にする</button>
-          <span id="transState">透過 OFF</span>
-        </div>
-
-        <div id="transOptionsWrap" class="transOptionsCard hidden">
-          <div class="transOptionRow">
-            <label class="protectToggle">
-              <input type="checkbox" id="protectWhiteToggle" checked>
-              🛡️ 白ぬけ防止（キャラの白を守る）
-            </label>
-          </div>
-          <div class="sliderRow" style="margin-top:8px;">
-            <span class="groupLabel">透過のつよさ（感度）：</span>
-            <input type="range" id="bgToleranceSlider" min="5" max="60" value="22">
-            <b><span id="bgToleranceVal">22</span></b>
-          </div>
-          <div class="tipNote">💡 白い服や顔が消えるときは「つよさ」を小さくしてね</div>
-        </div>
-
-        <div class="borderCard">
-          <div class="borderRow">
-            <label class="borderToggle"><input type="checkbox" id="illustBorderToggle"> ⭕ イラストにフチをつける</label>
-            <label class="borderWidth">太さ
-              <input type="range" id="borderWidth" min="1" max="20" value="6">
-              <b><span id="borderWidthValue">6</span>px</b>
-            </label>
-          </div>
-
-          <div id="illustBorderColorWrap" class="borderColorGroup hidden">
-            <span class="subLabel">フチの色（デフォルト：白）：</span>
-            <div class="colorList" id="illustBorderColorList">
-              <button class="cBtn active" data-color="#ffffff" style="background:#ffffff; border:1px solid #bbb;" title="しろ (デフォルト)"></button>
-              <button class="cBtn" data-color="#111111" style="background:#111111;" title="くろ"></button>
-              <button class="cBtn" data-color="#ffebf0" style="background:#ffebf0; border:1px solid #ddd;" title="うすピンク"></button>
-              <button class="cBtn" data-color="#ffd43b" style="background:#ffd43b;" title="きいろ"></button>
-              <button class="cBtn" data-color="#e7f5ff" style="background:#e7f5ff; border:1px solid #ddd;" title="みずいろ"></button>
-              <button class="cBtn" data-color="#e03131" style="background:#e03131;" title="あか"></button>
-              <button class="cBtn" data-color="#2f9e44" style="background:#2f9e44;" title="みどり"></button>
-              <button class="cBtn" data-color="#7048e8" style="background:#7048e8;" title="むらさき"></button>
-              <label class="customColorWrap" title="すきなフチの色をえらぶ">
-                <input type="color" id="illustBorderColorPicker" value="#ffffff">
-                <span class="customColorBadge">🎨</span>
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- パネル：文字詳細設定 -->
-      <div id="panel-text" class="layerPanel">
-        <div class="panelHeader">
-          <b>💬 文字の詳細設定</b>
-          <span class="subNote">セリフの入力、フォント、文字色を設定できます</span>
-        </div>
-
-        <div class="inputRow">
-          <input type="text" id="stampText" placeholder="ここに入力した文字が表示されます" maxlength="25">
-          <button type="button" id="clearTextBtn" class="clearBtn">✕</button>
-        </div>
-
-        <div class="quickWords">
-          <span>よく使う言葉：</span>
-          <button type="button" class="qBtn">ありがとう！</button>
-          <button type="button" class="qBtn">OK</button>
-          <button type="button" class="qBtn">りょうかい！</button>
-          <button type="button" class="qBtn">わーい！</button>
-          <button type="button" class="qBtn">おつかれさま</button>
-          <button type="button" class="qBtn">いいね！</button>
-          <button type="button" class="qBtn">ペこり</button>
-          <button type="button" class="qBtn">よろしくね</button>
-        </div>
-
-        <div class="settingGroup">
-          <label class="groupLabel">フリーフォント（商用OK）</label>
-          <select id="textFont" class="fontSelect">
-            <option value="'M PLUS Rounded 1c', sans-serif" selected>M+ 丸ゴシック (すっきりキレイな角丸)</option>
-            <option value="'Mochiy Pop One', sans-serif">モッチーポップ (かわいいポップ体)</option>
-            <option value="'Zen Maru Gothic', sans-serif">丸ゴシック (太めの丸ゴシック)</option>
-            <option value="'Hachi Maru Pop', cursive">はちまるポップ (ゆるかわ手書き風)</option>
-            <option value="'Dela Gothic One', sans-serif">デラゴシック (迫力ある極太文字)</option>
-            <option value="'Kiwi Maru', serif">キウイ丸 (やさしい丸明朝風)</option>
-          </select>
-        </div>
-
-        <div class="twoColRow">
-          <div class="settingGroup">
-            <label class="groupLabel">文字の色</label>
-            <div class="colorList" id="textColorList">
-              <button class="cBtn active" data-color="#111111" style="background:#111111;" title="くろ"></button>
-              <button class="cBtn" data-color="#ffffff" style="background:#ffffff; border:1px solid #ccc;" title="しろ"></button>
-              <button class="cBtn" data-color="#e03131" style="background:#e03131;" title="あか"></button>
-              <button class="cBtn" data-color="#1971c2" style="background:#1971c2;" title="あお"></button>
-              <button class="cBtn" data-color="#2f9e44" style="background:#2f9e44;" title="みどり"></button>
-              <button class="cBtn" data-color="#ffd43b" style="background:#ffd43b;" title="きいろ"></button>
-              <button class="cBtn" data-color="#f08c00" style="background:#f08c00;" title="オレンジ"></button>
-              <button class="cBtn" data-color="#e64980" style="background:#e64980;" title="ピンク"></button>
-              <button class="cBtn" data-color="#7048e8" style="background:#7048e8;" title="むらさき"></button>
-              <button class="cBtn" data-color="#5c3c10" style="background:#5c3c10;" title="ちゃいろ"></button>
-              <label class="customColorWrap" title="すきな色をえらぶ">
-                <input type="color" id="textColorPicker" value="#111111">
-                <span class="customColorBadge">🎨</span>
-              </label>
-            </div>
-          </div>
-
-          <div class="settingGroup">
-            <label class="groupLabel">文字のフチどり</label>
-            <div class="strokeList" id="textStrokeList">
-              <button class="sBtn active" data-stroke="#ffffff" style="background:#fff; color:#111;">白フチ</button>
-              <button class="sBtn" data-stroke="#111111" style="background:#111; color:#fff;">黒フチ</button>
-              <button class="sBtn" data-stroke="none" style="background:#eee; color:#666;">なし</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- パネル：背景詳細設定 -->
-      <div id="panel-bg" class="layerPanel">
-        <div class="panelHeader">
-          <b>🖼 はいけいの詳細設定</b>
-          <span class="subNote">絵の後ろに敷く背景のタイプ・写真・色をえらんでね</span>
-        </div>
-
-        <div class="settingGroup">
-          <label class="groupLabel">はいけいのタイプ：</label>
-          <div class="bgStyleGrid" id="bgStyleGrid">
-            <button type="button" class="bgStyleCard active" data-style="none">
-              <div class="styleIcon checkered">
-                <span class="crossIcon">🚫</span>
-              </div>
-              <b class="styleTitle">背景なし</b>
-              <span class="styleDesc">透明（標準）</span>
-            </button>
-
-            <button type="button" class="bgStyleCard" data-style="image">
-              <div class="styleIcon imgIcon" id="iconPreviewImg">
-                <span>📷</span>
-              </div>
-              <b class="styleTitle">写真・画像</b>
-              <span class="styleDesc">好きな画像を敷く</span>
-            </button>
-
-            <button type="button" class="bgStyleCard" data-style="circle">
-              <div class="styleIcon circleIcon" id="iconPreviewCircle">
-                <span class="starIcon">★</span>
-              </div>
-              <b class="styleTitle">まる型</b>
-              <span class="styleDesc">丸い座布団</span>
-            </button>
-
-            <button type="button" class="bgStyleCard" data-style="roundRect">
-              <div class="styleIcon plateIcon" id="iconPreviewPlate">
-                <span class="plateInner"></span>
-              </div>
-              <b class="styleTitle">角丸プレート</b>
-              <span class="styleDesc">看板風四角</span>
-            </button>
-
-            <button type="button" class="bgStyleCard" data-style="full">
-              <div class="styleIcon fullIcon" id="iconPreviewFull">
-                <span class="fullInner"></span>
-              </div>
-              <b class="styleTitle">ぜんぶ塗る</b>
-              <span class="styleDesc">全画面カラー</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- 背景なし案内 -->
-        <div id="bgNoneNotice" class="bgNoneCard">
-          <div class="bgNoneIcon">✅</div>
-          <div class="bgNoneText">
-            <b>現在は「背景なし（透明）」です</b>
-            <p>LINEスタンプで一番使われる標準スタイルです。絵のまわりが透けたスタンプになります。</p>
-          </div>
-        </div>
-
-        <!-- 背景画像アップロードUI -->
-        <div id="bgImageControls" class="bgUploadCard hidden">
-          <label class="bgFileLabel">
-            <input type="file" id="bgFileInput" accept="image/*">
-            📷 背景の写真・画像をえらぶ
-          </label>
-          <div id="bgImageStatus" class="bgImgStatus hidden">
-            <span id="bgImageName">画像がセットされています</span>
-            <button type="button" id="removeBgImgBtn" class="clearBtn">✕ 削除</button>
-          </div>
-        </div>
-
-        <!-- 背景カラー選択 -->
-        <div id="bgColorControls" class="hidden">
-          <div class="settingGroup">
-            <span class="groupLabel">はいけいの色：</span>
-            <div class="colorList large" id="bgColorList">
-              <button class="cBtn" data-bg="#ffffff" style="background:#ffffff; border:1px solid #bbb;" title="しろ">
-                <span class="cLabel">しろ</span>
-              </button>
-              <button class="cBtn active" data-bg="#fff9db" style="background:#fff9db;" title="きいろ">
-                <span class="cLabel">きいろ</span>
-              </button>
-              <button class="cBtn" data-bg="#ffebf0" style="background:#ffebf0;" title="ピンク">
-                <span class="cLabel">ピンク</span>
-              </button>
-              <button class="cBtn" data-bg="#e7f5ff" style="background:#e7f5ff;" title="みずいろ">
-                <span class="cLabel">みずいろ</span>
-              </button>
-              <button class="cBtn" data-bg="#ebfbee" style="background:#ebfbee;" title="みんと">
-                <span class="cLabel">みんと</span>
-              </button>
-              <button class="cBtn" data-bg="#f3f0ff" style="background:#f3f0ff;" title="むらさき">
-                <span class="cLabel">むらさき</span>
-              </button>
-              <button class="cBtn" data-bg="#fff4e6" style="background:#fff4e6;" title="オレンジ">
-                <span class="cLabel">オレンジ</span>
-              </button>
-              <button class="cBtn" data-bg="#222222" style="background:#222222;" title="くろ">
-                <span class="cLabel" style="color:#fff;">くろ</span>
-              </button>
-              <label class="customColorWrap" title="すきな背景色をえらぶ">
-                <input type="color" id="bgColorPicker" value="#fff9db">
-                <span class="customColorBadge">🎨</span>
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <button id="save" class="primary big">💾 このスタンプを保存する</button>
-  </section>
-
-  <!-- ステップ③：完成一覧 -->
-  <section class="results">
-    <div class="resultHead">
-      <h2>完成 <span id="done">0</span> / <span id="total">16</span></h2>
-      <button id="zip" disabled>📦 ZIPで全部保存</button>
-    </div>
-    <div id="checks"></div>
-    <div id="thumbs" class="thumbs"></div>
-  </section>
-</main>
-
-<div id="toast"></div>
-
-<!-- 画像プレビュー・再編集・長押し保存モーダル -->
-<div id="imageModal" class="modal">
-  <div class="modalContent">
-    <p class="modalTitle" id="modalTitle">完成カット</p>
-    <img id="modalImg" alt="完成画像">
-    <div class="modalActions">
-      <button type="button" id="modalEditBtn" class="primary big">✏️ このカットを再編集する</button>
-      <button type="button" id="modalDeleteBtn" class="subBtn danger">🗑️ 削除</button>
-      <button type="button" id="modalClose" class="subBtn">とじる</button>
-    </div>
-    <p class="modalTip">※ 画像を長押しすると「写真に追加」で保存できます</p>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
