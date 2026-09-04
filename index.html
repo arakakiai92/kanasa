@@ -4,64 +4,75 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#ffffff">
-<title>LINEスタンプ切り出しメーカー</title>
+<title>LINEスタンプ・絵文字メーカー</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
-  <h1>LINEスタンプ切り出しメーカー</h1>
-  <div class="type-switch">
-    <button data-type="sticker" class="active">スタンプ</button>
-    <button data-type="emoji">絵文字</button>
+  <h1>LINEスタンプ・絵文字メーカー</h1>
+  <div class="switch">
+    <button class="active" data-mode="sticker">🟢 スタンプ</button>
+    <button data-mode="emoji">🟣 絵文字</button>
   </div>
 </header>
 
 <main>
   <section class="panel">
-    <div class="row">
-      <label class="field">作成数
-        <select id="count">
-          <option>8</option><option selected>16</option><option>24</option>
-          <option>32</option><option>40</option>
-        </select>
+    <div class="toprow">
+      <label>作る個数
+        <select id="count"><option>8</option><option selected>16</option><option>24</option><option>32</option><option>40</option></select>
       </label>
       <label class="upload">
         <input id="file" type="file" accept="image/*">
-        <span>📷 シートを読み込む</span>
+        📷 シートを読み込む
       </label>
     </div>
-    <p class="hint">シートの好きな場所をドラッグして囲み、必要なら四隅を動かして調整してください。</p>
+    <div class="spec" id="spec"></div>
   </section>
 
-  <section id="editor" class="editor hidden">
-    <div class="status">
-      <b id="progress">カット 1 / 16</b>
-      <button id="reset" class="small">↺ 枠をリセット</button>
-    </div>
+  <section id="sheetStep" class="step hidden">
+    <div class="stepTitle"><span>① 切り出す</span><b id="sheetProgress">1 / 16</b></div>
+    <p>欲しい絵を指でざっくり囲んでください。枠は自動で正しい比率になります。</p>
     <div id="stageWrap">
       <canvas id="stage"></canvas>
-      <div id="cropBox" class="crop-box">
-        <i data-handle="nw"></i><i data-handle="ne"></i>
-        <i data-handle="sw"></i><i data-handle="se"></i>
-      </div>
+      <div id="cropBox" class="cropBox hidden"></div>
     </div>
-    <div class="tools">
-      <button id="transparent">✨ 背景を透過</button>
-      <button id="saveOne">💾 このカットを保存</button>
-      <button id="next" class="primary">次のカット →</button>
+    <button id="startSelect" class="primary big">✂️ この絵を囲む</button>
+    <button id="adjustBtn" class="primary big hidden">次へ：細かく調整 →</button>
+  </section>
+
+  <section id="adjustStep" class="step hidden">
+    <div class="stepTitle"><span>② 位置を調整</span><button id="back" class="linkBtn">← 戻る</button></div>
+    <p>枠の中に絵がきれいに入るように調整してください。</p>
+    <div class="adjustArea">
+      <canvas id="preview"></canvas>
+      <div id="adjustBox" class="cropBox"></div>
     </div>
+    <div class="adjustTools">
+      <button id="minus">− 小さく</button><button id="plus">＋ 大きく</button>
+      <button id="center">◎ 中央へ</button>
+      <button id="resetAdjust">↺ リセット</button>
+    </div>
+    <div class="transRow">
+      <button id="transparent" class="primary">✨ 背景を透過</button>
+      <span id="transState">透過 OFF</span>
+    </div>
+    <div id="checkerPreview" class="checker hidden"></div>
+    <button id="save" class="primary big">💾 このカットを保存</button>
   </section>
 
   <section class="results">
-    <div class="results-head">
-      <h2>作成済み <span id="done">0</span></h2>
-      <button id="zip" disabled>📦 全部をZIP保存</button>
+    <div class="resultHead">
+      <h2>完成 <span id="done">0</span> / <span id="total">16</span></h2>
+      <button id="zip" disabled>📦 ZIPで全部保存</button>
     </div>
+    <div id="checks"></div>
     <div id="thumbs" class="thumbs"></div>
   </section>
 </main>
 
 <div id="toast"></div>
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script><script src="script.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="script.js"></script>
 </body>
 </html>
