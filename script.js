@@ -87,7 +87,7 @@ document.querySelectorAll(".switch button").forEach(b => b.onclick = () => {
 
 $("#count").onchange = () => { $("#total").textContent = $("#count").value; };
 
-// シート画像読み込み（自動リサイズ＆画面表示を先に行ってからCanvasを初期化）
+// シート画像読み込み処理
 $("#file").onchange = e => {
   const f = e.target.files[0];
   if (!f) return;
@@ -107,15 +107,19 @@ $("#file").onchange = e => {
         results = [];
         editingIndex = null;
         
-        // ★重要：先にステップ①を表示状態にしてからcanvasの幅を計算する
+        // ステップ①を表示状態にする
         $("#sheetStep").classList.remove("hidden");
         $("#adjustStep").classList.add("hidden");
         
         setupCanvas();
         renderSheet();
-        initOrAdjustSelection();
-        refresh();
-        toast("シートを読み込みました！枠を動かしてね");
+        
+        // レイアウト計算の確実な反映のためわずかに遅延させて枠を初期化
+        requestAnimationFrame(() => {
+          initOrAdjustSelection();
+          refresh();
+          toast("シートを読み込みました！枠を動かしてね");
+        });
       };
 
       if (width > MAX_DIM || height > MAX_DIM) {
@@ -172,10 +176,13 @@ function renderCropBox() {
   }
 
   const sr = stage.getBoundingClientRect();
-  crop.style.left = `${(selectionRect.x / sr.width) * 100}%`;
-  crop.style.top = `${(selectionRect.y / sr.height) * 100}%`;
-  crop.style.width = `${(selectionRect.w / sr.width) * 100}%`;
-  crop.style.height = `${(selectionRect.h / sr.height) * 100}%`;
+  const srW = sr.width > 0 ? sr.width : (stage.clientWidth || stage.width || 300);
+  const srH = sr.height > 0 ? sr.height : (stage.clientHeight || stage.height || 300);
+
+  crop.style.left = `${(selectionRect.x / srW) * 100}%`;
+  crop.style.top = `${(selectionRect.y / srH) * 100}%`;
+  crop.style.width = `${(selectionRect.w / srW) * 100}%`;
+  crop.style.height = `${(selectionRect.h / srH) * 100}%`;
   crop.classList.remove("hidden");
 
   $("#cropFineTune").classList.remove("hidden");
@@ -183,8 +190,8 @@ function renderCropBox() {
   $("#adjustBtn").classList.remove("hidden");
   $("#startSelect").classList.add("hidden");
 
-  const scaleX = img.naturalWidth / sr.width;
-  const scaleY = img.naturalHeight / sr.height;
+  const scaleX = img.naturalWidth / srW;
+  const scaleY = img.naturalHeight / srH;
   selection = {
     x: selectionRect.x * scaleX,
     y: selectionRect.y * scaleY,
@@ -197,18 +204,19 @@ function initOrAdjustSelection() {
   if (!img) return;
   const r = SPEC[mode].ratio;
   const sr = stage.getBoundingClientRect();
-  if (sr.width === 0 || sr.height === 0) return;
+  const w = sr.width > 0 ? sr.width : (stage.clientWidth || stage.width || 300);
+  const h = sr.height > 0 ? sr.height : (stage.clientHeight || stage.height || 300);
 
-  let w = sr.width * 0.55;
-  let h = w / r;
-  if (h > sr.height * 0.75) {
-    h = sr.height * 0.75;
-    w = h * r;
+  let boxW = w * 0.55;
+  let boxH = boxW / r;
+  if (boxH > h * 0.75) {
+    boxH = h * 0.75;
+    boxW = boxH * r;
   }
-  const x = (sr.width - w) / 2;
-  const y = (sr.height - h) / 2;
+  const x = (w - boxW) / 2;
+  const y = (h - boxH) / 2;
 
-  selectionRect = { x, y, w, h };
+  selectionRect = { x, y, w: boxW, h: boxH };
   renderCropBox();
 }
 
@@ -217,9 +225,11 @@ $("#startSelect").onclick = () => { initOrAdjustSelection(); toast("切り出し
 
 function getTouchPos(clientX, clientY) {
   const r = stage.getBoundingClientRect();
+  const w = r.width > 0 ? r.width : (stage.clientWidth || stage.width || 300);
+  const h = r.height > 0 ? r.height : (stage.clientHeight || stage.height || 300);
   return {
-    x: Math.max(0, Math.min(r.width, clientX - r.left)),
-    y: Math.max(0, Math.min(r.height, clientY - r.top))
+    x: Math.max(0, Math.min(w, clientX - r.left)),
+    y: Math.max(0, Math.min(h, clientY - r.top))
   };
 }
 
@@ -250,13 +260,15 @@ wrap.addEventListener("touchmove", e => {
   const p = getTouchPos(touch.clientX, touch.clientY);
   const r = SPEC[mode].ratio;
   const sr = stage.getBoundingClientRect();
+  const srW = sr.width > 0 ? sr.width : (stage.clientWidth || stage.width || 300);
+  const srH = sr.height > 0 ? sr.height : (stage.clientHeight || stage.height || 300);
 
   if (cropDrag.type === "move") {
     const dx = p.x - cropDrag.startP.x;
     const dy = p.y - cropDrag.startP.y;
     selectionRect = {
-      x: Math.max(0, Math.min(sr.width - cropDrag.orig.w, cropDrag.orig.x + dx)),
-      y: Math.max(0, Math.min(sr.height - cropDrag.orig.h, cropDrag.orig.y + dy)),
+      x: Math.max(0, Math.min(srW - cropDrag.orig.w, cropDrag.orig.x + dx)),
+      y: Math.max(0, Math.min(srH - cropDrag.orig.h, cropDrag.orig.y + dy)),
       w: cropDrag.orig.w, h: cropDrag.orig.h
     };
     renderCropBox();
@@ -268,7 +280,7 @@ wrap.addEventListener("touchmove", e => {
     if (w < 20 || h < 20) return;
     let x = dx < 0 ? cropDrag.startP.x - w : cropDrag.startP.x;
     let y = dy < 0 ? cropDrag.startP.y - h : cropDrag.startP.y;
-    selectionRect = { x: Math.max(0, Math.min(sr.width - w, x)), y: Math.max(0, Math.min(sr.height - h, y)), w, h };
+    selectionRect = { x: Math.max(0, Math.min(srW - w, x)), y: Math.max(0, Math.min(srH - h, y)), w, h };
     renderCropBox();
   } else if (cropDrag.type === "resize") {
     const handle = cropDrag.handle;
@@ -307,13 +319,15 @@ wrap.addEventListener("mousemove", e => {
   const p = getTouchPos(e.clientX, e.clientY);
   const r = SPEC[mode].ratio;
   const sr = stage.getBoundingClientRect();
+  const srW = sr.width > 0 ? sr.width : (stage.clientWidth || stage.width || 300);
+  const srH = sr.height > 0 ? sr.height : (stage.clientHeight || stage.height || 300);
 
   if (cropDrag.type === "move") {
     const dx = p.x - cropDrag.startP.x;
     const dy = p.y - cropDrag.startP.y;
     selectionRect = {
-      x: Math.max(0, Math.min(sr.width - cropDrag.orig.w, cropDrag.orig.x + dx)),
-      y: Math.max(0, Math.min(sr.height - cropDrag.orig.h, cropDrag.orig.y + dy)),
+      x: Math.max(0, Math.min(srW - cropDrag.orig.w, cropDrag.orig.x + dx)),
+      y: Math.max(0, Math.min(srH - cropDrag.orig.h, cropDrag.orig.y + dy)),
       w: cropDrag.orig.w, h: cropDrag.orig.h
     };
     renderCropBox();
@@ -325,7 +339,7 @@ wrap.addEventListener("mousemove", e => {
     if (w < 20 || h < 20) return;
     let x = dx < 0 ? cropDrag.startP.x - w : cropDrag.startP.x;
     let y = dy < 0 ? cropDrag.startP.y - h : cropDrag.startP.y;
-    selectionRect = { x: Math.max(0, Math.min(sr.width - w, x)), y: Math.max(0, Math.min(sr.height - h, y)), w, h };
+    selectionRect = { x: Math.max(0, Math.min(srW - w, x)), y: Math.max(0, Math.min(srH - h, y)), w, h };
     renderCropBox();
   } else if (cropDrag.type === "resize") {
     const handle = cropDrag.handle;
@@ -346,8 +360,10 @@ wrap.addEventListener("mouseup", () => { cropDrag = null; });
 function nudgeCrop(dx, dy) {
   if (!selectionRect) return;
   const sr = stage.getBoundingClientRect();
-  selectionRect.x = Math.max(0, Math.min(sr.width - selectionRect.w, selectionRect.x + dx));
-  selectionRect.y = Math.max(0, Math.min(sr.height - selectionRect.h, selectionRect.y + dy));
+  const srW = sr.width > 0 ? sr.width : 300;
+  const srH = sr.height > 0 ? sr.height : 300;
+  selectionRect.x = Math.max(0, Math.min(srW - selectionRect.w, selectionRect.x + dx));
+  selectionRect.y = Math.max(0, Math.min(srH - selectionRect.h, selectionRect.y + dy));
   renderCropBox();
 }
 
@@ -355,13 +371,15 @@ function scaleCrop(factor) {
   if (!selectionRect) return;
   const r = SPEC[mode].ratio;
   const sr = stage.getBoundingClientRect();
+  const srW = sr.width > 0 ? sr.width : 300;
+  const srH = sr.height > 0 ? sr.height : 300;
   const cx = selectionRect.x + selectionRect.w / 2;
   const cy = selectionRect.y + selectionRect.h / 2;
   let newW = selectionRect.w * factor;
   let newH = newW / r;
   if (newW < 36) { newW = 36; newH = newW / r; }
-  let nx = Math.max(0, Math.min(sr.width - newW, cx - newW / 2));
-  let ny = Math.max(0, Math.min(sr.height - newH, cy - newH / 2));
+  let nx = Math.max(0, Math.min(srW - newW, cx - newW / 2));
+  let ny = Math.max(0, Math.min(srH - newH, cy - newH / 2));
   selectionRect = { x: nx, y: ny, w: newW, h: newH };
   renderCropBox();
 }
@@ -373,8 +391,10 @@ $("#cropRight").onclick = () => nudgeCrop(6, 0);
 $("#cropCenter").onclick = () => {
   if (!selectionRect) return;
   const sr = stage.getBoundingClientRect();
-  selectionRect.x = (sr.width - selectionRect.w) / 2;
-  selectionRect.y = (sr.height - selectionRect.h) / 2;
+  const srW = sr.width > 0 ? sr.width : 300;
+  const srH = sr.height > 0 ? sr.height : 300;
+  selectionRect.x = (srW - selectionRect.w) / 2;
+  selectionRect.y = (srH - selectionRect.h) / 2;
   renderCropBox();
 };
 $("#cropZoomIn").onclick = () => scaleCrop(1.08);
