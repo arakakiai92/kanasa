@@ -17,26 +17,28 @@
 </head>
 <body class="text-gray-800 pb-8">
 
-    <!-- ヘッダー (LINE売上分析アプリと完全統一) -->
+    <!-- ヘッダー（ロゴとタイトル専用にしてスッキリ独立） -->
     <header class="bg-[#00C300] text-white shadow-md sticky top-0 z-40">
-        <div class="max-w-6xl mx-auto flex items-center justify-between px-4">
-            <div class="flex items-center">
-                <img src="bottom-right.png" alt="シーサーアイコン" class="h-14 md:h-16 w-auto block object-contain">
-                <h1 class="text-base md:text-xl font-bold ml-3 py-4">LINEスタンプ・絵文字メーカー</h1>
-            </div>
-            <!-- モード切替スイッチ -->
-            <div class="switch flex gap-1 bg-black/10 p-1 rounded-xl">
-                <button class="active px-3 py-1.5 text-xs md:text-sm font-bold rounded-lg transition" data-mode="sticker">🟢 スタンプ</button>
-                <button class="px-3 py-1.5 text-xs md:text-sm font-bold rounded-lg transition" data-mode="emoji">🟣 絵文字</button>
-            </div>
+        <div class="max-w-6xl mx-auto flex items-center px-4 py-3">
+            <img src="bottom-right.png" alt="シーサーアイコン" class="h-12 md:h-14 w-auto block object-contain">
+            <h1 class="text-base md:text-xl font-bold ml-3">LINEスタンプ・絵文字メーカー</h1>
         </div>
     </header>
     
     <main class="p-4 max-w-6xl mx-auto space-y-6">
         
-        <!-- 設定・シート読み込みパネル -->
-        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200">
-            <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
+        <!-- 設定・シート読み込みパネル（ここにスタンプ/絵文字の切り替えを配置して操作性アップ） -->
+        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
+            <div>
+                <label class="block mb-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider">作る種類をえらぶ</label>
+                <!-- スマホで押しやすい大きなモード切替スイッチ -->
+                <div class="switch flex gap-2 bg-gray-100 p-1.5 rounded-xl">
+                    <button class="active flex-1 py-2.5 text-xs md:text-sm font-bold rounded-lg transition bg-white shadow-sm text-gray-800" data-mode="sticker">🟢 スタンプを作る</button>
+                    <button class="flex-1 py-2.5 text-xs md:text-sm font-bold rounded-lg transition text-gray-500 hover:text-gray-800" data-mode="emoji">🟣 絵文字を作る</button>
+                </div>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-4 items-center justify-between pt-2 border-t border-gray-100">
                 <div class="w-full md:w-auto">
                     <label class="block mb-1 text-xs font-bold text-gray-500 uppercase tracking-wider">作る個数</label>
                     <select id="count" class="w-full md:w-36 p-2.5 border border-gray-300 rounded-xl bg-gray-50 text-sm font-bold text-gray-700 focus:ring-[#00C300] focus:border-[#00C300]">
@@ -55,7 +57,7 @@
                     </label>
                 </div>
             </div>
-            <div class="spec text-xs text-gray-500 mt-3 font-medium" id="spec"></div>
+            <div class="spec text-xs text-gray-500 font-medium" id="spec"></div>
         </div>
 
         <!-- ステップ①：切り出し画面 -->
@@ -129,7 +131,7 @@
                             <div id="eraserCursor" class="eraserCursor hidden absolute pointer-events-none rounded-full"></div>
                             <div id="activeLayerTag" class="activeLayerTag absolute left-2 top-2 bg-gray-900/80 text-white text-[11px] font-bold px-2.5 py-1 rounded-md backdrop-blur">🎨 イラスト編集中</div>
                         </div>
-                        <div class="previewTip text-[11px] text-gray-500 text-center mt-1.5">💡 画面をなぞって移動、2本指ピンチで拡大・縮小・回転ができます</div>
+                        <div class="previewTip text-[11px] text-gray-500 text-center mt-1.5">💡 画面をなぞって移動、2本指ピンチまたは下記スライダーで傾き・大きさを調整できます</div>
                     </div>
 
                     <!-- レイヤー選択タブバー -->
@@ -404,7 +406,7 @@
                                     <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-white" data-bg="#ffffff">しろ</button>
                                     <button class="cBtn active px-3 py-1.5 rounded-lg border text-xs font-bold bg-yellow-100" data-bg="#fff9db">きいろ</button>
                                     <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-pink-100" data-bg="#ffebf0">ピンク</button>
-                                    <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-blue-100" data-bg="#e7f5ff">みずいろ</button>
+                                    <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-e7f5ff" data-bg="#e7f5ff">みずいろ</button>
                                     <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-gray-900 text-white" data-bg="#222222">くろ</button>
                                     <label class="customColorWrap relative w-7 h-7 rounded-full border border-dashed border-gray-400 bg-white flex items-center justify-center cursor-pointer overflow-hidden">
                                         <input type="color" id="bgColorPicker" value="#fff9db" class="absolute -inset-2 w-12 h-12 opacity-0 cursor-pointer">
@@ -420,7 +422,7 @@
             </div>
         </section>
 
-        <!-- ステップ③：完成一覧アルバム -->
+        <!-- ステップ③：完成アルバム -->
         <section class="results bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200">
             <div class="resultHead flex justify-between items-center">
                 <h2 class="text-base font-bold text-gray-800">完成アルバム <span id="done">0</span> / <span id="total">16</span></h2>
