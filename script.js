@@ -187,7 +187,6 @@ function renderCropBox() {
   };
 }
 
-// モードに応じた比率で自動的に枠を生成・調整する関数
 function initOrAdjustSelection() {
   if (!img) return;
   const r = SPEC[mode].ratio;
@@ -210,22 +209,85 @@ function initOrAdjustSelection() {
 $("#resetCrop").onclick = () => { initOrAdjustSelection(); toast("枠をリセットしました"); };
 $("#startSelect").onclick = () => { initOrAdjustSelection(); toast("切り出し枠を表示しました！"); };
 
-function getStagePoint(e) {
+function getTouchPos(clientX, clientY) {
   const r = stage.getBoundingClientRect();
-  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
   return {
     x: Math.max(0, Math.min(r.width, clientX - r.left)),
     y: Math.max(0, Math.min(r.height, clientY - r.top))
   };
 }
 
+// ==========================================
+// ① 切り出し画面のタッチ＆マウス操作（完全安定版）
+// ==========================================
 let cropDrag = null;
-wrap.addEventListener("pointerdown", e => {
+
+wrap.addEventListener("touchstart", e => {
   if (!img) return;
   e.preventDefault();
-  wrap.setPointerCapture(e.pointerId);
-  const p = getStagePoint(e);
+  const touch = e.touches[0];
+  const p = getTouchPos(touch.clientX, touch.clientY);
+  const handleEl = e.target.closest(".handle");
+  const isInsideCrop = (e.target === crop || crop.contains(e.target));
+
+  if (handleEl) {
+    cropDrag = { type: "resize", handle: handleEl.dataset.h, startP: p, orig: { ...selectionRect } };
+  } else if (isInsideCrop && selectionRect) {
+    cropDrag = { type: "move", startP: p, orig: { ...selectionRect } };
+  } else {
+    cropDrag = { type: "draw", startP: p, orig: null };
+  }
+}, { passive: false });
+
+wrap.addEventListener("touchmove", e => {
+  if (!cropDrag) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  const p = getTouchPos(touch.clientX, touch.clientY);
+  const r = SPEC[mode].ratio;
+  const sr = stage.getBoundingClientRect();
+
+  if (cropDrag.type === "move") {
+    const dx = p.x - cropDrag.startP.x;
+    const dy = p.y - cropDrag.startP.y;
+    selectionRect = {
+      x: Math.max(0, Math.min(sr.width - cropDrag.orig.w, cropDrag.orig.x + dx)),
+      y: Math.max(0, Math.min(sr.height - cropDrag.orig.h, cropDrag.orig.y + dy)),
+      w: cropDrag.orig.w, h: cropDrag.orig.h
+    };
+    renderCropBox();
+  } else if (cropDrag.type === "draw") {
+    let dx = p.x - cropDrag.startP.x;
+    let dy = p.y - cropDrag.startP.y;
+    let w = Math.abs(dx), h = Math.abs(dy);
+    if (w / h > r) h = w / r; else w = h * r;
+    if (w < 20 || h < 20) return;
+    let x = dx < 0 ? cropDrag.startP.x - w : cropDrag.startP.x;
+    let y = dy < 0 ? cropDrag.startP.y - h : cropDrag.startP.y;
+    selectionRect = { x: Math.max(0, Math.min(sr.width - w, x)), y: Math.max(0, Math.min(sr.height - h, y)), w, h };
+    renderCropBox();
+  } else if (cropDrag.type === "resize") {
+    const handle = cropDrag.handle;
+    const orig = cropDrag.orig;
+    let ax = handle.includes("w") ? orig.x + orig.w : orig.x;
+    let ay = handle.includes("n") ? orig.y + orig.h : orig.y;
+    let newW = Math.abs(p.x - ax);
+    let newH = newW / r;
+    if (newW < 36) { newW = 36; newH = newW / r; }
+    let nx = handle.includes("w") ? ax - newW : ax;
+    let ny = handle.includes("n") ? ay - newH : ay;
+    selectionRect = { x: nx, y: ny, w: newW, h: newH };
+    renderCropBox();
+  }
+}, { passive: false });
+
+wrap.addEventListener("touchend", () => { cropDrag = null; });
+wrap.addEventListener("touchcancel", () => { cropDrag = null; });
+
+// マウス用（PC）
+wrap.addEventListener("mousedown", e => {
+  if (!img) return;
+  const p = getTouchPos(e.clientX, e.clientY);
   const handleEl = e.target.closest(".handle");
   const isInsideCrop = (e.target === crop || crop.contains(e.target));
 
@@ -237,11 +299,9 @@ wrap.addEventListener("pointerdown", e => {
     cropDrag = { type: "draw", startP: p, orig: null };
   }
 });
-
-wrap.addEventListener("pointermove", e => {
+wrap.addEventListener("mousemove", e => {
   if (!cropDrag) return;
-  e.preventDefault();
-  const p = getStagePoint(e);
+  const p = getTouchPos(e.clientX, e.clientY);
   const r = SPEC[mode].ratio;
   const sr = stage.getBoundingClientRect();
 
@@ -278,9 +338,7 @@ wrap.addEventListener("pointermove", e => {
     renderCropBox();
   }
 });
-
-wrap.addEventListener("pointerup", () => { cropDrag = null; });
-wrap.addEventListener("pointercancel", () => { cropDrag = null; });
+wrap.addEventListener("mouseup", () => { cropDrag = null; });
 
 function nudgeCrop(dx, dy) {
   if (!selectionRect) return;
@@ -559,7 +617,7 @@ function updateEraserCursorPos(clientX, clientY) {
 }
 
 // ==========================================
-// スマホ完全対応【スマートタッチ＆ドラッグ＆ピンチズーム＆回転】
+// ② スタンプ調整画面：タブで選んだレイヤーを確実に操作（スマートタッチ自動切り替え廃止）
 // ==========================================
 let touchMode = null;
 let touchStartX = 0, touchStartY = 0;
@@ -592,27 +650,8 @@ adjustArea.addEventListener("touchstart", e => {
     return;
   }
 
+  // ★文字を入れても勝手にレイヤーが変わらないよう、タブで選択中のレイヤーを直接操作する
   if (e.touches.length === 1 && !isEraserActive) {
-    const px = (e.touches[0].clientX - rect.left) * scaleFactor;
-    const py = (e.touches[0].clientY - rect.top) * scaleFactor;
-
-    if (textConfig.text && textConfig.text.trim() !== "") {
-      const distToText = Math.hypot(px - textConfig.ox, py - textConfig.oy);
-      const iw = preview.width * adjust.scale;
-      const ih = (preview.width * adjust.scale / adjust.src.width) * adjust.src.height;
-      const illustCenterX = adjust.ox + iw / 2;
-      const illustCenterY = adjust.oy + ih / 2;
-      const distToIllust = Math.hypot(px - illustCenterX, py - illustCenterY);
-
-      if (distToText < 90 && distToText < distToIllust) {
-        switchLayer("text");
-      } else {
-        switchLayer("illust");
-      }
-    }
-  }
-
-  if (e.touches.length === 1) {
     touchMode = 'drag';
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
@@ -789,23 +828,35 @@ function syncCommonScaleSlider() {
   const unit = $("#commonScaleUnit");
   const isEmoji = (mode === "emoji");
 
+  const rotSlider = $("#commonRotationSlider");
+  const rotVal = $("#commonRotationVal");
+
+  let currentRot = 0;
+
   if (currentLayer === "illust") {
     slider.min = 40; slider.max = 300;
     slider.value = Math.round(adjust.scale * 100);
     label.textContent = "大きさ：";
     val.textContent = slider.value; unit.textContent = "%";
+    currentRot = adjust.rotation;
   } else if (currentLayer === "text") {
     slider.min = isEmoji ? 10 : 16;
     slider.max = isEmoji ? 48 : 76;
     slider.value = textConfig.size;
     label.textContent = "大きさ：";
     val.textContent = slider.value; unit.textContent = "px";
+    currentRot = textConfig.rotation;
   } else if (currentLayer === "bg") {
     slider.min = 20; slider.max = 300;
     slider.value = Math.round(bgConfig.scale * 100);
     label.textContent = "大きさ：";
     val.textContent = slider.value; unit.textContent = "%";
+    currentRot = bgConfig.rotation;
   }
+
+  const deg = Math.round(currentRot * (180 / Math.PI));
+  rotSlider.value = deg;
+  rotVal.textContent = deg;
 }
 
 $("#commonScaleSlider").oninput = e => {
@@ -822,6 +873,22 @@ $("#commonScaleSlider").oninput = e => {
     textConfig.size = v;
   } else if (currentLayer === "bg") {
     bgConfig.scale = v / 100;
+  }
+  renderPreview();
+};
+
+// 傾き（回転）スライダーのイベント
+$("#commonRotationSlider").oninput = e => {
+  const deg = Number(e.target.value);
+  $("#commonRotationVal").textContent = deg;
+  const rad = deg * (Math.PI / 180);
+
+  if (currentLayer === "illust") {
+    adjust.rotation = rad;
+  } else if (currentLayer === "text") {
+    textConfig.rotation = rad;
+  } else if (currentLayer === "bg") {
+    bgConfig.rotation = rad;
   }
   renderPreview();
 };
@@ -1350,7 +1417,7 @@ $("#modalDeleteBtn").onclick = () => {
 
 $("#zip").onclick = async () => {
   if (!window.JSZip) { toast("ZIP機能の読み込みに失敗しました"); return; }
-  toast("ZIPを作成中...");
+  toast("ZIP的过程を作成中...");
   const z = new JSZip();
   results.forEach(r => z.file(r.name, r.blob));
   const b = await z.generateAsync({ type: "blob" });
