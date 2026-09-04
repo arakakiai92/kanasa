@@ -96,7 +96,7 @@ $("#file").onchange = e => {
       $("#adjustStep").classList.add("hidden");
       resetSelection();
       refresh();
-      toast("シートを読み込みました！絵を指で囲んでね");
+      toast("シートを読み込んだよ！絵を指で囲んでね");
     };
     im.onerror = () => toast("画像の読み込みに失敗しました。");
     im.src = event.target.result;
@@ -316,6 +316,7 @@ function cropFromOriginal(sel) {
   return c;
 }
 
+// 新規作成時の初期化（絵文字モード対応の最適サイズ）
 function openAdjustNew() {
   const src = cropFromOriginal(selection);
   preview.width = SPEC[mode].w;
@@ -325,10 +326,12 @@ function openAdjustNew() {
   centerIllust();
 
   bgConfig = { style: "none", color: "#fff9db", image: null, scale: 1, ox: 0, oy: 0 };
+  
+  const isEmoji = (mode === "emoji");
   textConfig.ox = preview.width / 2;
-  textConfig.oy = preview.height - 40;
+  textConfig.oy = isEmoji ? preview.height - 24 : preview.height - 40;
   textConfig.text = "";
-  textConfig.size = 34;
+  textConfig.size = isEmoji ? 22 : 34;
   textConfig.color = "#111111";
   textConfig.stroke = "#ffffff";
   $("#stampText").value = "";
@@ -367,6 +370,7 @@ function openAdjustNew() {
   renderPreview();
 }
 
+// 過去の完成カットを再編集する際の復元処理
 function openAdjustForEdit(savedState) {
   preview.width = SPEC[mode].w;
   preview.height = SPEC[mode].h;
@@ -531,7 +535,7 @@ function updateEraserCursorPos(clientX, clientY) {
 }
 
 // ==========================================
-// スマホ（iPhone/Android）完全対応の【スマートタッチ＆ドラッグ＆ピンチズーム】
+// スマホ完全対応【スマートタッチ＆ドラッグ＆ピンチズーム】（ダブルタップ・暴走対策版）
 // ==========================================
 let touchMode = null; // 'drag' or 'pinch'
 let touchStartX = 0, touchStartY = 0;
@@ -563,7 +567,7 @@ adjustArea.addEventListener("touchstart", e => {
     return;
   }
 
-  // 1本指タッチ時：スマートタッチ切り替え（文字の近くか、キャラの近くかを自動判定して操作対象にする）
+  // 1本指タッチ時：スマートタッチ切り替え（文字の近くか、キャラの近くかを自動判定）
   if (e.touches.length === 1 && !isEraserActive) {
     const px = (e.touches[0].clientX - rect.left) * scaleFactor;
     const py = (e.touches[0].clientY - rect.top) * scaleFactor;
@@ -576,7 +580,6 @@ adjustArea.addEventListener("touchstart", e => {
       const illustCenterY = adjust.oy + ih / 2;
       const distToIllust = Math.hypot(px - illustCenterX, py - illustCenterY);
 
-      // 文字に近い場合は自動で文字レイヤーに切り替え
       if (distToText < 90 && distToText < distToIllust) {
         switchLayer("text");
       } else {
@@ -592,7 +595,7 @@ adjustArea.addEventListener("touchstart", e => {
     if (currentLayer === "illust") { origOx = adjust.ox; origOy = adjust.oy; }
     else if (currentLayer === "text") { origOx = textConfig.ox; origOy = textConfig.oy; }
     else if (currentLayer === "bg") { origOx = bgConfig.ox; origOy = bgConfig.oy; }
-  } else if (e.touches.length === 2) {
+  } else if (e.touches.length >= 2) {
     touchMode = 'pinch';
     initialDist = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
@@ -627,28 +630,30 @@ adjustArea.addEventListener("touchmove", e => {
     const dx = (e.touches[0].clientX - touchStartX) * scaleFactor;
     const dy = (e.touches[0].clientY - touchStartY) * scaleFactor;
 
-    if (currentLayer === "illust") {
-      adjust.ox = origOx + dx;
-      adjust.oy = origOy + dy;
-    } else if (currentLayer === "text") {
-      textConfig.ox = origOx + dx;
-      textConfig.oy = origOy + dy;
-    } else if (currentLayer === "bg") {
-      bgConfig.ox = origOx + dx;
-      bgConfig.oy = origOy + dy;
+    if (!isNaN(dx) && !isNaN(dy)) {
+      if (currentLayer === "illust") {
+        adjust.ox = origOx + dx;
+        adjust.oy = origOy + dy;
+      } else if (currentLayer === "text") {
+        textConfig.ox = origOx + dx;
+        textConfig.oy = origOy + dy;
+      } else if (currentLayer === "bg") {
+        bgConfig.ox = origOx + dx;
+        bgConfig.oy = origOy + dy;
+      }
+      renderPreview();
     }
-    renderPreview();
-  } else if (touchMode === 'pinch' && e.touches.length === 2) {
+  } else if (touchMode === 'pinch' && e.touches.length >= 2) {
     const currentDist = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
       e.touches[0].clientY - e.touches[1].clientY
     );
-    if (initialDist > 0) {
+    if (initialDist > 0 && !isNaN(currentDist)) {
       const ratio = currentDist / initialDist;
       if (currentLayer === "illust") {
         adjust.scale = Math.max(0.4, Math.min(3.0, initialScale * ratio));
       } else if (currentLayer === "text") {
-        textConfig.size = Math.round(Math.max(16, Math.min(76, initialScale * ratio)));
+        textConfig.size = Math.round(Math.max(10, Math.min(76, initialScale * ratio)));
       } else if (currentLayer === "bg") {
         bgConfig.scale = Math.max(0.2, Math.min(3.0, initialScale * ratio));
       }
@@ -672,6 +677,12 @@ adjustArea.addEventListener("touchend", e => {
     else if (currentLayer === "text") { origOx = textConfig.ox; origOy = textConfig.oy; }
     else if (currentLayer === "bg") { origOx = bgConfig.ox; origOy = bgConfig.oy; }
   }
+});
+
+adjustArea.addEventListener("touchcancel", () => {
+  touchMode = null;
+  lastErasePoint = null;
+  if (isEraserActive) $("#eraserCursor")?.classList.add("hidden");
 });
 
 // マウス用フォールバック
@@ -740,6 +751,7 @@ function syncCommonScaleSlider() {
   const label = $("#transformScaleLabel");
   const val = $("#commonScaleVal");
   const unit = $("#commonScaleUnit");
+  const isEmoji = (mode === "emoji");
 
   if (currentLayer === "illust") {
     slider.min = 40; slider.max = 300;
@@ -747,7 +759,8 @@ function syncCommonScaleSlider() {
     label.textContent = "絵の大きさ：";
     val.textContent = slider.value; unit.textContent = "%";
   } else if (currentLayer === "text") {
-    slider.min = 16; slider.max = 76;
+    slider.min = isEmoji ? 10 : 16;
+    slider.max = isEmoji ? 48 : 76;
     slider.value = textConfig.size;
     label.textContent = "文字の大きさ：";
     val.textContent = slider.value; unit.textContent = "px";
@@ -800,9 +813,21 @@ $("#centerIllustBtn").onclick = () => { centerIllust(); renderPreview(); };
 $("#fitWidth").onclick = () => { adjust.scale = preview.width / adjust.src.width; centerIllust(); syncCommonScaleSlider(); renderPreview(); };
 $("#fitHeight").onclick = () => { adjust.scale = preview.height / adjust.src.height; centerIllust(); syncCommonScaleSlider(); renderPreview(); };
 
-$("#textPosTop").onclick = () => { textConfig.ox = preview.width / 2; textConfig.oy = 34; renderPreview(); };
-$("#textPosCenter").onclick = () => { textConfig.ox = preview.width / 2; textConfig.oy = preview.height / 2; renderPreview(); };
-$("#textPosBottom").onclick = () => { textConfig.ox = preview.width / 2; textConfig.oy = preview.height - 40; renderPreview(); };
+$("#textPosTop").onclick = () => {
+  textConfig.ox = preview.width / 2;
+  textConfig.oy = (mode === "emoji") ? 22 : 34;
+  renderPreview();
+};
+$("#textPosCenter").onclick = () => {
+  textConfig.ox = preview.width / 2;
+  textConfig.oy = preview.height / 2;
+  renderPreview();
+};
+$("#textPosBottom").onclick = () => {
+  textConfig.ox = preview.width / 2;
+  textConfig.oy = (mode === "emoji") ? preview.height - 24 : preview.height - 40;
+  renderPreview();
+};
 
 $("#bgCenterBtn").onclick = () => { bgConfig.ox = 0; bgConfig.oy = 0; renderPreview(); };
 $("#bgFitFull").onclick = () => { bgConfig.style = "full"; bgConfig.ox = 0; bgConfig.oy = 0; bgConfig.scale = 1; updateBgUI(); syncCommonScaleSlider(); renderPreview(); };
