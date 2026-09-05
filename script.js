@@ -22,14 +22,11 @@ document.addEventListener("DOMContentLoaded", () => {
     rotation: 0
   };
 
-  // rawSrc: 切り出し直後の未加工キャンバス（復元ペン用）
-  // src: 現在のイラストキャンバス（消しゴム等の編集が施されたもの）
-  // processedSrc: 透過・フチを適用したキャッシュ
   let adjust = { rawSrc: null, src: null, processedSrc: null, scale: 1, ox: 0, oy: 0, rotation: 0 };
   let bgTransparent = true;
   let bgTolerance = 22;
   let protectWhite = true;
-  let gapProtectLevel = 2; // 1:標準, 2:強力, 3:超強力
+  let gapProtectLevel = 2;
   let illustBorder = false;
   let illustBorderColor = "#ffffff";
 
@@ -46,7 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   let isEraserActive = false;
-  let eraserToolMode = "erase"; // "erase" | "restore"
+  let eraserToolMode = "erase";
   let eraserRadius = 14;
   let eraserUndoStack = [];
   let lastErasePoint = null;
@@ -62,7 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ==========================================
-  // IndexedDBによる自動バックアップ・復元
+  // IndexedDB 自動保存・復元
   // ==========================================
   const DB_NAME = "StampEmojiMaker_DB";
   const STORE_NAME = "autoSaveStore";
@@ -192,7 +189,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // アプリ切り替え時・バックグラウンド移行時に即保存
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") triggerAutoSave();
   });
@@ -708,7 +704,7 @@ document.addEventListener("DOMContentLoaded", () => {
     lastErasePoint = null;
     updateEraserUI();
 
-    $("#save").textContent = "💾 このスタンプを保存する";
+    $("#saveAndDownload").querySelector("span").textContent = "💾 アルバムに追加 ＋ 端末に保存";
     $("#adjustStepTitle").textContent = "スタンプをととのえる";
 
     $("#adjustStep").classList.remove("hidden");
@@ -783,7 +779,7 @@ document.addEventListener("DOMContentLoaded", () => {
     updateEraserUI();
 
     if (editingIndex !== null) {
-      $("#save").textContent = `💾 ${editingIndex + 1}個目を修正して上書き保存`;
+      $("#saveAndDownload").querySelector("span").textContent = `💾 ${editingIndex + 1}個目を更新 ＋ 端末に保存`;
       $("#adjustStepTitle").textContent = `${editingIndex + 1}個目を修正中（上書き保存）`;
     }
 
@@ -817,13 +813,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let renderW, renderH, offsetX, offsetY;
     if (elemRatio > canvasRatio) {
-      // 左右に余白（pillarbox）
       renderH = rect.height;
       renderW = rect.height * canvasRatio;
       offsetX = (rect.width - renderW) / 2;
       offsetY = 0;
     } else {
-      // 上下に余白（letterbox）
       renderW = rect.width;
       renderH = rect.width / canvasRatio;
       offsetX = 0;
@@ -856,7 +850,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const dx = px - cx;
     const dy = py - cy;
 
-    // 逆回転
     const cosR = Math.cos(-adjust.rotation);
     const sinR = Math.sin(-adjust.rotation);
 
@@ -867,11 +860,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const imgY = ry + ih / 2;
 
     const ratio = adjust.src.width / iw;
-    return {
-      sx: imgX * ratio,
-      sy: imgY * ratio,
-      ratio
-    };
+    return { sx: imgX * ratio, sy: imgY * ratio, ratio };
   }
 
   function setEraserMode(active) {
@@ -946,7 +935,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     sctx.save();
     if (eraserToolMode === "restore") {
-      // 復元ペン：切り出し時の元画像 rawSrc から該当部分を復元
       if (adjust.rawSrc) {
         sctx.save();
         sctx.beginPath();
@@ -967,7 +955,6 @@ document.addEventListener("DOMContentLoaded", () => {
         sctx.restore();
       }
     } else {
-      // 通常の消しゴム：透明化
       sctx.globalCompositeOperation = "destination-out";
       if (!p2 || (p1.x === p2.x && p1.y === p2.y)) {
         sctx.beginPath();
@@ -1007,7 +994,6 @@ document.addEventListener("DOMContentLoaded", () => {
     cursor.classList.remove("hidden");
   }
 
-  // タッチ & ドラッグイベント管理
   let touchMode = null;
   let touchStartX = 0, touchStartY = 0;
   let origOx = 0, origOy = 0;
@@ -1378,7 +1364,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================
-  // 背景透過 & 白ぬけ防止（手足・隙間ガード強化）
+  // 背景透過 & 白ぬけ防止
   // ==========================================
   function updateIllustCache() {
     if (!adjust.src) return;
@@ -1408,7 +1394,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const imgData = x.getImageData(0, 0, c.width, c.height);
     const a = imgData.data, w = c.width, h = c.height, total = w * h;
 
-    // 四隅のピクセルから背景色を算出
     const sampleCorners = [0, w - 1, (h - 1) * w, total - 1];
     let sumR = 0, sumG = 0, sumB = 0, count = 0;
     for (let cp of sampleCorners) {
@@ -1420,7 +1405,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const bgG = count ? Math.round(sumG / count) : 255;
     const bgB = count ? Math.round(sumB / count) : 255;
 
-    // 輪郭線（色差・明度差）の検出
     const isLine = new Uint8Array(total);
     for (let p = 0; p < total; p++) {
       const idx = p * 4;
@@ -1433,8 +1417,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 8近傍モルフォロジー膨張（Dilation）による隙間ガード
-    // 手首・顎・指などの1〜3pxの途切れ目をしっかり接着して透過の侵入を防ぐ
     const wall = new Uint8Array(total);
     if (protect) {
       const rad = Math.max(1, Math.min(3, gapRadius));
@@ -1457,8 +1439,6 @@ document.addEventListener("DOMContentLoaded", () => {
       wall.set(isLine);
     }
 
-    // フラッドフィル：全外周ではなく「四隅（カド）」の背景からのみ浸透開始！
-    // これにより、下端・左右端に猫の手が触れていても手の中からは透過が始まらない
     const visited = new Uint8Array(total);
     const q = new Int32Array(total);
     let head = 0, tail = 0;
@@ -1471,7 +1451,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 四隅がキャラクターで埋まっている場合のフォールバック（外周サンプリング）
     if (tail === 0) {
       for (let xx = 0; xx < w; xx += 5) {
         if (!wall[xx] && !visited[xx]) { visited[xx] = 1; q[tail++] = xx; }
@@ -1490,7 +1469,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (yy < h - 1 && !visited[p + w] && !wall[p + w]) { visited[p + w] = 1; q[tail++] = p + w; }
     }
 
-    // 浸透した背景部分のみを透明化
     for (let p = 0; p < total; p++) {
       if (visited[p]) a[p * 4 + 3] = 0;
     }
@@ -1584,7 +1562,7 @@ document.addEventListener("DOMContentLoaded", () => {
     scheduleAutoSave();
   };
 
-  // 文字パネル関連
+  // 文字設定
   $("#stampText").oninput = e => { textConfig.text = e.target.value; renderPreview(); scheduleAutoSave(); };
   $("#clearTextBtn").onclick = () => { $("#stampText").value = ""; textConfig.text = ""; renderPreview(); scheduleAutoSave(); };
   document.querySelectorAll(".quickWords .qBtn").forEach(btn => {
@@ -1618,7 +1596,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   });
 
-  // 背景パネル関連
+  // 背景設定
   function updateBgUI() {
     const style = bgConfig.style;
     const isNone = (style === "none"), isImg = (style === "image");
@@ -1678,7 +1656,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ==========================================
-  // レンダリング
+  // レンダリング & 描画
   // ==========================================
   function renderPreview() {
     pctx.clearRect(0, 0, preview.width, preview.height);
@@ -1790,15 +1768,27 @@ document.addEventListener("DOMContentLoaded", () => {
     return c;
   }
 
-  function download(blob, name) {
+  // ==========================================
+  // ダウンロード & 共有ユーティリティ (Android対応強化)
+  // ==========================================
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = name;
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+    a.style.display = "none";
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1500);
   }
 
-  $("#save").onclick = async () => {
+  // ==========================================
+  // 保存処理（都度ダウンロード / アルバム追加）
+  // ==========================================
+  async function performSave(shouldDownload = false) {
     if (editingIndex === null && results.length >= Number($("#count").value)) {
       toast("指定個数に達しています"); return;
     }
@@ -1820,27 +1810,44 @@ document.addEventListener("DOMContentLoaded", () => {
         borderWidth: Number($("#borderWidth").value)
       };
 
+      let currentFileName = "";
       if (editingIndex !== null) {
-        results[editingIndex] = { blob, url: URL.createObjectURL(blob), name: `${mode}_${String(editingIndex + 1).padStart(2, "0")}.png`, state: savedState };
-        editingIndex = null;
-        refresh();
-        $("#adjustStep").classList.add("hidden"); $("#sheetStep").classList.remove("hidden");
-        resetSelection(); toast("上書き保存しました！");
+        currentFileName = `${mode}_${String(editingIndex + 1).padStart(2, "0")}.png`;
+        results[editingIndex] = { blob, url: URL.createObjectURL(blob), name: currentFileName, state: savedState };
+        toast("上書き保存しました！");
       } else {
         const n = results.length + 1;
-        results.push({ blob, url: URL.createObjectURL(blob), name: `${mode}_${String(n).padStart(2, "0")}.png`, state: savedState });
-        refresh();
-        $("#adjustStep").classList.add("hidden"); $("#sheetStep").classList.remove("hidden");
-        resetSelection(); toast(`${n}個目を保存しました！`);
+        currentFileName = `${mode}_${String(n).padStart(2, "0")}.png`;
+        results.push({ blob, url: URL.createObjectURL(blob), name: currentFileName, state: savedState });
+        toast(`${n}個目をアルバムに保存しました！`);
       }
+
+      if (shouldDownload) {
+        downloadBlob(blob, currentFileName);
+        toast("端末にも画像を保存しました！");
+      }
+
+      editingIndex = null;
+      refresh();
+      $("#adjustStep").classList.add("hidden");
+      $("#sheetStep").classList.remove("hidden");
+      resetSelection();
       triggerAutoSave();
     }, "image/png");
-  };
+  }
+
+  $("#saveAndDownload").onclick = () => performSave(true);
+  $("#saveOnly").onclick = () => performSave(false);
 
   function refresh() {
     $("#done").textContent = results.length;
     $("#total").textContent = $("#count").value;
-    $("#zip").disabled = !results.length;
+    
+    const hasItems = results.length > 0;
+    $("#zip").disabled = !hasItems;
+    $("#downloadSequentialBtn").disabled = !hasItems;
+    $("#shareAllBtn").disabled = !hasItems;
+
     $("#thumbs").innerHTML = "";
     results.forEach((r, i) => {
       const d = document.createElement("div");
@@ -1849,7 +1856,7 @@ document.addEventListener("DOMContentLoaded", () => {
       d.onclick = () => showImageModal(r, i);
       $("#thumbs").appendChild(d);
     });
-    $("#checks").innerHTML = `<div class="ok">✅ 順調に作成中です（タップして再編集可能）</div>`;
+    $("#checks").innerHTML = `<div class="ok">✅ 順調に作成中です（タップして再編集・個別保存可能）</div>`;
   }
 
   function showImageModal(item, index) {
@@ -1860,6 +1867,36 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   $("#modalClose").onclick = () => $("#imageModal").classList.remove("show");
+
+  // モーダル：個別ダウンロード
+  $("#modalDownloadBtn").onclick = () => {
+    if (currentModalIndex === null || !results[currentModalIndex]) return;
+    const item = results[currentModalIndex];
+    downloadBlob(item.blob, item.name);
+    toast(`${item.name} を端末に保存しました！`);
+  };
+
+  // モーダル：個別共有 (Web Share API)
+  $("#modalShareBtn").onclick = async () => {
+    if (currentModalIndex === null || !results[currentModalIndex]) return;
+    const item = results[currentModalIndex];
+    const file = new File([item.blob], item.name, { type: "image/png" });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          title: item.name,
+          text: "LINEスタンプ画像",
+          files: [file]
+        });
+      } catch (e) {
+        if (e.name !== "AbortError") toast("共有に失敗しました。");
+      }
+    } else {
+      downloadBlob(item.blob, item.name);
+      toast("端末のダウンロードを実行しました");
+    }
+  };
 
   $("#modalEditBtn").onclick = () => {
     if (currentModalIndex === null || !results[currentModalIndex]) return;
@@ -1882,13 +1919,58 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  // ==========================================
+  // 完成アルバム：複数保存方式（ZIP以外）
+  // ==========================================
+
+  // 方式①：1枚ずつ順番にダウンロード（ZIP不要）
+  $("#downloadSequentialBtn").onclick = () => {
+    if (results.length === 0) return;
+    toast(`${results.length}枚の画像を順番に保存しています...`);
+
+    results.forEach((item, index) => {
+      setTimeout(() => {
+        downloadBlob(item.blob, item.name);
+        if (index === results.length - 1) {
+          toast("すべての画像を端末に保存しました！");
+        }
+      }, index * 400); // ポップアップブロック回避のため0.4秒間隔で順次実行
+    });
+  };
+
+  // 方式②：Web Share API によるネイティブ一括保存 / 共有
+  $("#shareAllBtn").onclick = async () => {
+    if (results.length === 0) return;
+
+    const files = results.map(r => new File([r.blob], r.name, { type: "image/png" }));
+
+    if (navigator.canShare && navigator.canShare({ files })) {
+      try {
+        await navigator.share({
+          title: "LINEスタンプセット",
+          text: `作成したスタンプ画像 ${results.length}枚`,
+          files: files
+        });
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          toast("共有に失敗しました。「1枚ずつ全保存」をお試しください。");
+        }
+      }
+    } else {
+      // 端末が複数ファイル共有に対応していない場合のフォールバック
+      toast("お使いの環境では一括共有非対応のため、1枚ずつ保存します。");
+      $("#downloadSequentialBtn").click();
+    }
+  };
+
+  // 方式③：従来のZIP一括保存
   $("#zip").onclick = async () => {
     if (!window.JSZip) { toast("ZIP機能の読み込みに失敗しました"); return; }
     toast("ZIPを作成中...");
     const z = new JSZip();
     results.forEach(r => z.file(r.name, r.blob));
     const b = await z.generateAsync({ type: "blob" });
-    download(b, `${mode}_LINE画像まとめ.zip`);
+    downloadBlob(b, `${mode}_LINE画像まとめ.zip`);
   };
 
   function toast(t) {
