@@ -141,26 +141,43 @@ html,body{margin:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFo
 }
 
 /* ==========================================
-   ② プレビュー & レイヤー編集
-   ========================================= */
+   ② プレビュー & レイヤー編集（比率固定）
+   ========================================== */
 .hidden{display:none!important}
 
+/* プレビュー枠：モード別に比率を厳密制御 */
 .adjustArea{
   position:relative;
+  margin:0 auto;
   width:100%;
+  height:auto;
+  max-height:40vh;
   background:repeating-conic-gradient(#e2e8f0 0 25%,#fff 0 50%) 50%/16px 16px;
   border-radius:12px;
   overflow:hidden;
   touch-action:none;
   user-select:none;
   -webkit-user-select:none;
+  box-shadow:0 1px 3px rgba(0,0,0,0.08);
 }
+
+/* スタンプモード：370:320 */
+.adjustArea[data-mode="sticker"]{
+  aspect-ratio:370 / 320;
+  max-width:min(100%, calc(40vh * (370 / 320)));
+}
+
+/* 絵文字モード：1:1（真四角） */
+.adjustArea[data-mode="emoji"]{
+  aspect-ratio:1 / 1;
+  max-width:min(100%, 40vh);
+}
+
 #preview{
   display:block;
   margin:0 auto;
   width:100%;
-  height:auto;
-  max-height:38vh;
+  height:100%;
   object-fit:contain;
 }
 
