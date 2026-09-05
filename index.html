@@ -52,11 +52,18 @@
                     </select>
                 </div>
                 <div class="w-full md:flex-1">
-                    <label class="block mb-1 text-xs font-bold text-gray-500 uppercase tracking-wider">シート画像</label>
+                    <label class="block mb-1 text-xs font-bold text-gray-500 uppercase tracking-wider">画像の読み込み方をえらぶ</label>
                     <input id="file" type="file" accept="image/*" class="hidden" />
-                    <label for="file" class="uploadBtn block w-full text-sm text-gray-500 border-2 border-dashed border-gray-300 rounded-xl p-2.5 text-center bg-green-50/50 hover:bg-green-50 cursor-pointer transition font-bold text-[#00C300]">
-                        📷 シート画像を選ぶ（自動リサイズ対応）
-                    </label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button type="button" id="uploadSheetBtn" class="uploadChoiceBtn text-left border-2 border-green-200 rounded-xl p-3 bg-green-50 hover:bg-green-100 transition">
+                            <span class="block text-sm font-bold text-[#00C300]">📋 AIシートから作る</span>
+                            <span class="block text-[10px] text-gray-500 mt-1">シートから好きな絵を切り出します</span>
+                        </button>
+                        <button type="button" id="uploadSingleBtn" class="uploadChoiceBtn text-left border-2 border-purple-200 rounded-xl p-3 bg-purple-50 hover:bg-purple-100 transition">
+                            <span class="block text-sm font-bold text-purple-700">🎨 1枚のイラストから作る</span>
+                            <span class="block text-[10px] text-gray-500 mt-1">自分で描いた絵をそのまま編集します</span>
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="spec text-xs text-gray-500 font-medium" id="spec"></div>
