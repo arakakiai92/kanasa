@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const $ = s => document.querySelector(s);
-  const stage = $("#stage"), sctx = stage.getContext("2d");
-  const preview = $("#preview"), pctx = preview.getContext("2d");
+  const stage = $("#stage"), sctx = stage ? stage.getContext("2d") : null;
+  const preview = $("#preview"), pctx = preview ? preview.getContext("2d") : null;
   const wrap = $("#stageWrap"), crop = $("#cropBox");
   const adjustArea = $("#adjustArea");
 
@@ -151,10 +151,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }));
 
-      const isAdjustOpen = !$("#adjustStep").classList.contains("hidden");
+      const isAdjustOpen = $("#adjustStep") && !$("#adjustStep").classList.contains("hidden");
       const currentState = {
         mode,
-        count: $("#count").value,
+        count: $("#count") ? $("#count").value : "16",
         imgSrc: img ? img.src : null,
         selectionRect,
         results: serializedResults,
@@ -173,7 +173,7 @@ document.addEventListener("DOMContentLoaded", () => {
           gapProtectLevel,
           illustBorder,
           illustBorderColor,
-          borderWidth: Number($("#borderWidth").value),
+          borderWidth: $("#borderWidth") ? Number($("#borderWidth").value) : 6,
           textConfig,
           bgConfig: {
             ...bgConfig,
@@ -200,7 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       mode = data.mode || "sticker";
-      $("#count").value = data.count || "16";
+      if ($("#count")) $("#count").value = data.count || "16";
       updateMode();
 
       if (data.results && data.results.length > 0) {
@@ -267,8 +267,8 @@ document.addEventListener("DOMContentLoaded", () => {
             borderWidth: cur.borderWidth || 6
           });
         } else {
-          $("#sheetStep").classList.remove("hidden");
-          $("#adjustStep").classList.add("hidden");
+          if ($("#sheetStep")) $("#sheetStep").classList.remove("hidden");
+          if ($("#adjustStep")) $("#adjustStep").classList.add("hidden");
         }
         toast("前回の作業状態を復元しました！");
       }
@@ -302,20 +302,36 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  $("#resetAllBtn").onclick = async () => {
-    if (confirm("作業中のすべてのデータを初期化して最初からやり直しますか？")) {
-      await clearDB();
-      location.reload();
-    }
-  };
+  const resetAllBtn = $("#resetAllBtn");
+  if (resetAllBtn) {
+    resetAllBtn.onclick = async () => {
+      if (confirm("作業中のすべてのデータを初期化して最初からやり直しますか？")) {
+        await clearDB();
+        location.reload();
+      }
+    };
+  }
 
   // ==========================================
   // モード & シート管理
   // ==========================================
+  function syncAdjustAreaRatio() {
+    const area = $("#adjustArea");
+    if (!area) return;
+    area.dataset.mode = mode;
+    if (mode === "emoji") {
+      area.style.aspectRatio = "1 / 1";
+      area.style.maxWidth = "min(100%, 40vh)";
+    } else {
+      area.style.aspectRatio = "370 / 320";
+      area.style.maxWidth = "min(100%, calc(40vh * (370 / 320)))";
+    }
+  }
+
   function updateMode() {
     const s = SPEC[mode];
-    $("#spec").textContent = `切り抜き比率：${mode === "sticker" ? "370 : 320" : "1 : 1"} ／ 書き出し：${s.label}`;
-    $("#total").textContent = $("#count").value;
+    if ($("#spec")) $("#spec").textContent = `切り抜き比率：${mode === "sticker" ? "370 : 320" : "1 : 1"} ／ 書き出し：${s.label}`;
+    if ($("#total") && $("#count")) $("#total").textContent = $("#count").value;
     
     document.querySelectorAll(".switch button").forEach(btn => {
       if (btn.dataset.mode === mode) {
@@ -327,6 +343,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
+    syncAdjustAreaRatio();
     if (img) initOrAdjustSelection();
     scheduleAutoSave();
   }
@@ -336,19 +353,21 @@ document.addEventListener("DOMContentLoaded", () => {
     updateMode();
   });
 
-  $("#count").onchange = () => {
-    $("#total").textContent = $("#count").value;
-    scheduleAutoSave();
-  };
+  if ($("#count")) {
+    $("#count").onchange = () => {
+      if ($("#total")) $("#total").textContent = $("#count").value;
+      scheduleAutoSave();
+    };
+  }
 
   function resetSelection() {
     selectionRect = null;
     selection = null;
-    crop.classList.add("hidden");
-    $("#cropFineTune").classList.add("hidden");
-    $("#resetCrop").classList.add("hidden");
-    $("#adjustBtn").classList.add("hidden");
-    $("#startSelect").classList.remove("hidden");
+    if (crop) crop.classList.add("hidden");
+    if ($("#cropFineTune")) $("#cropFineTune").classList.add("hidden");
+    if ($("#resetCrop")) $("#resetCrop").classList.add("hidden");
+    if ($("#adjustBtn")) $("#adjustBtn").classList.add("hidden");
+    if ($("#startSelect")) $("#startSelect").classList.remove("hidden");
   }
 
   const fileInput = $("#file");
@@ -364,8 +383,8 @@ document.addEventListener("DOMContentLoaded", () => {
           img = im;
           results = [];
           editingIndex = null;
-          $("#sheetStep").classList.remove("hidden");
-          $("#adjustStep").classList.add("hidden");
+          if ($("#sheetStep")) $("#sheetStep").classList.remove("hidden");
+          if ($("#adjustStep")) $("#adjustStep").classList.add("hidden");
           setupCanvas();
           renderSheet();
           requestAnimationFrame(() => {
@@ -383,7 +402,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function setupCanvas() {
-    const containerW = wrap.clientWidth || window.innerWidth - 40;
+    if (!stage || !img) return;
+    const containerW = wrap ? wrap.clientWidth : (window.innerWidth - 40);
     const maxW = Math.min(containerW > 0 ? containerW : 600, 900);
     const scale = Math.min(1, maxW / img.naturalWidth);
     stage.width = Math.round(img.naturalWidth * scale);
@@ -391,14 +411,17 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderSheet() {
+    if (!sctx || !img) return;
     sctx.clearRect(0, 0, stage.width, stage.height);
     sctx.drawImage(img, 0, 0, stage.width, stage.height);
   }
 
   function renderCropBox() {
-    if (!selectionRect) {
+    if (!selectionRect || !stage || !crop) {
       resetSelection();
-      $("#sheetProgress").textContent = `${results.length + 1} / ${$("#count").value}`;
+      if ($("#sheetProgress") && $("#count")) {
+        $("#sheetProgress").textContent = `${results.length + 1} / ${$("#count").value}`;
+      }
       return;
     }
 
@@ -412,10 +435,10 @@ document.addEventListener("DOMContentLoaded", () => {
     crop.style.height = `${(selectionRect.h / srH) * 100}%`;
     crop.classList.remove("hidden");
 
-    $("#cropFineTune").classList.remove("hidden");
-    $("#resetCrop").classList.remove("hidden");
-    $("#adjustBtn").classList.remove("hidden");
-    $("#startSelect").classList.add("hidden");
+    if ($("#cropFineTune")) $("#cropFineTune").classList.remove("hidden");
+    if ($("#resetCrop")) $("#resetCrop").classList.remove("hidden");
+    if ($("#adjustBtn")) $("#adjustBtn").classList.remove("hidden");
+    if ($("#startSelect")) $("#startSelect").classList.add("hidden");
 
     const scaleX = img.naturalWidth / srW;
     const scaleY = img.naturalHeight / srH;
@@ -428,7 +451,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function initOrAdjustSelection() {
-    if (!img) return;
+    if (!img || !stage) return;
     const r = SPEC[mode].ratio;
     const sr = stage.getBoundingClientRect();
     const w = sr.width > 0 ? sr.width : (stage.clientWidth || stage.width || 300);
@@ -448,8 +471,8 @@ document.addEventListener("DOMContentLoaded", () => {
     scheduleAutoSave();
   }
 
-  $("#resetCrop").onclick = () => { initOrAdjustSelection(); toast("枠をリセットしました"); };
-  $("#startSelect").onclick = () => { initOrAdjustSelection(); toast("切り出し枠を表示しました！"); };
+  if ($("#resetCrop")) $("#resetCrop").onclick = () => { initOrAdjustSelection(); toast("枠をリセットしました"); };
+  if ($("#startSelect")) $("#startSelect").onclick = () => { initOrAdjustSelection(); toast("切り出し枠を表示しました！"); };
 
   function getTouchPos(clientX, clientY) {
     const r = stage.getBoundingClientRect();
@@ -462,126 +485,128 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   let cropDrag = null;
-  wrap.addEventListener("touchstart", e => {
-    if (!img) return;
-    e.preventDefault();
-    const touch = e.touches[0];
-    const p = getTouchPos(touch.clientX, touch.clientY);
-    const handleEl = e.target.closest(".handle");
-    const isInsideCrop = (e.target === crop || crop.contains(e.target));
+  if (wrap) {
+    wrap.addEventListener("touchstart", e => {
+      if (!img) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const p = getTouchPos(touch.clientX, touch.clientY);
+      const handleEl = e.target.closest(".handle");
+      const isInsideCrop = (e.target === crop || (crop && crop.contains(e.target)));
 
-    if (handleEl) {
-      cropDrag = { type: "resize", handle: handleEl.dataset.h, startP: p, orig: { ...selectionRect } };
-    } else if (isInsideCrop && selectionRect) {
-      cropDrag = { type: "move", startP: p, orig: { ...selectionRect } };
-    } else {
-      cropDrag = { type: "draw", startP: p, orig: null };
-    }
-  }, { passive: false });
+      if (handleEl) {
+        cropDrag = { type: "resize", handle: handleEl.dataset.h, startP: p, orig: { ...selectionRect } };
+      } else if (isInsideCrop && selectionRect) {
+        cropDrag = { type: "move", startP: p, orig: { ...selectionRect } };
+      } else {
+        cropDrag = { type: "draw", startP: p, orig: null };
+      }
+    }, { passive: false });
 
-  wrap.addEventListener("touchmove", e => {
-    if (!cropDrag) return;
-    e.preventDefault();
-    const touch = e.touches[0];
-    const p = getTouchPos(touch.clientX, touch.clientY);
-    const r = SPEC[mode].ratio;
-    const sr = stage.getBoundingClientRect();
-    const srW = sr.width > 0 ? sr.width : (stage.clientWidth || stage.width || 300);
-    const srH = sr.height > 0 ? sr.height : (stage.clientHeight || stage.height || 300);
+    wrap.addEventListener("touchmove", e => {
+      if (!cropDrag) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const p = getTouchPos(touch.clientX, touch.clientY);
+      const r = SPEC[mode].ratio;
+      const sr = stage.getBoundingClientRect();
+      const srW = sr.width > 0 ? sr.width : (stage.clientWidth || stage.width || 300);
+      const srH = sr.height > 0 ? sr.height : (stage.clientHeight || stage.height || 300);
 
-    if (cropDrag.type === "move") {
-      const dx = p.x - cropDrag.startP.x;
-      const dy = p.y - cropDrag.startP.y;
-      selectionRect = {
-        x: Math.max(0, Math.min(srW - cropDrag.orig.w, cropDrag.orig.x + dx)),
-        y: Math.max(0, Math.min(srH - cropDrag.orig.h, cropDrag.orig.y + dy)),
-        w: cropDrag.orig.w, h: cropDrag.orig.h
-      };
-      renderCropBox();
-    } else if (cropDrag.type === "draw") {
-      let dx = p.x - cropDrag.startP.x;
-      let dy = p.y - cropDrag.startP.y;
-      let w = Math.abs(dx), h = Math.abs(dy);
-      if (w / h > r) h = w / r; else w = h * r;
-      if (w < 20 || h < 20) return;
-      let x = dx < 0 ? cropDrag.startP.x - w : cropDrag.startP.x;
-      let y = dy < 0 ? cropDrag.startP.y - h : cropDrag.startP.y;
-      selectionRect = { x: Math.max(0, Math.min(srW - w, x)), y: Math.max(0, Math.min(srH - h, y)), w, h };
-      renderCropBox();
-    } else if (cropDrag.type === "resize") {
-      const handle = cropDrag.handle;
-      const orig = cropDrag.orig;
-      let ax = handle.includes("w") ? orig.x + orig.w : orig.x;
-      let ay = handle.includes("n") ? orig.y + orig.h : orig.y;
-      let newW = Math.abs(p.x - ax);
-      let newH = newW / r;
-      if (newW < 36) { newW = 36; newH = newW / r; }
-      let nx = handle.includes("w") ? ax - newW : ax;
-      let ny = handle.includes("n") ? ay - newH : ay;
-      selectionRect = { x: nx, y: ny, w: newW, h: newH };
-      renderCropBox();
-    }
-  }, { passive: false });
+      if (cropDrag.type === "move") {
+        const dx = p.x - cropDrag.startP.x;
+        const dy = p.y - cropDrag.startP.y;
+        selectionRect = {
+          x: Math.max(0, Math.min(srW - cropDrag.orig.w, cropDrag.orig.x + dx)),
+          y: Math.max(0, Math.min(srH - cropDrag.orig.h, cropDrag.orig.y + dy)),
+          w: cropDrag.orig.w, h: cropDrag.orig.h
+        };
+        renderCropBox();
+      } else if (cropDrag.type === "draw") {
+        let dx = p.x - cropDrag.startP.x;
+        let dy = p.y - cropDrag.startP.y;
+        let w = Math.abs(dx), h = Math.abs(dy);
+        if (w / h > r) h = w / r; else w = h * r;
+        if (w < 20 || h < 20) return;
+        let x = dx < 0 ? cropDrag.startP.x - w : cropDrag.startP.x;
+        let y = dy < 0 ? cropDrag.startP.y - h : cropDrag.startP.y;
+        selectionRect = { x: Math.max(0, Math.min(srW - w, x)), y: Math.max(0, Math.min(srH - h, y)), w, h };
+        renderCropBox();
+      } else if (cropDrag.type === "resize") {
+        const handle = cropDrag.handle;
+        const orig = cropDrag.orig;
+        let ax = handle.includes("w") ? orig.x + orig.w : orig.x;
+        let ay = handle.includes("n") ? orig.y + orig.h : orig.y;
+        let newW = Math.abs(p.x - ax);
+        let newH = newW / r;
+        if (newW < 36) { newW = 36; newH = newW / r; }
+        let nx = handle.includes("w") ? ax - newW : ax;
+        let ny = handle.includes("n") ? ay - newH : ay;
+        selectionRect = { x: nx, y: ny, w: newW, h: newH };
+        renderCropBox();
+      }
+    }, { passive: false });
 
-  wrap.addEventListener("touchend", () => { cropDrag = null; scheduleAutoSave(); });
-  wrap.addEventListener("touchcancel", () => { cropDrag = null; });
+    wrap.addEventListener("touchend", () => { cropDrag = null; scheduleAutoSave(); });
+    wrap.addEventListener("touchcancel", () => { cropDrag = null; });
 
-  wrap.addEventListener("mousedown", e => {
-    if (!img) return;
-    const p = getTouchPos(e.clientX, e.clientY);
-    const handleEl = e.target.closest(".handle");
-    const isInsideCrop = (e.target === crop || crop.contains(e.target));
-    if (handleEl) cropDrag = { type: "resize", handle: handleEl.dataset.h, startP: p, orig: { ...selectionRect } };
-    else if (isInsideCrop && selectionRect) cropDrag = { type: "move", startP: p, orig: { ...selectionRect } };
-    else cropDrag = { type: "draw", startP: p, orig: null };
-  });
+    wrap.addEventListener("mousedown", e => {
+      if (!img) return;
+      const p = getTouchPos(e.clientX, e.clientY);
+      const handleEl = e.target.closest(".handle");
+      const isInsideCrop = (e.target === crop || (crop && crop.contains(e.target)));
+      if (handleEl) cropDrag = { type: "resize", handle: handleEl.dataset.h, startP: p, orig: { ...selectionRect } };
+      else if (isInsideCrop && selectionRect) cropDrag = { type: "move", startP: p, orig: { ...selectionRect } };
+      else cropDrag = { type: "draw", startP: p, orig: null };
+    });
 
-  wrap.addEventListener("mousemove", e => {
-    if (!cropDrag) return;
-    const p = getTouchPos(e.clientX, e.clientY);
-    const r = SPEC[mode].ratio;
-    const sr = stage.getBoundingClientRect();
-    const srW = sr.width > 0 ? sr.width : 300;
-    const srH = sr.height > 0 ? sr.height : 300;
+    wrap.addEventListener("mousemove", e => {
+      if (!cropDrag) return;
+      const p = getTouchPos(e.clientX, e.clientY);
+      const r = SPEC[mode].ratio;
+      const sr = stage.getBoundingClientRect();
+      const srW = sr.width > 0 ? sr.width : 300;
+      const srH = sr.height > 0 ? sr.height : 300;
 
-    if (cropDrag.type === "move") {
-      const dx = p.x - cropDrag.startP.x;
-      const dy = p.y - cropDrag.startP.y;
-      selectionRect = {
-        x: Math.max(0, Math.min(srW - cropDrag.orig.w, cropDrag.orig.x + dx)),
-        y: Math.max(0, Math.min(srH - cropDrag.orig.h, cropDrag.orig.y + dy)),
-        w: cropDrag.orig.w, h: cropDrag.orig.h
-      };
-      renderCropBox();
-    } else if (cropDrag.type === "draw") {
-      let dx = p.x - cropDrag.startP.x;
-      let dy = p.y - cropDrag.startP.y;
-      let w = Math.abs(dx), h = Math.abs(dy);
-      if (w / h > r) h = w / r; else w = h * r;
-      if (w < 20 || h < 20) return;
-      let x = dx < 0 ? cropDrag.startP.x - w : cropDrag.startP.x;
-      let y = dy < 0 ? cropDrag.startP.y - h : cropDrag.startP.y;
-      selectionRect = { x: Math.max(0, Math.min(srW - w, x)), y: Math.max(0, Math.min(srH - h, y)), w, h };
-      renderCropBox();
-    } else if (cropDrag.type === "resize") {
-      const handle = cropDrag.handle;
-      const orig = cropDrag.orig;
-      let ax = handle.includes("w") ? orig.x + orig.w : orig.x;
-      let ay = handle.includes("n") ? orig.y + orig.h : orig.y;
-      let newW = Math.abs(p.x - ax);
-      let newH = newW / r;
-      if (newW < 36) { newW = 36; newH = newW / r; }
-      let nx = handle.includes("w") ? ax - newW : ax;
-      let ny = handle.includes("n") ? ay - newH : ay;
-      selectionRect = { x: nx, y: ny, w: newW, h: newH };
-      renderCropBox();
-    }
-  });
+      if (cropDrag.type === "move") {
+        const dx = p.x - cropDrag.startP.x;
+        const dy = p.y - cropDrag.startP.y;
+        selectionRect = {
+          x: Math.max(0, Math.min(srW - cropDrag.orig.w, cropDrag.orig.x + dx)),
+          y: Math.max(0, Math.min(srH - cropDrag.orig.h, cropDrag.orig.y + dy)),
+          w: cropDrag.orig.w, h: cropDrag.orig.h
+        };
+        renderCropBox();
+      } else if (cropDrag.type === "draw") {
+        let dx = p.x - cropDrag.startP.x;
+        let dy = p.y - cropDrag.startP.y;
+        let w = Math.abs(dx), h = Math.abs(dy);
+        if (w / h > r) h = w / r; else w = h * r;
+        if (w < 20 || h < 20) return;
+        let x = dx < 0 ? cropDrag.startP.x - w : cropDrag.startP.x;
+        let y = dy < 0 ? cropDrag.startP.y - h : cropDrag.startP.y;
+        selectionRect = { x: Math.max(0, Math.min(srW - w, x)), y: Math.max(0, Math.min(srH - h, y)), w, h };
+        renderCropBox();
+      } else if (cropDrag.type === "resize") {
+        const handle = cropDrag.handle;
+        const orig = cropDrag.orig;
+        let ax = handle.includes("w") ? orig.x + orig.w : orig.x;
+        let ay = handle.includes("n") ? orig.y + orig.h : orig.y;
+        let newW = Math.abs(p.x - ax);
+        let newH = newW / r;
+        if (newW < 36) { newW = 36; newH = newW / r; }
+        let nx = handle.includes("w") ? ax - newW : ax;
+        let ny = handle.includes("n") ? ay - newH : ay;
+        selectionRect = { x: nx, y: ny, w: newW, h: newH };
+        renderCropBox();
+      }
+    });
 
-  wrap.addEventListener("mouseup", () => { cropDrag = null; scheduleAutoSave(); });
+    wrap.addEventListener("mouseup", () => { cropDrag = null; scheduleAutoSave(); });
+  }
 
   function nudgeCrop(dx, dy) {
-    if (!selectionRect) return;
+    if (!selectionRect || !stage) return;
     const sr = stage.getBoundingClientRect();
     const srW = sr.width > 0 ? sr.width : 300;
     const srH = sr.height > 0 ? sr.height : 300;
@@ -592,7 +617,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function scaleCrop(factor) {
-    if (!selectionRect) return;
+    if (!selectionRect || !stage) return;
     const r = SPEC[mode].ratio;
     const sr = stage.getBoundingClientRect();
     const srW = sr.width > 0 ? sr.width : 300;
@@ -609,12 +634,12 @@ document.addEventListener("DOMContentLoaded", () => {
     scheduleAutoSave();
   }
 
-  $("#cropUp").onclick = () => nudgeCrop(0, -6);
-  $("#cropDown").onclick = () => nudgeCrop(0, 6);
-  $("#cropLeft").onclick = () => nudgeCrop(-6, 0);
-  $("#cropRight").onclick = () => nudgeCrop(6, 0);
-  $("#cropCenter").onclick = () => {
-    if (!selectionRect) return;
+  if ($("#cropUp")) $("#cropUp").onclick = () => nudgeCrop(0, -6);
+  if ($("#cropDown")) $("#cropDown").onclick = () => nudgeCrop(0, 6);
+  if ($("#cropLeft")) $("#cropLeft").onclick = () => nudgeCrop(-6, 0);
+  if ($("#cropRight")) $("#cropRight").onclick = () => nudgeCrop(6, 0);
+  if ($("#cropCenter")) $("#cropCenter").onclick = () => {
+    if (!selectionRect || !stage) return;
     const sr = stage.getBoundingClientRect();
     const srW = sr.width > 0 ? sr.width : 300;
     const srH = sr.height > 0 ? sr.height : 300;
@@ -623,22 +648,42 @@ document.addEventListener("DOMContentLoaded", () => {
     renderCropBox();
     scheduleAutoSave();
   };
-  $("#cropZoomIn").onclick = () => scaleCrop(1.08);
-  $("#cropZoomOut").onclick = () => scaleCrop(0.92);
+  if ($("#cropZoomIn")) $("#cropZoomIn").onclick = () => scaleCrop(1.08);
+  if ($("#cropZoomOut")) $("#cropZoomOut").onclick = () => scaleCrop(0.92);
 
-  $("#adjustBtn").onclick = () => {
-    if (!selection) { toast("絵を指で囲んでね"); return; }
-    editingIndex = null;
-    openAdjustNew();
-    triggerAutoSave();
-  };
+  // 【最重要】次へ：レイヤー編集ボタンの確実な実行
+  const adjustBtn = $("#adjustBtn");
+  if (adjustBtn) {
+    adjustBtn.onclick = () => {
+      // selection が未生成の場合は即時自動生成
+      if (!selection) {
+        if (selectionRect) {
+          renderCropBox();
+        } else {
+          initOrAdjustSelection();
+        }
+      }
 
-  $("#back").onclick = () => {
-    editingIndex = null;
-    $("#adjustStep").classList.add("hidden");
-    $("#sheetStep").classList.remove("hidden");
-    triggerAutoSave();
-  };
+      if (!selection) {
+        toast("絵を指で囲んでね");
+        return;
+      }
+
+      editingIndex = null;
+      openAdjustNew();
+      triggerAutoSave();
+    };
+  }
+
+  const backBtn = $("#back");
+  if (backBtn) {
+    backBtn.onclick = () => {
+      editingIndex = null;
+      if ($("#adjustStep")) $("#adjustStep").classList.add("hidden");
+      if ($("#sheetStep")) $("#sheetStep").classList.remove("hidden");
+      triggerAutoSave();
+    };
+  }
 
   function cropFromOriginal(sel) {
     const c = document.createElement("canvas");
@@ -658,139 +703,165 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function openAdjustNew() {
-    const raw = cropFromOriginal(selection);
-    const src = cloneCanvas(raw);
-    preview.width = SPEC[mode].w;
-    preview.height = SPEC[mode].h;
+    try {
+      syncAdjustAreaRatio();
+      const raw = cropFromOriginal(selection);
+      const src = cloneCanvas(raw);
+      preview.width = SPEC[mode].w;
+      preview.height = SPEC[mode].h;
 
-    adjust = { rawSrc: raw, src, processedSrc: null, scale: 1, ox: 0, oy: 0, rotation: 0 };
-    centerIllust();
+      adjust = { rawSrc: raw, src, processedSrc: null, scale: 1, ox: 0, oy: 0, rotation: 0 };
+      centerIllust();
 
-    bgConfig = { style: "none", color: "#fff9db", image: null, scale: 1, ox: 0, oy: 0, rotation: 0 };
-    
-    const isEmoji = (mode === "emoji");
-    textConfig.ox = preview.width / 2;
-    textConfig.oy = isEmoji ? preview.height - 24 : preview.height - 40;
-    textConfig.text = "";
-    textConfig.size = isEmoji ? 22 : 34;
-    textConfig.color = "#111111";
-    textConfig.stroke = "#ffffff";
-    textConfig.rotation = 0;
-    $("#stampText").value = "";
+      bgConfig = { style: "none", color: "#fff9db", image: null, scale: 1, ox: 0, oy: 0, rotation: 0 };
+      
+      const isEmoji = (mode === "emoji");
+      textConfig.ox = preview.width / 2;
+      textConfig.oy = isEmoji ? preview.height - 24 : preview.height - 40;
+      textConfig.text = "";
+      textConfig.size = isEmoji ? 22 : 34;
+      textConfig.color = "#111111";
+      textConfig.stroke = "#ffffff";
+      textConfig.rotation = 0;
+      if ($("#stampText")) $("#stampText").value = "";
 
-    layerOrder = ["illust", "text", "bg"];
-    bgTransparent = true;
-    bgTolerance = 22;
-    protectWhite = true;
-    gapProtectLevel = 2;
-    $("#bgAutoTransparentToggle").checked = true;
-    $("#transSettingsBody").classList.remove("hidden");
-    $("#bgToleranceSlider").value = 22;
-    $("#bgToleranceVal").textContent = "22";
-    $("#protectWhiteToggle").checked = true;
-    $("#gapProtectLevel").value = "2";
+      layerOrder = ["illust", "text", "bg"];
+      bgTransparent = true;
+      bgTolerance = 22;
+      protectWhite = true;
+      gapProtectLevel = 2;
 
-    illustBorder = false;
-    illustBorderColor = "#ffffff";
-    $("#illustBorderToggle").checked = false;
-    $("#illustBorderColorWrap").classList.add("hidden");
-    $("#borderWidth").value = 6;
-    $("#borderWidthValue").textContent = "6";
+      // 存在チェック付きで安全にセット
+      if ($("#bgAutoTransparentToggle")) $("#bgAutoTransparentToggle").checked = true;
+      if ($("#transSettingsBody")) $("#transSettingsBody").classList.remove("hidden");
+      if ($("#bgToleranceSlider")) $("#bgToleranceSlider").value = 22;
+      if ($("#bgToleranceVal")) $("#bgToleranceVal").textContent = "22";
+      if ($("#protectWhiteToggle")) $("#protectWhiteToggle").checked = true;
+      if ($("#gapProtectLevel")) $("#gapProtectLevel").value = "2";
 
-    isEraserActive = false;
-    eraserToolMode = "erase";
-    updateToolModeUI();
-    eraserUndoStack = [];
-    lastErasePoint = null;
-    updateEraserUI();
+      illustBorder = false;
+      illustBorderColor = "#ffffff";
+      if ($("#illustBorderToggle")) $("#illustBorderToggle").checked = false;
+      if ($("#illustBorderColorWrap")) $("#illustBorderColorWrap").classList.add("hidden");
+      if ($("#borderWidth")) $("#borderWidth").value = 6;
+      if ($("#borderWidthValue")) $("#borderWidthValue").textContent = "6";
 
-    $("#saveAndDownload").querySelector("span").textContent = "💾 アルバムに追加 ＋ 端末に保存";
-    $("#adjustStepTitle").textContent = "スタンプをととのえる";
+      isEraserActive = false;
+      eraserToolMode = "erase";
+      updateToolModeUI();
+      eraserUndoStack = [];
+      lastErasePoint = null;
+      updateEraserUI();
 
-    $("#adjustStep").classList.remove("hidden");
-    $("#sheetStep").classList.add("hidden");
+      // 新旧どちらの保存ボタン構成でも安全に対応
+      if ($("#save")) $("#save").textContent = "💾 このスタンプを保存する";
+      if ($("#saveAndDownload")) {
+        const sp = $("#saveAndDownload").querySelector("span");
+        if (sp) sp.textContent = "💾 アルバムに追加 ＋ 端末に保存";
+        else $("#saveAndDownload").textContent = "💾 アルバムに追加 ＋ 端末に保存";
+      }
+      if ($("#adjustStepTitle")) $("#adjustStepTitle").textContent = "スタンプをととのえる";
 
-    switchLayer("illust");
-    updateIllustCache();
-    updateLayerListUI();
-    updateBgUI();
-    renderPreview();
+      // 確実に画面を切り替え
+      if ($("#adjustStep")) $("#adjustStep").classList.remove("hidden");
+      if ($("#sheetStep")) $("#sheetStep").classList.add("hidden");
+
+      switchLayer("illust");
+      updateIllustCache();
+      updateLayerListUI();
+      updateBgUI();
+      renderPreview();
+    } catch (err) {
+      console.error("openAdjustNew error:", err);
+      toast("編集画面の起動に失敗しました: " + err.message);
+    }
   }
 
   function openAdjustForEdit(savedState) {
-    preview.width = SPEC[mode].w;
-    preview.height = SPEC[mode].h;
+    try {
+      syncAdjustAreaRatio();
+      preview.width = SPEC[mode].w;
+      preview.height = SPEC[mode].h;
 
-    adjust.src = cloneCanvas(savedState.adjust.src);
-    adjust.rawSrc = savedState.adjust.rawSrc ? cloneCanvas(savedState.adjust.rawSrc) : cloneCanvas(savedState.adjust.src);
-    adjust.scale = savedState.adjust.scale;
-    adjust.ox = savedState.adjust.ox;
-    adjust.oy = savedState.adjust.oy;
-    adjust.rotation = savedState.adjust.rotation !== undefined ? savedState.adjust.rotation : 0;
+      adjust.src = cloneCanvas(savedState.adjust.src);
+      adjust.rawSrc = savedState.adjust.rawSrc ? cloneCanvas(savedState.adjust.rawSrc) : cloneCanvas(savedState.adjust.src);
+      adjust.scale = savedState.adjust.scale;
+      adjust.ox = savedState.adjust.ox;
+      adjust.oy = savedState.adjust.oy;
+      adjust.rotation = savedState.adjust.rotation !== undefined ? savedState.adjust.rotation : 0;
 
-    textConfig = { ...savedState.textConfig };
-    if (textConfig.rotation === undefined) textConfig.rotation = 0;
+      textConfig = { ...savedState.textConfig };
+      if (textConfig.rotation === undefined) textConfig.rotation = 0;
 
-    $("#stampText").value = textConfig.text || "";
-    $("#textFont").value = textConfig.font || "'M PLUS Rounded 1c', sans-serif";
-    $("#textColorPicker").value = (textConfig.color && textConfig.color.startsWith("#")) ? textConfig.color : "#111111";
-    document.querySelectorAll("#textColorList .cBtn").forEach(b => {
-      b.classList.toggle("active", b.dataset.color && b.dataset.color.toLowerCase() === textConfig.color.toLowerCase());
-    });
-    document.querySelectorAll("#textStrokeList .sBtn").forEach(b => {
-      b.classList.toggle("active", b.dataset.stroke === textConfig.stroke);
-    });
+      if ($("#stampText")) $("#stampText").value = textConfig.text || "";
+      if ($("#textFont")) $("#textFont").value = textConfig.font || "'M PLUS Rounded 1c', sans-serif";
+      if ($("#textColorPicker")) $("#textColorPicker").value = (textConfig.color && textConfig.color.startsWith("#")) ? textConfig.color : "#111111";
+      document.querySelectorAll("#textColorList .cBtn").forEach(b => {
+        b.classList.toggle("active", b.dataset.color && b.dataset.color.toLowerCase() === textConfig.color.toLowerCase());
+      });
+      document.querySelectorAll("#textStrokeList .sBtn").forEach(b => {
+        b.classList.toggle("active", b.dataset.stroke === textConfig.stroke);
+      });
 
-    bgConfig = {
-      style: savedState.bgConfig.style || "none",
-      color: savedState.bgConfig.color || "#fff9db",
-      image: savedState.bgConfig.image || null,
-      scale: savedState.bgConfig.scale || 1,
-      ox: savedState.bgConfig.ox || 0,
-      oy: savedState.bgConfig.oy || 0,
-      rotation: savedState.bgConfig.rotation !== undefined ? savedState.bgConfig.rotation : 0
-    };
+      bgConfig = {
+        style: savedState.bgConfig.style || "none",
+        color: savedState.bgConfig.color || "#fff9db",
+        image: savedState.bgConfig.image || null,
+        scale: savedState.bgConfig.scale || 1,
+        ox: savedState.bgConfig.ox || 0,
+        oy: savedState.bgConfig.oy || 0,
+        rotation: savedState.bgConfig.rotation !== undefined ? savedState.bgConfig.rotation : 0
+      };
 
-    layerOrder = [...savedState.layerOrder];
-    bgTransparent = savedState.bgTransparent !== undefined ? savedState.bgTransparent : true;
-    bgTolerance = savedState.bgTolerance !== undefined ? savedState.bgTolerance : 22;
-    protectWhite = savedState.protectWhite !== undefined ? savedState.protectWhite : true;
-    gapProtectLevel = savedState.gapProtectLevel || 2;
-    illustBorder = savedState.illustBorder;
-    illustBorderColor = savedState.illustBorderColor || "#ffffff";
+      layerOrder = [...savedState.layerOrder];
+      bgTransparent = savedState.bgTransparent !== undefined ? savedState.bgTransparent : true;
+      bgTolerance = savedState.bgTolerance !== undefined ? savedState.bgTolerance : 22;
+      protectWhite = savedState.protectWhite !== undefined ? savedState.protectWhite : true;
+      gapProtectLevel = savedState.gapProtectLevel || 2;
+      illustBorder = savedState.illustBorder;
+      illustBorderColor = savedState.illustBorderColor || "#ffffff";
 
-    $("#bgAutoTransparentToggle").checked = bgTransparent;
-    $("#transSettingsBody").classList.toggle("hidden", !bgTransparent);
-    $("#bgToleranceSlider").value = bgTolerance;
-    $("#bgToleranceVal").textContent = bgTolerance;
-    $("#protectWhiteToggle").checked = protectWhite;
-    $("#gapProtectLevel").value = String(gapProtectLevel);
+      if ($("#bgAutoTransparentToggle")) $("#bgAutoTransparentToggle").checked = bgTransparent;
+      if ($("#transSettingsBody")) $("#transSettingsBody").classList.toggle("hidden", !bgTransparent);
+      if ($("#bgToleranceSlider")) $("#bgToleranceSlider").value = bgTolerance;
+      if ($("#bgToleranceVal")) $("#bgToleranceVal").textContent = bgTolerance;
+      if ($("#protectWhiteToggle")) $("#protectWhiteToggle").checked = protectWhite;
+      if ($("#gapProtectLevel")) $("#gapProtectLevel").value = String(gapProtectLevel);
 
-    $("#illustBorderToggle").checked = illustBorder;
-    $("#illustBorderColorWrap").classList.toggle("hidden", !illustBorder);
-    $("#borderWidth").value = savedState.borderWidth || 6;
-    $("#borderWidthValue").textContent = savedState.borderWidth || 6;
+      if ($("#illustBorderToggle")) $("#illustBorderToggle").checked = illustBorder;
+      if ($("#illustBorderColorWrap")) $("#illustBorderColorWrap").classList.toggle("hidden", !illustBorder);
+      if ($("#borderWidth")) $("#borderWidth").value = savedState.borderWidth || 6;
+      if ($("#borderWidthValue")) $("#borderWidthValue").textContent = savedState.borderWidth || 6;
 
-    isEraserActive = false;
-    eraserToolMode = "erase";
-    updateToolModeUI();
-    eraserUndoStack = [];
-    lastErasePoint = null;
-    updateEraserUI();
+      isEraserActive = false;
+      eraserToolMode = "erase";
+      updateToolModeUI();
+      eraserUndoStack = [];
+      lastErasePoint = null;
+      updateEraserUI();
 
-    if (editingIndex !== null) {
-      $("#saveAndDownload").querySelector("span").textContent = `💾 ${editingIndex + 1}個目を更新 ＋ 端末に保存`;
-      $("#adjustStepTitle").textContent = `${editingIndex + 1}個目を修正中（上書き保存）`;
+      if (editingIndex !== null) {
+        if ($("#save")) $("#save").textContent = `💾 ${editingIndex + 1}個目を修正して上書き保存`;
+        if ($("#saveAndDownload")) {
+          const sp = $("#saveAndDownload").querySelector("span");
+          if (sp) sp.textContent = `💾 ${editingIndex + 1}個目を更新 ＋ 端末に保存`;
+          else $("#saveAndDownload").textContent = `💾 ${editingIndex + 1}個目を更新 ＋ 端末に保存`;
+        }
+        if ($("#adjustStepTitle")) $("#adjustStepTitle").textContent = `${editingIndex + 1}個目を修正中（上書き保存）`;
+      }
+
+      if ($("#adjustStep")) $("#adjustStep").classList.remove("hidden");
+      if ($("#sheetStep")) $("#sheetStep").classList.add("hidden");
+
+      switchLayer("illust");
+      updateIllustCache();
+      updateLayerListUI();
+      updateBgUI();
+      renderPreview();
+    } catch (err) {
+      console.error("openAdjustForEdit error:", err);
+      toast("再編集画面の起動に失敗しました: " + err.message);
     }
-
-    $("#adjustStep").classList.remove("hidden");
-    $("#sheetStep").classList.add("hidden");
-
-    switchLayer("illust");
-    updateIllustCache();
-    updateLayerListUI();
-    updateBgUI();
-    renderPreview();
   }
 
   function centerIllust() {
@@ -865,47 +936,66 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function setEraserMode(active) {
     isEraserActive = active;
-    $("#eraserToggleBtn").textContent = isEraserActive ? "🧹 ペンツール：ON" : "🧹 消しゴム：OFF";
-    $("#eraserToggleBtn").classList.toggle("active", isEraserActive);
-    $("#eraserOptionsWrap").classList.toggle("hidden", !isEraserActive);
-    adjustArea.classList.toggle("erasing", isEraserActive);
-    if (!isEraserActive) $("#eraserCursor").classList.add("hidden");
-  }
-
-  function updateToolModeUI() {
-    $("#toolModeErase").classList.toggle("active", eraserToolMode === "erase");
-    $("#toolModeErase").classList.toggle("bg-orange-500", eraserToolMode === "erase");
-    $("#toolModeErase").classList.toggle("text-white", eraserToolMode === "erase");
-    $("#toolModeErase").classList.toggle("text-gray-600", eraserToolMode !== "erase");
-
-    $("#toolModeRestore").classList.toggle("active", eraserToolMode === "restore");
-    $("#toolModeRestore").classList.toggle("bg-blue-600", eraserToolMode === "restore");
-    $("#toolModeRestore").classList.toggle("text-white", eraserToolMode === "restore");
-    $("#toolModeRestore").classList.toggle("text-gray-600", eraserToolMode !== "restore");
-
-    const cursor = $("#eraserCursor");
-    if (eraserToolMode === "restore") {
-      cursor.style.borderColor = "rgba(37, 99, 235, 0.9)";
-      cursor.style.backgroundColor = "rgba(37, 99, 235, 0.2)";
-    } else {
-      cursor.style.borderColor = "rgba(249, 115, 22, 0.9)";
-      cursor.style.backgroundColor = "rgba(249, 115, 22, 0.2)";
+    if ($("#eraserToggleBtn")) {
+      $("#eraserToggleBtn").textContent = isEraserActive ? "🧹 ペンツール：ON" : "🧹 消しゴム：OFF";
+      $("#eraserToggleBtn").classList.toggle("active", isEraserActive);
+    }
+    if ($("#eraserOptionsWrap")) {
+      $("#eraserOptionsWrap").classList.toggle("hidden", !isEraserActive);
+    }
+    if (adjustArea) {
+      adjustArea.classList.toggle("erasing", isEraserActive);
+    }
+    if (!isEraserActive && $("#eraserCursor")) {
+      $("#eraserCursor").classList.add("hidden");
     }
   }
 
-  $("#toolModeErase").onclick = () => { eraserToolMode = "erase"; updateToolModeUI(); };
-  $("#toolModeRestore").onclick = () => { eraserToolMode = "restore"; updateToolModeUI(); toast("復元ペン：消えた部分をなぞって元に戻せます"); };
+  function updateToolModeUI() {
+    const eraseBtn = $("#toolModeErase");
+    const restoreBtn = $("#toolModeRestore");
+    if (eraseBtn) {
+      eraseBtn.classList.toggle("active", eraserToolMode === "erase");
+      eraseBtn.classList.toggle("bg-orange-500", eraserToolMode === "erase");
+      eraseBtn.classList.toggle("text-white", eraserToolMode === "erase");
+      eraseBtn.classList.toggle("text-gray-600", eraserToolMode !== "erase");
+    }
+    if (restoreBtn) {
+      restoreBtn.classList.toggle("active", eraserToolMode === "restore");
+      restoreBtn.classList.toggle("bg-blue-600", eraserToolMode === "restore");
+      restoreBtn.classList.toggle("text-white", eraserToolMode === "restore");
+      restoreBtn.classList.toggle("text-gray-600", eraserToolMode !== "restore");
+    }
+
+    const cursor = $("#eraserCursor");
+    if (cursor) {
+      if (eraserToolMode === "restore") {
+        cursor.style.borderColor = "rgba(37, 99, 235, 0.9)";
+        cursor.style.backgroundColor = "rgba(37, 99, 235, 0.2)";
+      } else {
+        cursor.style.borderColor = "rgba(249, 115, 22, 0.9)";
+        cursor.style.backgroundColor = "rgba(249, 115, 22, 0.2)";
+      }
+    }
+  }
+
+  if ($("#toolModeErase")) $("#toolModeErase").onclick = () => { eraserToolMode = "erase"; updateToolModeUI(); };
+  if ($("#toolModeRestore")) $("#toolModeRestore").onclick = () => { eraserToolMode = "restore"; updateToolModeUI(); toast("復元ペン：消えた部分をなぞって元に戻せます"); };
 
   function updateEraserUI() {
     setEraserMode(isEraserActive);
-    $("#eraserUndoBtn").disabled = (eraserUndoStack.length === 0);
+    if ($("#eraserUndoBtn")) {
+      $("#eraserUndoBtn").disabled = (eraserUndoStack.length === 0);
+    }
   }
 
-  $("#eraserToggleBtn").onclick = () => {
-    if (currentLayer !== "illust") switchLayer("illust");
-    setEraserMode(!isEraserActive);
-    if (isEraserActive) toast(eraserToolMode === "restore" ? "復元ON：プレビューをなぞってね" : "消しゴムON：プレビューをなぞってね");
-  };
+  if ($("#eraserToggleBtn")) {
+    $("#eraserToggleBtn").onclick = () => {
+      if (currentLayer !== "illust") switchLayer("illust");
+      setEraserMode(!isEraserActive);
+      if (isEraserActive) toast(eraserToolMode === "restore" ? "復元ON：プレビューをなぞってね" : "消しゴムON：プレビューをなぞってね");
+    };
+  }
 
   document.querySelectorAll(".eSizeBtn").forEach(btn => {
     btn.onclick = () => {
@@ -915,17 +1005,19 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   });
 
-  $("#eraserUndoBtn").onclick = () => {
-    if (eraserUndoStack.length === 0) return;
-    const lastSnapshot = eraserUndoStack.pop();
-    const sctx = adjust.src.getContext("2d");
-    sctx.putImageData(lastSnapshot, 0, 0);
-    updateEraserUI();
-    updateIllustCache();
-    renderPreview();
-    toast("1つ元に戻しました");
-    scheduleAutoSave();
-  };
+  if ($("#eraserUndoBtn")) {
+    $("#eraserUndoBtn").onclick = () => {
+      if (eraserUndoStack.length === 0) return;
+      const lastSnapshot = eraserUndoStack.pop();
+      const sctx = adjust.src.getContext("2d");
+      sctx.putImageData(lastSnapshot, 0, 0);
+      updateEraserUI();
+      updateIllustCache();
+      renderPreview();
+      toast("1つ元に戻しました");
+      scheduleAutoSave();
+    };
+  }
 
   function eraseAtCoords(p1, p2) {
     if (!adjust.src) return;
@@ -982,6 +1074,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateEraserCursorPos(clientX, clientY, renderScale) {
     if (!isEraserActive) return;
     const cursor = $("#eraserCursor");
+    if (!cursor) return;
     const rect = adjustArea.getBoundingClientRect();
     const x = clientX - rect.left;
     const y = clientY - rect.top;
@@ -1002,168 +1095,170 @@ document.addEventListener("DOMContentLoaded", () => {
   let initialAngle = 0;
   let origRotation = 0;
 
-  adjustArea.addEventListener("touchstart", e => {
-    e.preventDefault();
-    const pt = getPreviewPoint(e.touches[0].clientX, e.touches[0].clientY);
+  if (adjustArea) {
+    adjustArea.addEventListener("touchstart", e => {
+      e.preventDefault();
+      const pt = getPreviewPoint(e.touches[0].clientX, e.touches[0].clientY);
 
-    if (isEraserActive && currentLayer === "illust" && e.touches.length === 1) {
-      if (adjust.src) {
-        const sctx = adjust.src.getContext("2d");
-        eraserUndoStack.push(sctx.getImageData(0, 0, adjust.src.width, adjust.src.height));
-        if (eraserUndoStack.length > 10) eraserUndoStack.shift();
-        updateEraserUI();
-      }
-      lastErasePoint = { x: pt.x, y: pt.y };
-      eraseAtCoords(lastErasePoint, null);
-      updateIllustCache();
-      renderPreview();
-      updateEraserCursorPos(e.touches[0].clientX, e.touches[0].clientY, pt.renderScale);
-      return;
-    }
-
-    if (e.touches.length === 1 && !isEraserActive) {
-      touchMode = 'drag';
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-      if (currentLayer === "illust") { origOx = adjust.ox; origOy = adjust.oy; }
-      else if (currentLayer === "text") { origOx = textConfig.ox; origOy = textConfig.oy; }
-      else if (currentLayer === "bg") { origOx = bgConfig.ox; origOy = bgConfig.oy; }
-    } else if (e.touches.length >= 2) {
-      touchMode = 'pinch';
-      initialDist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      initialAngle = Math.atan2(
-        e.touches[1].clientY - e.touches[0].clientY,
-        e.touches[1].clientX - e.touches[0].clientX
-      );
-      if (currentLayer === "illust") { initialScale = adjust.scale; origRotation = adjust.rotation; }
-      else if (currentLayer === "text") { initialScale = textConfig.size; origRotation = textConfig.rotation; }
-      else if (currentLayer === "bg") { initialScale = bgConfig.scale; origRotation = bgConfig.rotation; }
-    }
-  }, { passive: false });
-
-  adjustArea.addEventListener("touchmove", e => {
-    e.preventDefault();
-    const pt = getPreviewPoint(e.touches[0].clientX, e.touches[0].clientY);
-
-    if (isEraserActive && currentLayer === "illust" && e.touches.length === 1) {
-      updateEraserCursorPos(e.touches[0].clientX, e.touches[0].clientY, pt.renderScale);
-      if (lastErasePoint) {
-        const currentP = { x: pt.x, y: pt.y };
-        eraseAtCoords(lastErasePoint, currentP);
-        lastErasePoint = currentP;
-        updateIllustCache();
-        renderPreview();
-      }
-      return;
-    }
-
-    if (touchMode === 'drag' && e.touches.length === 1) {
-      const scaleFactor = 1 / pt.renderScale;
-      const dx = (e.touches[0].clientX - touchStartX) * scaleFactor;
-      const dy = (e.touches[0].clientY - touchStartY) * scaleFactor;
-
-      if (!isNaN(dx) && !isNaN(dy)) {
-        if (currentLayer === "illust") { adjust.ox = origOx + dx; adjust.oy = origOy + dy; }
-        else if (currentLayer === "text") { textConfig.ox = origOx + dx; textConfig.oy = origOy + dy; }
-        else if (currentLayer === "bg") { bgConfig.ox = origOx + dx; bgConfig.oy = origOy + dy; }
-        renderPreview();
-      }
-    } else if (touchMode === 'pinch' && e.touches.length >= 2) {
-      const currentDist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      const currentAngle = Math.atan2(
-        e.touches[1].clientY - e.touches[0].clientY,
-        e.touches[1].clientX - e.touches[0].clientX
-      );
-
-      if (initialDist > 0 && !isNaN(currentDist)) {
-        const ratio = currentDist / initialDist;
-        const angleDiff = currentAngle - initialAngle;
-
-        if (currentLayer === "illust") {
-          adjust.scale = Math.max(0.4, Math.min(3.0, initialScale * ratio));
-          adjust.rotation = origRotation + angleDiff;
-        } else if (currentLayer === "text") {
-          textConfig.size = Math.round(Math.max(10, Math.min(76, initialScale * ratio)));
-          textConfig.rotation = origRotation + angleDiff;
-        } else if (currentLayer === "bg") {
-          bgConfig.scale = Math.max(0.2, Math.min(3.0, initialScale * ratio));
-          bgConfig.rotation = origRotation + angleDiff;
+      if (isEraserActive && currentLayer === "illust" && e.touches.length === 1) {
+        if (adjust.src) {
+          const sctx = adjust.src.getContext("2d");
+          eraserUndoStack.push(sctx.getImageData(0, 0, adjust.src.width, adjust.src.height));
+          if (eraserUndoStack.length > 10) eraserUndoStack.shift();
+          updateEraserUI();
         }
-        syncCommonScaleSlider();
-        renderPreview();
-      }
-    }
-  }, { passive: false });
-
-  adjustArea.addEventListener("touchend", e => {
-    lastErasePoint = null;
-    if (isEraserActive) $("#eraserCursor").classList.add("hidden");
-
-    if (e.touches.length === 0) {
-      touchMode = null;
-    } else if (e.touches.length === 1) {
-      touchMode = 'drag';
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-      if (currentLayer === "illust") { origOx = adjust.ox; origOy = adjust.oy; }
-      else if (currentLayer === "text") { origOx = textConfig.ox; origOy = textConfig.oy; }
-      else if (currentLayer === "bg") { origOx = bgConfig.ox; origOy = bgConfig.oy; }
-    }
-    scheduleAutoSave();
-  });
-
-  adjustArea.addEventListener("touchcancel", () => {
-    touchMode = null;
-    lastErasePoint = null;
-    if (isEraserActive) $("#eraserCursor").classList.add("hidden");
-  });
-
-  adjustArea.addEventListener("mousedown", e => {
-    if (isEraserActive && currentLayer === "illust") {
-      if (adjust.src) {
-        const sctx = adjust.src.getContext("2d");
-        eraserUndoStack.push(sctx.getImageData(0, 0, adjust.src.width, adjust.src.height));
-        if (eraserUndoStack.length > 10) eraserUndoStack.shift();
-        updateEraserUI();
-      }
-      const pt = getPreviewPoint(e.clientX, e.clientY);
-      lastErasePoint = { x: pt.x, y: pt.y };
-      eraseAtCoords(lastErasePoint, null);
-      updateIllustCache();
-      renderPreview();
-      updateEraserCursorPos(e.clientX, e.clientY, pt.renderScale);
-    }
-  });
-
-  adjustArea.addEventListener("mousemove", e => {
-    if (isEraserActive && currentLayer === "illust") {
-      const pt = getPreviewPoint(e.clientX, e.clientY);
-      updateEraserCursorPos(e.clientX, e.clientY, pt.renderScale);
-      if (lastErasePoint) {
-        const currentP = { x: pt.x, y: pt.y };
-        eraseAtCoords(lastErasePoint, currentP);
-        lastErasePoint = currentP;
+        lastErasePoint = { x: pt.x, y: pt.y };
+        eraseAtCoords(lastErasePoint, null);
         updateIllustCache();
         renderPreview();
+        updateEraserCursorPos(e.touches[0].clientX, e.touches[0].clientY, pt.renderScale);
+        return;
       }
-    }
-  });
 
-  adjustArea.addEventListener("mouseup", () => {
-    lastErasePoint = null;
-    scheduleAutoSave();
-  });
+      if (e.touches.length === 1 && !isEraserActive) {
+        touchMode = 'drag';
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        if (currentLayer === "illust") { origOx = adjust.ox; origOy = adjust.oy; }
+        else if (currentLayer === "text") { origOx = textConfig.ox; origOy = textConfig.oy; }
+        else if (currentLayer === "bg") { origOx = bgConfig.ox; origOy = bgConfig.oy; }
+      } else if (e.touches.length >= 2) {
+        touchMode = 'pinch';
+        initialDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        initialAngle = Math.atan2(
+          e.touches[1].clientY - e.touches[0].clientY,
+          e.touches[1].clientX - e.touches[0].clientX
+        );
+        if (currentLayer === "illust") { initialScale = adjust.scale; origRotation = adjust.rotation; }
+        else if (currentLayer === "text") { initialScale = textConfig.size; origRotation = textConfig.rotation; }
+        else if (currentLayer === "bg") { initialScale = bgConfig.scale; origRotation = bgConfig.rotation; }
+      }
+    }, { passive: false });
 
-  adjustArea.addEventListener("mouseleave", () => {
-    lastErasePoint = null;
-    if (isEraserActive) $("#eraserCursor").classList.add("hidden");
-  });
+    adjustArea.addEventListener("touchmove", e => {
+      e.preventDefault();
+      const pt = getPreviewPoint(e.touches[0].clientX, e.touches[0].clientY);
+
+      if (isEraserActive && currentLayer === "illust" && e.touches.length === 1) {
+        updateEraserCursorPos(e.touches[0].clientX, e.touches[0].clientY, pt.renderScale);
+        if (lastErasePoint) {
+          const currentP = { x: pt.x, y: pt.y };
+          eraseAtCoords(lastErasePoint, currentP);
+          lastErasePoint = currentP;
+          updateIllustCache();
+          renderPreview();
+        }
+        return;
+      }
+
+      if (touchMode === 'drag' && e.touches.length === 1) {
+        const scaleFactor = 1 / pt.renderScale;
+        const dx = (e.touches[0].clientX - touchStartX) * scaleFactor;
+        const dy = (e.touches[0].clientY - touchStartY) * scaleFactor;
+
+        if (!isNaN(dx) && !isNaN(dy)) {
+          if (currentLayer === "illust") { adjust.ox = origOx + dx; adjust.oy = origOy + dy; }
+          else if (currentLayer === "text") { textConfig.ox = origOx + dx; textConfig.oy = origOy + dy; }
+          else if (currentLayer === "bg") { bgConfig.ox = origOx + dx; bgConfig.oy = origOy + dy; }
+          renderPreview();
+        }
+      } else if (touchMode === 'pinch' && e.touches.length >= 2) {
+        const currentDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const currentAngle = Math.atan2(
+          e.touches[1].clientY - e.touches[0].clientY,
+          e.touches[1].clientX - e.touches[0].clientX
+        );
+
+        if (initialDist > 0 && !isNaN(currentDist)) {
+          const ratio = currentDist / initialDist;
+          const angleDiff = currentAngle - initialAngle;
+
+          if (currentLayer === "illust") {
+            adjust.scale = Math.max(0.4, Math.min(3.0, initialScale * ratio));
+            adjust.rotation = origRotation + angleDiff;
+          } else if (currentLayer === "text") {
+            textConfig.size = Math.round(Math.max(10, Math.min(76, initialScale * ratio)));
+            textConfig.rotation = origRotation + angleDiff;
+          } else if (currentLayer === "bg") {
+            bgConfig.scale = Math.max(0.2, Math.min(3.0, initialScale * ratio));
+            bgConfig.rotation = origRotation + angleDiff;
+          }
+          syncCommonScaleSlider();
+          renderPreview();
+        }
+      }
+    }, { passive: false });
+
+    adjustArea.addEventListener("touchend", e => {
+      lastErasePoint = null;
+      if (isEraserActive && $("#eraserCursor")) $("#eraserCursor").classList.add("hidden");
+
+      if (e.touches.length === 0) {
+        touchMode = null;
+      } else if (e.touches.length === 1) {
+        touchMode = 'drag';
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        if (currentLayer === "illust") { origOx = adjust.ox; origOy = adjust.oy; }
+        else if (currentLayer === "text") { origOx = textConfig.ox; origOy = textConfig.oy; }
+        else if (currentLayer === "bg") { origOx = bgConfig.ox; origOy = bgConfig.oy; }
+      }
+      scheduleAutoSave();
+    });
+
+    adjustArea.addEventListener("touchcancel", () => {
+      touchMode = null;
+      lastErasePoint = null;
+      if (isEraserActive && $("#eraserCursor")) $("#eraserCursor").classList.add("hidden");
+    });
+
+    adjustArea.addEventListener("mousedown", e => {
+      if (isEraserActive && currentLayer === "illust") {
+        if (adjust.src) {
+          const sctx = adjust.src.getContext("2d");
+          eraserUndoStack.push(sctx.getImageData(0, 0, adjust.src.width, adjust.src.height));
+          if (eraserUndoStack.length > 10) eraserUndoStack.shift();
+          updateEraserUI();
+        }
+        const pt = getPreviewPoint(e.clientX, e.clientY);
+        lastErasePoint = { x: pt.x, y: pt.y };
+        eraseAtCoords(lastErasePoint, null);
+        updateIllustCache();
+        renderPreview();
+        updateEraserCursorPos(e.clientX, e.clientY, pt.renderScale);
+      }
+    });
+
+    adjustArea.addEventListener("mousemove", e => {
+      if (isEraserActive && currentLayer === "illust") {
+        const pt = getPreviewPoint(e.clientX, e.clientY);
+        updateEraserCursorPos(e.clientX, e.clientY, pt.renderScale);
+        if (lastErasePoint) {
+          const currentP = { x: pt.x, y: pt.y };
+          eraseAtCoords(lastErasePoint, currentP);
+          lastErasePoint = currentP;
+          updateIllustCache();
+          renderPreview();
+        }
+      }
+    });
+
+    adjustArea.addEventListener("mouseup", () => {
+      lastErasePoint = null;
+      scheduleAutoSave();
+    });
+
+    adjustArea.addEventListener("mouseleave", () => {
+      lastErasePoint = null;
+      if (isEraserActive && $("#eraserCursor")) $("#eraserCursor").classList.add("hidden");
+    });
+  }
 
   function switchLayer(layerId) {
     currentLayer = layerId;
@@ -1174,13 +1269,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     const tagEl = $("#activeLayerTag");
-    if (layerId === "illust") tagEl.textContent = "🎨 イラスト編集中";
-    else if (layerId === "text") tagEl.textContent = "💬 文字編集中";
-    else if (layerId === "bg") tagEl.textContent = "🖼 背景編集中";
+    if (tagEl) {
+      if (layerId === "illust") tagEl.textContent = "🎨 イラスト編集中";
+      else if (layerId === "text") tagEl.textContent = "💬 文字編集中";
+      else if (layerId === "bg") tagEl.textContent = "🖼 背景編集中";
+    }
 
-    $("#shortcutsIllust").classList.toggle("hidden", layerId !== "illust");
-    $("#shortcutsText").classList.toggle("hidden", layerId !== "text");
-    $("#shortcutsBg").classList.toggle("hidden", layerId !== "bg");
+    if ($("#shortcutsIllust")) $("#shortcutsIllust").classList.toggle("hidden", layerId !== "illust");
+    if ($("#shortcutsText")) $("#shortcutsText").classList.toggle("hidden", layerId !== "text");
+    if ($("#shortcutsBg")) $("#shortcutsBg").classList.toggle("hidden", layerId !== "bg");
 
     document.querySelectorAll(".layerPanel").forEach(p => {
       p.classList.toggle("active", p.id === `panel-${layerId}`);
@@ -1198,8 +1295,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const label = $("#transformScaleLabel");
     const val = $("#commonScaleVal");
     const unit = $("#commonScaleUnit");
-    const isEmoji = (mode === "emoji");
+    if (!slider || !label || !val || !unit) return;
 
+    const isEmoji = (mode === "emoji");
     const rotSlider = $("#commonRotationSlider");
     const rotVal = $("#commonRotationVal");
 
@@ -1227,40 +1325,44 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const deg = Math.round(currentRot * (180 / Math.PI));
-    rotSlider.value = deg;
-    rotVal.textContent = deg;
+    if (rotSlider) rotSlider.value = deg;
+    if (rotVal) rotVal.textContent = deg;
   }
 
-  $("#commonScaleSlider").oninput = e => {
-    const v = Number(e.target.value);
-    $("#commonScaleVal").textContent = v;
-    if (currentLayer === "illust") {
-      const oldScale = adjust.scale;
-      const newScale = v / 100;
-      const cx = preview.width / 2, cy = preview.height / 2;
-      adjust.ox = cx - (cx - adjust.ox) * (newScale / oldScale);
-      adjust.oy = cy - (cy - adjust.oy) * (newScale / oldScale);
-      adjust.scale = newScale;
-    } else if (currentLayer === "text") {
-      textConfig.size = v;
-    } else if (currentLayer === "bg") {
-      bgConfig.scale = v / 100;
-    }
-    renderPreview();
-    scheduleAutoSave();
-  };
+  if ($("#commonScaleSlider")) {
+    $("#commonScaleSlider").oninput = e => {
+      const v = Number(e.target.value);
+      if ($("#commonScaleVal")) $("#commonScaleVal").textContent = v;
+      if (currentLayer === "illust") {
+        const oldScale = adjust.scale;
+        const newScale = v / 100;
+        const cx = preview.width / 2, cy = preview.height / 2;
+        adjust.ox = cx - (cx - adjust.ox) * (newScale / oldScale);
+        adjust.oy = cy - (cy - adjust.oy) * (newScale / oldScale);
+        adjust.scale = newScale;
+      } else if (currentLayer === "text") {
+        textConfig.size = v;
+      } else if (currentLayer === "bg") {
+        bgConfig.scale = v / 100;
+      }
+      renderPreview();
+      scheduleAutoSave();
+    };
+  }
 
-  $("#commonRotationSlider").oninput = e => {
-    const deg = Number(e.target.value);
-    $("#commonRotationVal").textContent = deg;
-    const rad = deg * (Math.PI / 180);
+  if ($("#commonRotationSlider")) {
+    $("#commonRotationSlider").oninput = e => {
+      const deg = Number(e.target.value);
+      if ($("#commonRotationVal")) $("#commonRotationVal").textContent = deg;
+      const rad = deg * (Math.PI / 180);
 
-    if (currentLayer === "illust") adjust.rotation = rad;
-    else if (currentLayer === "text") textConfig.rotation = rad;
-    else if (currentLayer === "bg") bgConfig.rotation = rad;
-    renderPreview();
-    scheduleAutoSave();
-  };
+      if (currentLayer === "illust") adjust.rotation = rad;
+      else if (currentLayer === "text") textConfig.rotation = rad;
+      else if (currentLayer === "bg") bgConfig.rotation = rad;
+      renderPreview();
+      scheduleAutoSave();
+    };
+  }
 
   function nudgeCurrentLayer(dx, dy) {
     if (currentLayer === "illust") { adjust.ox += dx; adjust.oy += dy; }
@@ -1270,40 +1372,46 @@ document.addEventListener("DOMContentLoaded", () => {
     scheduleAutoSave();
   }
 
-  $("#ctrlUp").onclick = () => nudgeCurrentLayer(0, -6);
-  $("#ctrlDown").onclick = () => nudgeCurrentLayer(0, 6);
-  $("#ctrlLeft").onclick = () => nudgeCurrentLayer(-6, 0);
-  $("#ctrlRight").onclick = () => nudgeCurrentLayer(6, 0);
+  if ($("#ctrlUp")) $("#ctrlUp").onclick = () => nudgeCurrentLayer(0, -6);
+  if ($("#ctrlDown")) $("#ctrlDown").onclick = () => nudgeCurrentLayer(0, 6);
+  if ($("#ctrlLeft")) $("#ctrlLeft").onclick = () => nudgeCurrentLayer(-6, 0);
+  if ($("#ctrlRight")) $("#ctrlRight").onclick = () => nudgeCurrentLayer(6, 0);
 
-  $("#ctrlCenter").onclick = () => {
-    if (currentLayer === "illust") centerIllust();
-    else if (currentLayer === "text") textConfig.ox = preview.width / 2;
-    else if (currentLayer === "bg") { bgConfig.ox = 0; bgConfig.oy = 0; }
-    renderPreview();
-    scheduleAutoSave();
-  };
+  if ($("#ctrlCenter")) {
+    $("#ctrlCenter").onclick = () => {
+      if (currentLayer === "illust") centerIllust();
+      else if (currentLayer === "text") textConfig.ox = preview.width / 2;
+      else if (currentLayer === "bg") { bgConfig.ox = 0; bgConfig.oy = 0; }
+      renderPreview();
+      scheduleAutoSave();
+    };
+  }
 
-  $("#centerIllustBtn").onclick = () => { centerIllust(); renderPreview(); scheduleAutoSave(); };
-  $("#fitWidth").onclick = () => { adjust.scale = preview.width / adjust.src.width; centerIllust(); syncCommonScaleSlider(); renderPreview(); scheduleAutoSave(); };
+  if ($("#centerIllustBtn")) $("#centerIllustBtn").onclick = () => { centerIllust(); renderPreview(); scheduleAutoSave(); };
+  if ($("#fitWidth")) $("#fitWidth").onclick = () => { adjust.scale = preview.width / adjust.src.width; centerIllust(); syncCommonScaleSlider(); renderPreview(); scheduleAutoSave(); };
 
-  $("#textPosTop").onclick = () => {
-    textConfig.ox = preview.width / 2;
-    textConfig.oy = (mode === "emoji") ? 22 : 34;
-    renderPreview();
-    scheduleAutoSave();
-  };
-  $("#textPosBottom").onclick = () => {
-    textConfig.ox = preview.width / 2;
-    textConfig.oy = (mode === "emoji") ? preview.height - 24 : preview.height - 40;
-    renderPreview();
-    scheduleAutoSave();
-  };
+  if ($("#textPosTop")) {
+    $("#textPosTop").onclick = () => {
+      textConfig.ox = preview.width / 2;
+      textConfig.oy = (mode === "emoji") ? 22 : 34;
+      renderPreview();
+      scheduleAutoSave();
+    };
+  }
+  if ($("#textPosBottom")) {
+    $("#textPosBottom").onclick = () => {
+      textConfig.ox = preview.width / 2;
+      textConfig.oy = (mode === "emoji") ? preview.height - 24 : preview.height - 40;
+      renderPreview();
+      scheduleAutoSave();
+    };
+  }
 
-  $("#bgCenterBtn").onclick = () => { bgConfig.ox = 0; bgConfig.oy = 0; renderPreview(); scheduleAutoSave(); };
-  $("#bgFitFull").onclick = () => { bgConfig.style = "full"; bgConfig.ox = 0; bgConfig.oy = 0; bgConfig.scale = 1; updateBgUI(); syncCommonScaleSlider(); renderPreview(); scheduleAutoSave(); };
+  if ($("#bgCenterBtn")) $("#bgCenterBtn").onclick = () => { bgConfig.ox = 0; bgConfig.oy = 0; renderPreview(); scheduleAutoSave(); };
+  if ($("#bgFitFull")) $("#bgFitFull").onclick = () => { bgConfig.style = "full"; bgConfig.ox = 0; bgConfig.oy = 0; bgConfig.scale = 1; updateBgUI(); syncCommonScaleSlider(); renderPreview(); scheduleAutoSave(); };
 
-  $("#toggleOrderDrawer").onclick = () => { $("#layerOrderDrawer").classList.toggle("hidden"); };
-  $("#closeOrderDrawer").onclick = () => { $("#layerOrderDrawer").classList.add("hidden"); };
+  if ($("#toggleOrderDrawer")) $("#toggleOrderDrawer").onclick = () => { if ($("#layerOrderDrawer")) $("#layerOrderDrawer").classList.toggle("hidden"); };
+  if ($("#closeOrderDrawer")) $("#closeOrderDrawer").onclick = () => { if ($("#layerOrderDrawer")) $("#layerOrderDrawer").classList.add("hidden"); };
 
   function moveLayer(layerId, dir) {
     const idx = layerOrder.indexOf(layerId);
@@ -1327,12 +1435,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function updateLayerListUI() {
     const list = $("#layerStackList");
+    if (!list) return;
     layerOrder.forEach((id, idx) => {
       const item = $(`#item-${id}`);
       if (item) list.appendChild(item);
       const badge = $(`#badge-${id}`);
-      const upBtn = item.querySelector(".btnOrderUp");
-      const downBtn = item.querySelector(".btnOrderDown");
+      const upBtn = item ? item.querySelector(".btnOrderUp") : null;
+      const downBtn = item ? item.querySelector(".btnOrderDown") : null;
       if (badge) {
         badge.classList.remove("bg-red-500", "bg-blue-500", "bg-purple-500");
         if (idx === 0) { badge.textContent = "第3層"; badge.classList.add("bg-red-500"); }
@@ -1347,20 +1456,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function updateLayerStatus() {
     const txt = textConfig.text.trim();
-    if (txt) $("#stateText").textContent = `"${txt.slice(0, 6)}${txt.length > 6 ? '…' : ''}"`;
-    else $("#stateText").textContent = "無選択";
+    if ($("#stateText")) {
+      if (txt) $("#stateText").textContent = `"${txt.slice(0, 6)}${txt.length > 6 ? '…' : ''}"`;
+      else $("#stateText").textContent = "無選択";
+    }
 
-    let stIllust = "標準";
-    if (bgTransparent && illustBorder) stIllust = "透過+フチ";
-    else if (bgTransparent) stIllust = "透過ON";
-    else stIllust = "透過OFF";
-    $("#stateIllust").textContent = stIllust;
+    if ($("#stateIllust")) {
+      let stIllust = "標準";
+      if (bgTransparent && illustBorder) stIllust = "透過+フチ";
+      else if (bgTransparent) stIllust = "透過ON";
+      else stIllust = "透過OFF";
+      $("#stateIllust").textContent = stIllust;
+    }
 
-    if (bgConfig.style === "none") $("#stateBg").textContent = "背景なし";
-    else if (bgConfig.style === "image") $("#stateBg").textContent = "写真";
-    else if (bgConfig.style === "circle") $("#stateBg").textContent = "まる型";
-    else if (bgConfig.style === "roundRect") $("#stateBg").textContent = "角丸";
-    else if (bgConfig.style === "full") $("#stateBg").textContent = "全面";
+    if ($("#stateBg")) {
+      if (bgConfig.style === "none") $("#stateBg").textContent = "背景なし";
+      else if (bgConfig.style === "image") $("#stateBg").textContent = "写真";
+      else if (bgConfig.style === "circle") $("#stateBg").textContent = "まる型";
+      else if (bgConfig.style === "roundRect") $("#stateBg").textContent = "角丸";
+      else if (bgConfig.style === "full") $("#stateBg").textContent = "全面";
+    }
   }
 
   // ==========================================
@@ -1371,7 +1486,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!bgTransparent) {
       let c = cloneCanvas(adjust.src);
       if (illustBorder) {
-        const px = Number($("#borderWidth").value);
+        const px = $("#borderWidth") ? Number($("#borderWidth").value) : 6;
         c = addIllustBorder(c, px, illustBorderColor);
       }
       adjust.processedSrc = c;
@@ -1380,7 +1495,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let c = removeBackground(adjust.src, bgTolerance, protectWhite, gapProtectLevel);
     if (illustBorder) {
-      const px = Number($("#borderWidth").value);
+      const px = $("#borderWidth") ? Number($("#borderWidth").value) : 6;
       c = addIllustBorder(c, px, illustBorderColor);
     }
     adjust.processedSrc = c;
@@ -1499,93 +1614,109 @@ document.addEventListener("DOMContentLoaded", () => {
     return c;
   }
 
-  $("#bgAutoTransparentToggle").onchange = e => {
-    bgTransparent = e.target.checked;
-    $("#transSettingsBody").classList.toggle("hidden", !bgTransparent);
-    updateIllustCache();
-    renderPreview();
-    scheduleAutoSave();
-  };
+  if ($("#bgAutoTransparentToggle")) {
+    $("#bgAutoTransparentToggle").onchange = e => {
+      bgTransparent = e.target.checked;
+      if ($("#transSettingsBody")) $("#transSettingsBody").classList.toggle("hidden", !bgTransparent);
+      updateIllustCache();
+      renderPreview();
+      scheduleAutoSave();
+    };
+  }
 
-  $("#protectWhiteToggle").onchange = e => {
-    protectWhite = e.target.checked;
-    updateIllustCache();
-    renderPreview();
-    scheduleAutoSave();
-  };
+  if ($("#protectWhiteToggle")) {
+    $("#protectWhiteToggle").onchange = e => {
+      protectWhite = e.target.checked;
+      updateIllustCache();
+      renderPreview();
+      scheduleAutoSave();
+    };
+  }
 
-  $("#gapProtectLevel").onchange = e => {
-    gapProtectLevel = Number(e.target.value);
-    updateIllustCache();
-    renderPreview();
-    scheduleAutoSave();
-  };
+  if ($("#gapProtectLevel")) {
+    $("#gapProtectLevel").onchange = e => {
+      gapProtectLevel = Number(e.target.value);
+      updateIllustCache();
+      renderPreview();
+      scheduleAutoSave();
+    };
+  }
 
-  $("#bgToleranceSlider").oninput = e => {
-    bgTolerance = Number(e.target.value);
-    $("#bgToleranceVal").textContent = e.target.value;
-    updateIllustCache();
-    renderPreview();
-    scheduleAutoSave();
-  };
+  if ($("#bgToleranceSlider")) {
+    $("#bgToleranceSlider").oninput = e => {
+      bgTolerance = Number(e.target.value);
+      if ($("#bgToleranceVal")) $("#bgToleranceVal").textContent = e.target.value;
+      updateIllustCache();
+      renderPreview();
+      scheduleAutoSave();
+    };
+  }
 
-  $("#illustBorderToggle").onchange = e => {
-    illustBorder = e.target.checked;
-    $("#illustBorderColorWrap").classList.toggle("hidden", !illustBorder);
-    updateIllustCache();
-    renderPreview();
-    scheduleAutoSave();
-  };
+  if ($("#illustBorderToggle")) {
+    $("#illustBorderToggle").onchange = e => {
+      illustBorder = e.target.checked;
+      if ($("#illustBorderColorWrap")) $("#illustBorderColorWrap").classList.toggle("hidden", !illustBorder);
+      updateIllustCache();
+      renderPreview();
+      scheduleAutoSave();
+    };
+  }
 
-  $("#borderWidth").oninput = e => {
-    $("#borderWidthValue").textContent = e.target.value;
-    if (illustBorder) { updateIllustCache(); renderPreview(); scheduleAutoSave(); }
-  };
+  if ($("#borderWidth")) {
+    $("#borderWidth").oninput = e => {
+      if ($("#borderWidthValue")) $("#borderWidthValue").textContent = e.target.value;
+      if (illustBorder) { updateIllustCache(); renderPreview(); scheduleAutoSave(); }
+    };
+  }
 
   document.querySelectorAll("#illustBorderColorList .cBtn").forEach(btn => {
     btn.onclick = () => {
       document.querySelectorAll("#illustBorderColorList .cBtn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       illustBorderColor = btn.dataset.color;
-      $("#illustBorderColorPicker").value = illustBorderColor;
+      if ($("#illustBorderColorPicker")) $("#illustBorderColorPicker").value = illustBorderColor;
       updateIllustCache();
       renderPreview();
       scheduleAutoSave();
     };
   });
 
-  $("#illustBorderColorPicker").oninput = e => {
-    document.querySelectorAll("#illustBorderColorList .cBtn").forEach(b => b.classList.remove("active"));
-    illustBorderColor = e.target.value;
-    updateIllustCache();
-    renderPreview();
-    scheduleAutoSave();
-  };
+  if ($("#illustBorderColorPicker")) {
+    $("#illustBorderColorPicker").oninput = e => {
+      document.querySelectorAll("#illustBorderColorList .cBtn").forEach(b => b.classList.remove("active"));
+      illustBorderColor = e.target.value;
+      updateIllustCache();
+      renderPreview();
+      scheduleAutoSave();
+    };
+  }
 
   // 文字設定
-  $("#stampText").oninput = e => { textConfig.text = e.target.value; renderPreview(); scheduleAutoSave(); };
-  $("#clearTextBtn").onclick = () => { $("#stampText").value = ""; textConfig.text = ""; renderPreview(); scheduleAutoSave(); };
+  if ($("#stampText")) $("#stampText").oninput = e => { textConfig.text = e.target.value; renderPreview(); scheduleAutoSave(); };
+  if ($("#clearTextBtn")) $("#clearTextBtn").onclick = () => { if ($("#stampText")) $("#stampText").value = ""; textConfig.text = ""; renderPreview(); scheduleAutoSave(); };
   document.querySelectorAll(".quickWords .qBtn").forEach(btn => {
-    btn.onclick = () => { $("#stampText").value = btn.textContent; textConfig.text = btn.textContent; renderPreview(); scheduleAutoSave(); };
+    btn.onclick = () => { if ($("#stampText")) $("#stampText").value = btn.textContent; textConfig.text = btn.textContent; renderPreview(); scheduleAutoSave(); };
   });
-  $("#textFont").onchange = e => { textConfig.font = e.target.value; renderPreview(); scheduleAutoSave(); };
+  if ($("#textFont")) $("#textFont").onchange = e => { textConfig.font = e.target.value; renderPreview(); scheduleAutoSave(); };
 
   document.querySelectorAll("#textColorList .cBtn").forEach(btn => {
     btn.onclick = () => {
       document.querySelectorAll("#textColorList .cBtn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       textConfig.color = btn.dataset.color;
-      $("#textColorPicker").value = textConfig.color;
+      if ($("#textColorPicker")) $("#textColorPicker").value = textConfig.color;
       renderPreview();
       scheduleAutoSave();
     };
   });
-  $("#textColorPicker").oninput = e => {
-    document.querySelectorAll("#textColorList .cBtn").forEach(b => b.classList.remove("active"));
-    textConfig.color = e.target.value;
-    renderPreview();
-    scheduleAutoSave();
-  };
+  if ($("#textColorPicker")) {
+    $("#textColorPicker").oninput = e => {
+      document.querySelectorAll("#textColorList .cBtn").forEach(b => b.classList.remove("active"));
+      textConfig.color = e.target.value;
+      renderPreview();
+      scheduleAutoSave();
+    };
+  }
   document.querySelectorAll("#textStrokeList .sBtn").forEach(btn => {
     btn.onclick = () => {
       document.querySelectorAll("#textStrokeList .sBtn").forEach(b => b.classList.remove("active"));
@@ -1601,10 +1732,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const style = bgConfig.style;
     const isNone = (style === "none"), isImg = (style === "image");
     document.querySelectorAll(".bgStyleCard").forEach(card => card.classList.toggle("active", card.dataset.style === style));
-    $("#bgNoneNotice").classList.toggle("hidden", !isNone);
-    $("#bgImageControls").classList.toggle("hidden", !isImg);
-    $("#bgColorControls").classList.toggle("hidden", isNone || isImg);
-    $("#bgImageStatus").classList.toggle("hidden", !(isImg && bgConfig.image));
+    if ($("#bgNoneNotice")) $("#bgNoneNotice").classList.toggle("hidden", !isNone);
+    if ($("#bgImageControls")) $("#bgImageControls").classList.toggle("hidden", !isImg);
+    if ($("#bgColorControls")) $("#bgColorControls").classList.toggle("hidden", isNone || isImg);
+    if ($("#bgImageStatus")) $("#bgImageStatus").classList.toggle("hidden", !(isImg && bgConfig.image));
 
     document.querySelectorAll("#bgColorList .cBtn").forEach(btn => {
       btn.classList.toggle("active", btn.dataset.bg && btn.dataset.bg.toLowerCase() === bgConfig.color.toLowerCase());
@@ -1624,41 +1755,48 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   });
 
-  $("#bgFileInput").onchange = e => {
-    const f = e.target.files[0];
-    if (!f) return;
-    const im = new Image();
-    im.onload = () => {
-      bgConfig.image = im; bgConfig.style = "image";
+  if ($("#bgFileInput")) {
+    $("#bgFileInput").onchange = e => {
+      const f = e.target.files[0];
+      if (!f) return;
+      const im = new Image();
+      im.onload = () => {
+        bgConfig.image = im; bgConfig.style = "image";
+        updateBgUI();
+        syncCommonScaleSlider();
+        renderPreview();
+        toast("背景写真を取り込みました！");
+        scheduleAutoSave();
+      };
+      im.src = URL.createObjectURL(f);
+    };
+  }
+
+  if ($("#removeBgImgBtn")) {
+    $("#removeBgImgBtn").onclick = () => {
+      bgConfig.image = null; bgConfig.style = "none";
+      if ($("#bgFileInput")) $("#bgFileInput").value = "";
       updateBgUI();
       syncCommonScaleSlider();
       renderPreview();
-      toast("背景写真を取り込みました！");
       scheduleAutoSave();
     };
-    im.src = URL.createObjectURL(f);
-  };
-
-  $("#removeBgImgBtn").onclick = () => {
-    bgConfig.image = null; bgConfig.style = "none";
-    $("#bgFileInput").value = "";
-    updateBgUI();
-    syncCommonScaleSlider();
-    renderPreview();
-    scheduleAutoSave();
-  };
+  }
 
   document.querySelectorAll("#bgColorList .cBtn").forEach(btn => {
     btn.onclick = () => { bgConfig.color = btn.dataset.bg; updateBgUI(); renderPreview(); scheduleAutoSave(); };
   });
-  $("#bgColorPicker").oninput = e => {
-    bgConfig.color = e.target.value; updateBgUI(); renderPreview(); scheduleAutoSave();
-  };
+  if ($("#bgColorPicker")) {
+    $("#bgColorPicker").oninput = e => {
+      bgConfig.color = e.target.value; updateBgUI(); renderPreview(); scheduleAutoSave();
+    };
+  }
 
   // ==========================================
   // レンダリング & 描画
   // ==========================================
   function renderPreview() {
+    if (!pctx) return;
     pctx.clearRect(0, 0, preview.width, preview.height);
     const drawList = layerOrder.slice().reverse();
     drawList.forEach(layerId => {
@@ -1769,7 +1907,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================
-  // ダウンロード & 共有ユーティリティ (Android対応強化)
+  // 保存・ダウンロードユーティリティ
   // ==========================================
   function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
@@ -1785,11 +1923,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 1500);
   }
 
-  // ==========================================
-  // 保存処理（都度ダウンロード / アルバム追加）
-  // ==========================================
   async function performSave(shouldDownload = false) {
-    if (editingIndex === null && results.length >= Number($("#count").value)) {
+    if (editingIndex === null && $("#count") && results.length >= Number($("#count").value)) {
       toast("指定個数に達しています"); return;
     }
     const c = await getFinalCanvas();
@@ -1807,7 +1942,7 @@ document.addEventListener("DOMContentLoaded", () => {
         bgConfig: { style: bgConfig.style, color: bgConfig.color, image: bgConfig.image, scale: bgConfig.scale, ox: bgConfig.ox, oy: bgConfig.oy, rotation: bgConfig.rotation },
         layerOrder: [...layerOrder],
         bgTransparent, bgTolerance, protectWhite, gapProtectLevel, illustBorder, illustBorderColor,
-        borderWidth: Number($("#borderWidth").value)
+        borderWidth: $("#borderWidth") ? Number($("#borderWidth").value) : 6
       };
 
       let currentFileName = "";
@@ -1829,152 +1964,150 @@ document.addEventListener("DOMContentLoaded", () => {
 
       editingIndex = null;
       refresh();
-      $("#adjustStep").classList.add("hidden");
-      $("#sheetStep").classList.remove("hidden");
+      if ($("#adjustStep")) $("#adjustStep").classList.add("hidden");
+      if ($("#sheetStep")) $("#sheetStep").classList.remove("hidden");
       resetSelection();
       triggerAutoSave();
     }, "image/png");
   }
 
-  $("#saveAndDownload").onclick = () => performSave(true);
-  $("#saveOnly").onclick = () => performSave(false);
+  // 各種保存ボタンに対応
+  if ($("#save")) $("#save").onclick = () => performSave(false);
+  if ($("#saveAndDownload")) $("#saveAndDownload").onclick = () => performSave(true);
+  if ($("#saveOnly")) $("#saveOnly").onclick = () => performSave(false);
 
   function refresh() {
-    $("#done").textContent = results.length;
-    $("#total").textContent = $("#count").value;
+    if ($("#done")) $("#done").textContent = results.length;
+    if ($("#total") && $("#count")) $("#total").textContent = $("#count").value;
     
     const hasItems = results.length > 0;
-    $("#zip").disabled = !hasItems;
-    $("#downloadSequentialBtn").disabled = !hasItems;
-    $("#shareAllBtn").disabled = !hasItems;
+    if ($("#zip")) $("#zip").disabled = !hasItems;
+    if ($("#downloadSequentialBtn")) $("#downloadSequentialBtn").disabled = !hasItems;
+    if ($("#shareAllBtn")) $("#shareAllBtn").disabled = !hasItems;
 
-    $("#thumbs").innerHTML = "";
+    const thumbs = $("#thumbs");
+    if (!thumbs) return;
+    thumbs.innerHTML = "";
     results.forEach((r, i) => {
       const d = document.createElement("div");
       d.className = "thumb";
       d.innerHTML = `<span>${i + 1}</span><img src="${r.url}">`;
       d.onclick = () => showImageModal(r, i);
-      $("#thumbs").appendChild(d);
+      thumbs.appendChild(d);
     });
-    $("#checks").innerHTML = `<div class="ok">✅ 順調に作成中です（タップして再編集・個別保存可能）</div>`;
+    if ($("#checks")) $("#checks").innerHTML = `<div class="ok">✅ 順調に作成中です（タップして再編集・個別保存可能）</div>`;
   }
 
   function showImageModal(item, index) {
     currentModalIndex = index;
-    $("#modalTitle").textContent = `${index + 1}個目のスタンプ`;
-    $("#modalImg").src = item.url;
-    $("#imageModal").classList.add("show");
+    if ($("#modalTitle")) $("#modalTitle").textContent = `${index + 1}個目のスタンプ`;
+    if ($("#modalImg")) $("#modalImg").src = item.url;
+    if ($("#imageModal")) $("#imageModal").classList.add("show");
   }
 
-  $("#modalClose").onclick = () => $("#imageModal").classList.remove("show");
+  if ($("#modalClose")) $("#modalClose").onclick = () => { if ($("#imageModal")) $("#imageModal").classList.remove("show"); };
 
-  // モーダル：個別ダウンロード
-  $("#modalDownloadBtn").onclick = () => {
-    if (currentModalIndex === null || !results[currentModalIndex]) return;
-    const item = results[currentModalIndex];
-    downloadBlob(item.blob, item.name);
-    toast(`${item.name} を端末に保存しました！`);
-  };
-
-  // モーダル：個別共有 (Web Share API)
-  $("#modalShareBtn").onclick = async () => {
-    if (currentModalIndex === null || !results[currentModalIndex]) return;
-    const item = results[currentModalIndex];
-    const file = new File([item.blob], item.name, { type: "image/png" });
-
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({
-          title: item.name,
-          text: "LINEスタンプ画像",
-          files: [file]
-        });
-      } catch (e) {
-        if (e.name !== "AbortError") toast("共有に失敗しました。");
-      }
-    } else {
+  if ($("#modalDownloadBtn")) {
+    $("#modalDownloadBtn").onclick = () => {
+      if (currentModalIndex === null || !results[currentModalIndex]) return;
+      const item = results[currentModalIndex];
       downloadBlob(item.blob, item.name);
-      toast("端末のダウンロードを実行しました");
-    }
-  };
+      toast(`${item.name} を端末に保存しました！`);
+    };
+  }
 
-  $("#modalEditBtn").onclick = () => {
-    if (currentModalIndex === null || !results[currentModalIndex]) return;
-    const item = results[currentModalIndex];
-    $("#imageModal").classList.remove("show");
-    if (!item.state) { toast("編集画面のデータがありません"); return; }
-    editingIndex = currentModalIndex;
-    openAdjustForEdit(item.state);
-    triggerAutoSave();
-  };
+  if ($("#modalShareBtn")) {
+    $("#modalShareBtn").onclick = async () => {
+      if (currentModalIndex === null || !results[currentModalIndex]) return;
+      const item = results[currentModalIndex];
+      const file = new File([item.blob], item.name, { type: "image/png" });
 
-  $("#modalDeleteBtn").onclick = () => {
-    if (currentModalIndex === null || !results[currentModalIndex]) return;
-    if (confirm(`${currentModalIndex + 1}個目を削除しますか？`)) {
-      results.splice(currentModalIndex, 1);
-      $("#imageModal").classList.remove("show");
-      refresh();
-      toast("削除しました");
-      triggerAutoSave();
-    }
-  };
-
-  // ==========================================
-  // 完成アルバム：複数保存方式（ZIP以外）
-  // ==========================================
-
-  // 方式①：1枚ずつ順番にダウンロード（ZIP不要）
-  $("#downloadSequentialBtn").onclick = () => {
-    if (results.length === 0) return;
-    toast(`${results.length}枚の画像を順番に保存しています...`);
-
-    results.forEach((item, index) => {
-      setTimeout(() => {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ title: item.name, text: "LINEスタンプ画像", files: [file] });
+        } catch (e) {
+          if (e.name !== "AbortError") toast("共有に失敗しました。");
+        }
+      } else {
         downloadBlob(item.blob, item.name);
-        if (index === results.length - 1) {
-          toast("すべての画像を端末に保存しました！");
-        }
-      }, index * 400); // ポップアップブロック回避のため0.4秒間隔で順次実行
-    });
-  };
-
-  // 方式②：Web Share API によるネイティブ一括保存 / 共有
-  $("#shareAllBtn").onclick = async () => {
-    if (results.length === 0) return;
-
-    const files = results.map(r => new File([r.blob], r.name, { type: "image/png" }));
-
-    if (navigator.canShare && navigator.canShare({ files })) {
-      try {
-        await navigator.share({
-          title: "LINEスタンプセット",
-          text: `作成したスタンプ画像 ${results.length}枚`,
-          files: files
-        });
-      } catch (err) {
-        if (err.name !== "AbortError") {
-          toast("共有に失敗しました。「1枚ずつ全保存」をお試しください。");
-        }
+        toast("端末のダウンロードを実行しました");
       }
-    } else {
-      // 端末が複数ファイル共有に対応していない場合のフォールバック
-      toast("お使いの環境では一括共有非対応のため、1枚ずつ保存します。");
-      $("#downloadSequentialBtn").click();
-    }
-  };
+    };
+  }
 
-  // 方式③：従来のZIP一括保存
-  $("#zip").onclick = async () => {
-    if (!window.JSZip) { toast("ZIP機能の読み込みに失敗しました"); return; }
-    toast("ZIPを作成中...");
-    const z = new JSZip();
-    results.forEach(r => z.file(r.name, r.blob));
-    const b = await z.generateAsync({ type: "blob" });
-    downloadBlob(b, `${mode}_LINE画像まとめ.zip`);
-  };
+  if ($("#modalEditBtn")) {
+    $("#modalEditBtn").onclick = () => {
+      if (currentModalIndex === null || !results[currentModalIndex]) return;
+      const item = results[currentModalIndex];
+      if ($("#imageModal")) $("#imageModal").classList.remove("show");
+      if (!item.state) { toast("編集画面のデータがありません"); return; }
+      editingIndex = currentModalIndex;
+      openAdjustForEdit(item.state);
+      triggerAutoSave();
+    };
+  }
+
+  if ($("#modalDeleteBtn")) {
+    $("#modalDeleteBtn").onclick = () => {
+      if (currentModalIndex === null || !results[currentModalIndex]) return;
+      if (confirm(`${currentModalIndex + 1}個目を削除しますか？`)) {
+        results.splice(currentModalIndex, 1);
+        if ($("#imageModal")) $("#imageModal").classList.remove("show");
+        refresh();
+        toast("削除しました");
+        triggerAutoSave();
+      }
+    };
+  }
+
+  if ($("#downloadSequentialBtn")) {
+    $("#downloadSequentialBtn").onclick = () => {
+      if (results.length === 0) return;
+      toast(`${results.length}枚の画像を順番に保存しています...`);
+
+      results.forEach((item, index) => {
+        setTimeout(() => {
+          downloadBlob(item.blob, item.name);
+          if (index === results.length - 1) {
+            toast("すべての画像を端末に保存しました！");
+          }
+        }, index * 400);
+      });
+    };
+  }
+
+  if ($("#shareAllBtn")) {
+    $("#shareAllBtn").onclick = async () => {
+      if (results.length === 0) return;
+      const files = results.map(r => new File([r.blob], r.name, { type: "image/png" }));
+
+      if (navigator.canShare && navigator.canShare({ files })) {
+        try {
+          await navigator.share({ title: "LINEスタンプセット", text: `作成したスタンプ画像 ${results.length}枚`, files });
+        } catch (err) {
+          if (err.name !== "AbortError") toast("共有に失敗しました。「1枚ずつ全保存」をお試しください。");
+        }
+      } else {
+        toast("一括共有非対応のため、1枚ずつ保存します。");
+        if ($("#downloadSequentialBtn")) $("#downloadSequentialBtn").click();
+      }
+    };
+  }
+
+  if ($("#zip")) {
+    $("#zip").onclick = async () => {
+      if (!window.JSZip) { toast("ZIP機能の読み込みに失敗しました"); return; }
+      toast("ZIPを作成中...");
+      const z = new JSZip();
+      results.forEach(r => z.file(r.name, r.blob));
+      const b = await z.generateAsync({ type: "blob" });
+      downloadBlob(b, `${mode}_LINE画像まとめ.zip`);
+    };
+  }
 
   function toast(t) {
     const x = $("#toast");
+    if (!x) return;
     x.textContent = t;
     x.classList.add("show");
     clearTimeout(toast.t);
@@ -1982,7 +2115,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   document.fonts.ready.then(() => {
-    if (!$("#adjustStep").classList.contains("hidden")) renderPreview();
+    if ($("#adjustStep") && !$("#adjustStep").classList.contains("hidden")) renderPreview();
   });
 
   updateMode();
