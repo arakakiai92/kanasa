@@ -7,6 +7,7 @@
     
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="favicon.png">
+    <!-- Google Fonts (商用利用フリー日本語フォント + M+ 丸ゴシック) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Hachi+Maru+Pop&family=Kiwi+Maru:wght@500;900&family=M+PLUS+Rounded+1c:wght@700&family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
@@ -16,6 +17,7 @@
 </head>
 <body class="text-gray-800 pb-8">
 
+    <!-- ヘッダー -->
     <header class="bg-[#00C300] text-white shadow-md sticky top-0 z-40">
         <div class="max-w-6xl mx-auto flex items-center justify-between px-3 md:px-4 py-2.5 gap-2">
             <div class="flex items-center min-w-0">
@@ -28,6 +30,7 @@
     
     <main class="p-4 max-w-6xl mx-auto space-y-6">
         
+        <!-- 設定・シート読み込みパネル -->
         <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
             <div>
                 <label class="block mb-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider">作る種類をえらぶ</label>
@@ -59,6 +62,7 @@
             <div class="spec text-xs text-gray-500 font-medium" id="spec"></div>
         </div>
 
+        <!-- ステップ①：切り出し画面 -->
         <section id="sheetStep" class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200 hidden">
             <div class="flex justify-between items-center mb-3">
                 <h2 class="text-base md:text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -80,6 +84,7 @@
                 </div>
             </div>
 
+            <!-- 切り出し枠の微調整コントローラー -->
             <div id="cropFineTune" class="fineTunePanel bg-gray-50 border border-gray-200 rounded-xl p-3 mt-4 hidden">
                 <div class="fineTuneLabel text-xs font-bold text-gray-600 mb-2 text-center">枠の微調整（タップで少しずつ動かせます）</div>
                 <div class="fineTuneControls flex gap-4 items-center justify-center">
@@ -106,6 +111,7 @@
             </div>
         </section>
 
+        <!-- ステップ②：スタンプをととのえる画面 -->
         <section id="adjustStep" class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200 hidden">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-base md:text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -117,6 +123,7 @@
 
             <div class="workspace grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                 
+                <!-- 左カラム：プレビュー・タブ・クイック調整 -->
                 <div class="workspaceLeft space-y-4">
                     <div class="previewContainer space-y-2">
                         <div class="flex items-center justify-between px-1">
@@ -133,6 +140,7 @@
                         </div>
                     </div>
 
+                    <!-- レイヤー選択タブバー -->
                     <div class="layerTabBar flex gap-2">
                         <button type="button" class="tabBtn active flex-1 py-2.5 border border-gray-200 rounded-xl font-bold text-xs bg-white text-gray-600 transition" data-layer="illust">🎨 イラスト</button>
                         <button type="button" class="tabBtn flex-1 py-2.5 border border-gray-200 rounded-xl font-bold text-xs bg-white text-gray-600 transition" data-layer="text">💬 文字</button>
@@ -140,6 +148,7 @@
                         <button type="button" id="toggleOrderDrawer" class="orderToggleBtn px-3 py-2.5 border border-gray-200 rounded-xl font-bold text-xs bg-gray-50 text-gray-700" title="重なり順を変更">🔃 順序</button>
                     </div>
 
+                    <!-- 重なり順ドロワー -->
                     <div id="layerOrderDrawer" class="orderDrawer bg-gray-50 border border-gray-200 rounded-xl p-3 hidden space-y-2">
                         <div class="drawerHeader flex justify-between items-center text-xs font-bold text-gray-700">
                             <span>📑 レイヤーの重なり順（上が手前）</span>
@@ -182,6 +191,7 @@
                         </div>
                     </div>
 
+                    <!-- 大きさ＆傾き＆位置クイックコントローラー -->
                     <div class="quickTransformBox bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2.5">
                         <div class="sliderRow flex items-center gap-3 text-xs font-bold text-gray-700">
                             <span class="ctrlLabel min-w-[50px]" id="transformScaleLabel">大きさ：</span>
@@ -220,15 +230,18 @@
                     </div>
                 </div>
 
+                <!-- 右カラム：詳細設定パネル群 -->
                 <div class="workspaceRight lg:sticky lg:top-24 space-y-4">
                     <div class="detailsArea bg-gray-50 border border-gray-200 rounded-xl p-4">
                         
+                        <!-- パネル：イラスト設定 -->
                         <div id="panel-illust" class="layerPanel active space-y-3">
                             <div class="panelHeader border-b border-gray-200 pb-2">
                                 <b class="text-sm font-bold text-gray-800">🎨 イラストの設定</b>
                                 <span class="subNote text-[11px] text-gray-500">消しゴムや透過、白ぬけ防止を設定できます</span>
                             </div>
 
+                            <!-- 消しゴム＆復元ペン カード -->
                             <div class="eraserCard bg-amber-50/70 border border-amber-200 rounded-xl p-3">
                                 <div class="flex gap-2">
                                     <button type="button" id="eraserToggleBtn" class="eraserBtn flex-1 py-2 px-3 border border-orange-400 bg-white text-orange-600 rounded-lg font-bold text-xs transition">🧹 消しゴム：OFF</button>
@@ -254,6 +267,7 @@
                                 </div>
                             </div>
 
+                            <!-- 背景透過微調整 -->
                             <div class="transOptionsCard bg-white border border-gray-200 rounded-xl p-3 space-y-2.5">
                                 <div class="flex items-center justify-between">
                                     <div class="text-xs font-bold text-gray-800">✨ 背景透過の微調整</div>
@@ -316,6 +330,7 @@
                             </div>
                         </div>
 
+                        <!-- パネル：文字設定 -->
                         <div id="panel-text" class="layerPanel space-y-3">
                             <div class="panelHeader border-b border-gray-200 pb-2">
                                 <b class="text-sm font-bold text-gray-800">💬 文字の設定</b>
@@ -372,6 +387,7 @@
                             </div>
                         </div>
 
+                        <!-- パネル：背景設定 -->
                         <div id="panel-bg" class="layerPanel space-y-3">
                             <div class="panelHeader border-b border-gray-200 pb-2">
                                 <b class="text-sm font-bold text-gray-800">🖼 はいけいの設定</b>
@@ -439,21 +455,46 @@
                         </div>
                     </div>
 
-                    <button id="save" class="primary bigBtn w-full py-3.5 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-base shadow-sm transition">💾 このスタンプを保存する</button>
+                    <!-- 保存ボタン群（都度ダウンロード対応） -->
+                    <div class="saveButtonGroup space-y-2">
+                        <button id="saveAndDownload" class="primary bigBtn w-full py-3.5 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-base shadow-sm transition flex items-center justify-center gap-2">
+                            <span>💾 アルバムに追加 ＋ 端末に保存</span>
+                        </button>
+                        <button id="saveOnly" class="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition border border-gray-300">
+                            アルバムにだけ追加（ダウンロードしない）
+                        </button>
+                    </div>
                 </div>
             </div>
         </section>
 
+        <!-- ステップ③：完成アルバム（ZIP以外の複数保存方法を完備） -->
         <section class="results bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200">
-            <div class="resultHead flex justify-between items-center">
+            <div class="resultHead flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                 <h2 class="text-base font-bold text-gray-800">完成アルバム <span id="done">0</span> / <span id="total">16</span></h2>
-                <button id="zip" class="primary zipBtn px-4 py-2 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-xs shadow-sm transition disabled:opacity-40" disabled>📦 ZIPで全部保存</button>
+                
+                <!-- 保存ボタングループ -->
+                <div class="exportActions flex flex-wrap gap-2 w-full md:w-auto">
+                    <button id="shareAllBtn" class="flex-1 md:flex-initial px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-sm transition disabled:opacity-40" disabled>
+                        📱 まとめて共有 / 保存
+                    </button>
+                    <button id="downloadSequentialBtn" class="flex-1 md:flex-initial px-3.5 py-2.5 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-xs shadow-sm transition disabled:opacity-40" disabled>
+                        📥 1枚ずつ全保存
+                    </button>
+                    <button id="zip" class="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-xl font-bold text-xs transition disabled:opacity-40" disabled>
+                        📦 ZIP保存
+                    </button>
+                </div>
             </div>
+            
+            <p class="text-[11px] text-gray-500 mt-2">💡 Androidでは「📱 まとめて共有 / 保存」または「📥 1枚ずつ全保存」を選ぶとZIP解凍不要で保存できます。</p>
+            
             <div id="checks" class="text-xs mt-2 font-medium"></div>
             <div id="thumbs" class="thumbs grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 mt-4"></div>
         </section>
     </main>
 
+    <!-- フッター -->
     <footer class="max-w-6xl mx-auto px-4 py-6 text-xs text-gray-400 border-t border-gray-100 mt-12 flex flex-col sm:flex-row justify-end items-center sm:items-end gap-2">
         <p class="leading-none pb-0.5">© 2026 <a href="https://store.line.me/search/ja?q=arakakiai" target="_blank" rel="noopener noreferrer" class="text-[#00C300] hover:text-[#009900] transition font-bold">ARAKAKIAIworks</a>. All Rights Reserved.</p>
         <img src="bottom-right.png" alt="シーサーロゴ" class="h-9 w-auto object-contain block">
@@ -461,16 +502,31 @@
 
     <div id="toast" class="fixed left-1/2 bottom-6 -translate-x-1/2 translate-y-10 bg-gray-900 text-white px-5 py-2.5 rounded-full text-xs font-bold opacity-0 transition-all duration-300 pointer-events-none z-50 shadow-lg"></div>
 
+    <!-- 画像プレビュー・再編集モーダル（ワンタップ保存ボタン付き） -->
     <div id="imageModal" class="modal fixed inset-0 bg-gray-900/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="modalContent bg-white p-5 rounded-2xl text-center max-w-[92%] w-80 shadow-xl space-y-3">
             <p class="modalTitle text-sm font-bold text-gray-800" id="modalTitle">完成カット</p>
             <img id="modalImg" alt="完成画像" class="max-w-[180px] max-h-[180px] mx-auto border border-gray-200 rounded-xl bg-gray-100 object-contain">
+            
             <div class="modalActions flex flex-col gap-2">
-                <button type="button" id="modalEditBtn" class="primary py-3 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-sm shadow-sm transition">✏️ このカットを再編集する</button>
-                <button type="button" id="modalDeleteBtn" class="py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs transition">🗑️ 削除</button>
-                <button type="button" id="modalClose" class="py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition">とじる</button>
+                <!-- 個別ダウンロードボタン -->
+                <button type="button" id="modalDownloadBtn" class="primary py-3 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-sm shadow-sm transition flex items-center justify-center gap-1.5">
+                    📥 この画像を端末に保存
+                </button>
+                <button type="button" id="modalShareBtn" class="py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl font-bold text-xs transition">
+                    📱 この画像をアプリで共有
+                </button>
+                <button type="button" id="modalEditBtn" class="py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-xs transition">
+                    ✏️ このカットを再編集する
+                </button>
+                <button type="button" id="modalDeleteBtn" class="py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs transition">
+                    🗑️ 削除
+                </button>
+                <button type="button" id="modalClose" class="py-2 text-gray-500 hover:text-gray-700 rounded-xl font-bold text-xs transition">
+                    とじる
+                </button>
             </div>
-            <p class="modalTip text-[10px] text-gray-400">※ 画像を長押しすると「写真に追加」で保存できます</p>
+            <p class="modalTip text-[10px] text-gray-400">※ ボタンで保存できない場合は画像を長押しして「画像をダウンロード」してください</p>
         </div>
     </div>
 
