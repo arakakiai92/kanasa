@@ -2,7 +2,7 @@
 html,body{margin:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;-webkit-tap-highlight-color:transparent}
 
 /* ==========================================
-   ① 切り出し画面（ステップ①）専用スタイル
+   ① 切り出し画面（ステップ①）
    ========================================== */
 #stageWrap{
   position:relative;
@@ -23,7 +23,6 @@ html,body{margin:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFo
   object-fit:contain;
 }
 
-/* 切り出し枠 */
 .cropBox{
   position:absolute;
   border:3px solid #0f172a;
@@ -142,7 +141,7 @@ html,body{margin:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFo
 }
 
 /* ==========================================
-   ② レイヤー編集・プレビュー画面スタイル
+   ② プレビュー & レイヤー編集
    ========================================== */
 .hidden{display:none!important}
 
@@ -165,14 +164,16 @@ html,body{margin:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFo
   object-fit:contain;
 }
 
+/* 消しゴム＆復元ペン カーソル */
 .eraserCursor{
   position:absolute;
   border:2px solid rgba(249,115,22,0.9);
-  background:rgba(249,115,22,0.2);
+  background:rgba(249,115,22,0.25);
   border-radius:50%;
   pointer-events:none;
   transform:translate(-50%, -50%);
   z-index:20;
+  transition:width 0.05s, height 0.05s;
 }
 .adjustArea.erasing{cursor:crosshair!important}
 
@@ -199,7 +200,6 @@ html,body{margin:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFo
   box-shadow:0 1px 2px rgba(0,0,0,0.1);
 }
 
-/* モーダルの表示・非表示制御（競合防止） */
 .modal {
   display: none !important;
 }
