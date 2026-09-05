@@ -35,8 +35,8 @@
             <div>
                 <label class="block mb-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider">作る種類をえらぶ</label>
                 <div class="switch flex gap-2 bg-gray-100 p-1.5 rounded-xl">
-                    <button class="active flex-1 py-2.5 text-xs md:text-sm font-bold rounded-lg transition bg-white shadow-sm text-gray-800" data-mode="sticker">🟢 スタンプを作る</button>
-                    <button class="flex-1 py-2.5 text-xs md:text-sm font-bold rounded-lg transition text-gray-500 hover:text-gray-800" data-mode="emoji">🟣 絵文字を作る</button>
+                    <button type="button" id="modeSticker" class="flex-1 py-2.5 text-xs md:text-sm font-bold rounded-lg transition bg-white shadow-sm text-gray-800" data-mode="sticker">🟢 スタンプを作る</button>
+                    <button type="button" id="modeEmoji" class="flex-1 py-2.5 text-xs md:text-sm font-bold rounded-lg transition text-gray-500 hover:text-gray-800" data-mode="emoji">🟣 絵文字を作る</button>
                 </div>
             </div>
 
@@ -104,10 +104,12 @@
                 </div>
             </div>
 
-            <div class="sheetActions flex gap-3 mt-4">
-                <button id="resetCrop" class="subBtn px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-bold text-sm text-gray-700 hidden">↺ リセット</button>
-                <button id="startSelect" class="primary bigBtn flex-1 py-3.5 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-base shadow-sm transition">✂️ この絵を囲む</button>
-                <button id="adjustBtn" class="primary bigBtn flex-1 py-3.5 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-base shadow-sm transition hidden">次へ：レイヤー編集 →</button>
+            <!-- 切り出しアクション（誤タップ保護＆囲み直し対応） -->
+            <div class="sheetActions flex flex-wrap gap-2 mt-4">
+                <button type="button" id="resetCrop" class="subBtn px-3.5 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-bold text-xs text-gray-700 hidden">↺ 中央に戻す</button>
+                <button type="button" id="reDrawBtn" class="subBtn px-3.5 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-bold text-xs text-gray-700 hidden">✂️ 囲み直す</button>
+                <button type="button" id="startSelect" class="primary bigBtn flex-1 py-3.5 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-base shadow-sm transition">✂️ この絵を囲む</button>
+                <button type="button" id="adjustBtn" class="primary bigBtn flex-1 py-3.5 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-base shadow-sm transition hidden">次へ：レイヤー編集 →</button>
             </div>
         </section>
 
@@ -118,7 +120,7 @@
                     <span class="bg-[#00C300] text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs">2</span>
                     <span id="adjustStepTitle">スタンプをととのえる</span>
                 </h2>
-                <button id="back" class="linkBtn text-xs font-bold text-[#00C300] hover:underline">← 切り出しに戻る</button>
+                <button type="button" id="back" class="linkBtn text-xs font-bold text-[#00C300] hover:underline">← 切り出しに戻る</button>
             </div>
 
             <div class="workspace grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
@@ -133,8 +135,9 @@
                             <span class="text-[11px] text-gray-400">💡 プレビュー内をなぞって移動できます</span>
                         </div>
 
-                        <div class="adjustArea relative w-full rounded-xl overflow-hidden touch-none select-none border border-gray-200 shadow-sm" id="adjustArea">
-                            <canvas id="preview" class="block mx-auto w-full h-auto max-h-[40vh] object-contain"></canvas>
+                        <!-- プレビューエリア（真四角・スタンプ比率で中央配置） -->
+                        <div class="adjustArea relative mx-auto rounded-xl overflow-hidden touch-none select-none border border-gray-200 shadow-sm" id="adjustArea" data-mode="sticker">
+                            <canvas id="preview" class="block mx-auto w-full h-full object-contain"></canvas>
                             <div class="safeMarginGuide absolute inset-2 border border-dashed border-gray-400/40 rounded pointer-events-none"></div>
                             <div id="eraserCursor" class="eraserCursor hidden absolute pointer-events-none rounded-full"></div>
                         </div>
@@ -267,7 +270,7 @@
                                 </div>
                             </div>
 
-                            <!-- 背景透過微調整 -->
+                            <!-- 背景透過微調整（白ぬけ防止強化・自動透過スイッチ付き） -->
                             <div class="transOptionsCard bg-white border border-gray-200 rounded-xl p-3 space-y-2.5">
                                 <div class="flex items-center justify-between">
                                     <div class="text-xs font-bold text-gray-800">✨ 背景透過の微調整</div>
@@ -315,12 +318,12 @@
                                 <div id="illustBorderColorWrap" class="borderColorGroup pt-2 border-t border-gray-200 hidden">
                                     <span class="block text-[11px] font-bold text-gray-600 mb-1.5">フチの色：</span>
                                     <div class="colorList flex gap-1.5 items-center flex-wrap" id="illustBorderColorList">
-                                        <button class="cBtn active w-7 h-7 rounded-full bg-white border border-gray-300" data-color="#ffffff"></button>
-                                        <button class="cBtn w-7 h-7 rounded-full bg-gray-900 border border-transparent" data-color="#111111"></button>
-                                        <button class="cBtn w-7 h-7 rounded-full bg-pink-100 border border-gray-200" data-color="#ffebf0"></button>
-                                        <button class="cBtn w-7 h-7 rounded-full bg-yellow-300 border border-transparent" data-color="#ffd43b"></button>
-                                        <button class="cBtn w-7 h-7 rounded-full bg-blue-100 border border-gray-200" data-color="#e7f5ff"></button>
-                                        <button class="cBtn w-7 h-7 rounded-full bg-red-500 border border-transparent" data-color="#e03131"></button>
+                                        <button type="button" class="cBtn active w-7 h-7 rounded-full bg-white border border-gray-300" data-color="#ffffff"></button>
+                                        <button type="button" class="cBtn w-7 h-7 rounded-full bg-gray-900 border border-transparent" data-color="#111111"></button>
+                                        <button type="button" class="cBtn w-7 h-7 rounded-full bg-pink-100 border border-gray-200" data-color="#ffebf0"></button>
+                                        <button type="button" class="cBtn w-7 h-7 rounded-full bg-yellow-300 border border-transparent" data-color="#ffd43b"></button>
+                                        <button type="button" class="cBtn w-7 h-7 rounded-full bg-blue-100 border border-gray-200" data-color="#e7f5ff"></button>
+                                        <button type="button" class="cBtn w-7 h-7 rounded-full bg-red-500 border border-transparent" data-color="#e03131"></button>
                                         <label class="customColorWrap relative w-7 h-7 rounded-full border border-dashed border-gray-400 bg-white flex items-center justify-center cursor-pointer overflow-hidden">
                                             <input type="color" id="illustBorderColorPicker" value="#ffffff" class="absolute -inset-2 w-12 h-12 opacity-0 cursor-pointer">
                                             <span class="text-[10px]">🎨</span>
@@ -365,11 +368,11 @@
                                 <div>
                                     <label class="block text-[11px] font-bold text-gray-600 mb-1.5">文字の色</label>
                                     <div class="colorList flex gap-1.5 flex-wrap" id="textColorList">
-                                        <button class="cBtn active w-6 h-6 rounded-full bg-gray-900 border border-gray-300" data-color="#111111"></button>
-                                        <button class="cBtn w-6 h-6 rounded-full bg-white border border-gray-300" data-color="#ffffff"></button>
-                                        <button class="cBtn w-6 h-6 rounded-full bg-red-600" data-color="#e03131"></button>
-                                        <button class="cBtn w-6 h-6 rounded-full bg-blue-600" data-color="#1971c2"></button>
-                                        <button class="cBtn w-6 h-6 rounded-full bg-yellow-400" data-color="#ffd43b"></button>
+                                        <button type="button" class="cBtn active w-6 h-6 rounded-full bg-gray-900 border border-gray-300" data-color="#111111"></button>
+                                        <button type="button" class="cBtn w-6 h-6 rounded-full bg-white border border-gray-300" data-color="#ffffff"></button>
+                                        <button type="button" class="cBtn w-6 h-6 rounded-full bg-red-600" data-color="#e03131"></button>
+                                        <button type="button" class="cBtn w-6 h-6 rounded-full bg-blue-600" data-color="#1971c2"></button>
+                                        <button type="button" class="cBtn w-6 h-6 rounded-full bg-yellow-400" data-color="#ffd43b"></button>
                                         <label class="customColorWrap relative w-6 h-6 rounded-full border border-dashed border-gray-400 bg-white flex items-center justify-center cursor-pointer overflow-hidden">
                                             <input type="color" id="textColorPicker" value="#111111" class="absolute -inset-2 w-10 h-10 opacity-0 cursor-pointer">
                                             <span class="text-[9px]">🎨</span>
@@ -379,9 +382,9 @@
                                 <div>
                                     <label class="block text-[11px] font-bold text-gray-600 mb-1.5">フチどり</label>
                                     <div class="strokeList flex gap-1" id="textStrokeList">
-                                        <button class="sBtn active flex-1 py-1 bg-gray-900 text-white rounded text-[11px] font-bold" data-stroke="#ffffff">白フチ</button>
-                                        <button class="sBtn flex-1 py-1 bg-gray-100 rounded text-[11px] font-bold" data-stroke="#111111">黒</button>
-                                        <button class="sBtn flex-1 py-1 bg-gray-100 rounded text-[11px] font-bold" data-stroke="none">なし</button>
+                                        <button type="button" class="sBtn active flex-1 py-1 bg-gray-900 text-white rounded text-[11px] font-bold" data-stroke="#ffffff">白フチ</button>
+                                        <button type="button" class="sBtn flex-1 py-1 bg-gray-100 rounded text-[11px] font-bold" data-stroke="#111111">黒</button>
+                                        <button type="button" class="sBtn flex-1 py-1 bg-gray-100 rounded text-[11px] font-bold" data-stroke="none">なし</button>
                                     </div>
                                 </div>
                             </div>
@@ -441,11 +444,11 @@
                             <div id="bgColorControls" class="hidden">
                                 <label class="block text-xs font-bold text-gray-600 mb-1.5">背景カラー：</label>
                                 <div class="colorList flex gap-2 items-center flex-wrap" id="bgColorList">
-                                    <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-white" data-bg="#ffffff">しろ</button>
-                                    <button class="cBtn active px-3 py-1.5 rounded-lg border text-xs font-bold bg-yellow-100" data-bg="#fff9db">きいろ</button>
-                                    <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-pink-100" data-bg="#ffebf0">ピンク</button>
-                                    <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-blue-100" data-bg="#e7f5ff">みずいろ</button>
-                                    <button class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-gray-900 text-white" data-bg="#222222">くろ</button>
+                                    <button type="button" class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-white" data-bg="#ffffff">しろ</button>
+                                    <button type="button" class="cBtn active px-3 py-1.5 rounded-lg border text-xs font-bold bg-yellow-100" data-bg="#fff9db">きいろ</button>
+                                    <button type="button" class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-pink-100" data-bg="#ffebf0">ピンク</button>
+                                    <button type="button" class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-blue-100" data-bg="#e7f5ff">みずいろ</button>
+                                    <button type="button" class="cBtn px-3 py-1.5 rounded-lg border text-xs font-bold bg-gray-900 text-white" data-bg="#222222">くろ</button>
                                     <label class="customColorWrap relative w-7 h-7 rounded-full border border-dashed border-gray-400 bg-white flex items-center justify-center cursor-pointer overflow-hidden">
                                         <input type="color" id="bgColorPicker" value="#fff9db" class="absolute -inset-2 w-12 h-12 opacity-0 cursor-pointer">
                                         <span class="text-[10px]">🎨</span>
@@ -457,10 +460,10 @@
 
                     <!-- 保存ボタン群（都度ダウンロード対応） -->
                     <div class="saveButtonGroup space-y-2">
-                        <button id="saveAndDownload" class="primary bigBtn w-full py-3.5 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-base shadow-sm transition flex items-center justify-center gap-2">
+                        <button type="button" id="saveAndDownload" class="primary bigBtn w-full py-3.5 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-base shadow-sm transition flex items-center justify-center gap-2">
                             <span>💾 アルバムに追加 ＋ 端末に保存</span>
                         </button>
-                        <button id="saveOnly" class="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition border border-gray-300">
+                        <button type="button" id="saveOnly" class="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition border border-gray-300">
                             アルバムにだけ追加（ダウンロードしない）
                         </button>
                     </div>
@@ -468,20 +471,19 @@
             </div>
         </section>
 
-        <!-- ステップ③：完成アルバム（ZIP以外の複数保存方法を完備） -->
+        <!-- ステップ③：完成アルバム -->
         <section class="results bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200">
             <div class="resultHead flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                 <h2 class="text-base font-bold text-gray-800">完成アルバム <span id="done">0</span> / <span id="total">16</span></h2>
                 
-                <!-- 保存ボタングループ -->
                 <div class="exportActions flex flex-wrap gap-2 w-full md:w-auto">
-                    <button id="shareAllBtn" class="flex-1 md:flex-initial px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-sm transition disabled:opacity-40" disabled>
+                    <button type="button" id="shareAllBtn" class="flex-1 md:flex-initial px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-sm transition disabled:opacity-40" disabled>
                         📱 まとめて共有 / 保存
                     </button>
-                    <button id="downloadSequentialBtn" class="flex-1 md:flex-initial px-3.5 py-2.5 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-xs shadow-sm transition disabled:opacity-40" disabled>
+                    <button type="button" id="downloadSequentialBtn" class="flex-1 md:flex-initial px-3.5 py-2.5 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-xs shadow-sm transition disabled:opacity-40" disabled>
                         📥 1枚ずつ全保存
                     </button>
-                    <button id="zip" class="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-xl font-bold text-xs transition disabled:opacity-40" disabled>
+                    <button type="button" id="zip" class="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-xl font-bold text-xs transition disabled:opacity-40" disabled>
                         📦 ZIP保存
                     </button>
                 </div>
@@ -502,14 +504,13 @@
 
     <div id="toast" class="fixed left-1/2 bottom-6 -translate-x-1/2 translate-y-10 bg-gray-900 text-white px-5 py-2.5 rounded-full text-xs font-bold opacity-0 transition-all duration-300 pointer-events-none z-50 shadow-lg"></div>
 
-    <!-- 画像プレビュー・再編集モーダル（ワンタップ保存ボタン付き） -->
+    <!-- 画像プレビュー・再編集モーダル -->
     <div id="imageModal" class="modal fixed inset-0 bg-gray-900/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="modalContent bg-white p-5 rounded-2xl text-center max-w-[92%] w-80 shadow-xl space-y-3">
             <p class="modalTitle text-sm font-bold text-gray-800" id="modalTitle">完成カット</p>
             <img id="modalImg" alt="完成画像" class="max-w-[180px] max-h-[180px] mx-auto border border-gray-200 rounded-xl bg-gray-100 object-contain">
             
             <div class="modalActions flex flex-col gap-2">
-                <!-- 個別ダウンロードボタン -->
                 <button type="button" id="modalDownloadBtn" class="primary py-3 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-sm shadow-sm transition flex items-center justify-center gap-1.5">
                     📥 この画像を端末に保存
                 </button>
