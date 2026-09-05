@@ -248,20 +248,21 @@
                         <div id="panel-illust" class="layerPanel active space-y-3">
                             <div class="panelHeader border-b border-gray-200 pb-2">
                                 <b class="text-sm font-bold text-gray-800">🎨 イラストの設定</b>
-                                <span class="subNote text-[11px] text-gray-500">消しゴムや透過、白ぬけ防止を設定できます</span>
+                                <span class="subNote text-[11px] text-gray-500">お直しペンや消しゴム、透過、白ぬけ防止を設定できます</span>
                             </div>
 
-                            <!-- 消しゴム＆復元ペン カード -->
+                            <!-- 消しゴム＆復元ペン＆お直しペン カード -->
                             <div class="eraserCard bg-amber-50/70 border border-amber-200 rounded-xl p-3">
                                 <div class="flex gap-2">
-                                    <button type="button" id="eraserToggleBtn" class="eraserBtn flex-1 py-2 px-3 border border-orange-400 bg-white text-orange-600 rounded-lg font-bold text-xs transition">🧹 消しゴム：OFF</button>
+                                    <button type="button" id="eraserToggleBtn" class="eraserBtn flex-1 py-2 px-3 border border-orange-400 bg-white text-orange-600 rounded-lg font-bold text-xs transition">🖌️ けす・なおす：OFF</button>
                                     <button type="button" id="eraserUndoBtn" class="px-3 py-2 bg-white border border-gray-300 rounded-lg font-bold text-xs disabled:opacity-40" disabled>↩️ 戻す</button>
                                 </div>
                                 <div id="eraserOptionsWrap" class="eraserOptions mt-2.5 pt-2.5 border-t border-amber-200/60 hidden space-y-2">
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-2 flex-wrap">
                                         <span class="text-[11px] font-bold text-gray-600">モード：</span>
                                         <div class="inline-flex rounded-lg border border-gray-300 bg-white p-0.5">
-                                            <button type="button" id="toolModeErase" class="toolModeBtn active px-2.5 py-1 rounded-md text-xs font-bold bg-orange-500 text-white">🧹 消す</button>
+                                            <button type="button" id="toolModeRepair" class="toolModeBtn active px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500 text-white">🩹 なじませる</button>
+                                            <button type="button" id="toolModeErase" class="toolModeBtn px-2.5 py-1 rounded-md text-xs font-bold text-gray-600">🧹 消す</button>
                                             <button type="button" id="toolModeRestore" class="toolModeBtn px-2.5 py-1 rounded-md text-xs font-bold text-gray-600">🖌️ 復元(元に戻す)</button>
                                         </div>
                                     </div>
@@ -273,6 +274,7 @@
                                         <button type="button" class="eSizeBtn px-2.5 py-1 bg-white border border-gray-300 rounded text-xs font-bold" data-size="46">太</button>
                                         <button type="button" class="eSizeBtn px-2.5 py-1 bg-white border border-gray-300 rounded text-xs font-bold" data-size="70">極太</button>
                                     </div>
+                                    <p class="text-[10px] text-emerald-800">💡 「🩹 なじませる」：鼻や口が2つある…など、いらない部分を指でなぞると周りの色にとかして消せます</p>
                                     <p class="text-[10px] text-amber-800">💡 白猫の手など消えすぎた部分は「🖌️ 復元」を選んでなぞると元の絵に戻せます</p>
                                 </div>
                             </div>

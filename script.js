@@ -45,7 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   let isEraserActive = false;
-  let eraserToolMode = "erase";
+  let eraserToolMode = "repair"; // "repair"(なじませる) / "erase"(消す) / "restore"(復元)
   let eraserRadius = 14;
   let eraserUndoStack = [];
   let lastErasePoint = null;
@@ -857,7 +857,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if ($("#borderWidthValue")) $("#borderWidthValue").textContent = "6";
 
       isEraserActive = false;
-      eraserToolMode = "erase";
+      eraserToolMode = "repair";
       updateToolModeUI();
       eraserUndoStack = [];
       lastErasePoint = null;
@@ -948,7 +948,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if ($("#borderWidthValue")) $("#borderWidthValue").textContent = savedState.borderWidth || 6;
 
       isEraserActive = false;
-      eraserToolMode = "erase";
+      eraserToolMode = "repair";
       updateToolModeUI();
       eraserUndoStack = [];
       lastErasePoint = null;
@@ -1078,6 +1078,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateToolModeUI() {
     const eraseBtn = $("#toolModeErase");
     const restoreBtn = $("#toolModeRestore");
+    const repairBtn = $("#toolModeRepair");
     if (eraseBtn) {
       eraseBtn.classList.toggle("active", eraserToolMode === "erase");
       eraseBtn.classList.toggle("bg-orange-500", eraserToolMode === "erase");
@@ -1090,12 +1091,21 @@ document.addEventListener("DOMContentLoaded", () => {
       restoreBtn.classList.toggle("text-white", eraserToolMode === "restore");
       restoreBtn.classList.toggle("text-gray-600", eraserToolMode !== "restore");
     }
+    if (repairBtn) {
+      repairBtn.classList.toggle("active", eraserToolMode === "repair");
+      repairBtn.classList.toggle("bg-emerald-500", eraserToolMode === "repair");
+      repairBtn.classList.toggle("text-white", eraserToolMode === "repair");
+      repairBtn.classList.toggle("text-gray-600", eraserToolMode !== "repair");
+    }
 
     const cursor = $("#eraserCursor");
     if (cursor) {
       if (eraserToolMode === "restore") {
         cursor.style.borderColor = "rgba(37, 99, 235, 0.9)";
         cursor.style.backgroundColor = "rgba(37, 99, 235, 0.2)";
+      } else if (eraserToolMode === "repair") {
+        cursor.style.borderColor = "rgba(16, 185, 129, 0.9)";
+        cursor.style.backgroundColor = "rgba(16, 185, 129, 0.25)";
       } else {
         cursor.style.borderColor = "rgba(249, 115, 22, 0.9)";
         cursor.style.backgroundColor = "rgba(249, 115, 22, 0.2)";
@@ -1103,8 +1113,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  if ($("#toolModeErase")) $("#toolModeErase").onclick = () => { eraserToolMode = "erase"; updateToolModeUI(); };
+  if ($("#toolModeErase")) $("#toolModeErase").onclick = () => { eraserToolMode = "erase"; updateToolModeUI(); toast("消しゴム：透明にして消せます"); };
   if ($("#toolModeRestore")) $("#toolModeRestore").onclick = () => { eraserToolMode = "restore"; updateToolModeUI(); toast("復元ペン：消えた部分をなぞって元に戻せます"); };
+  if ($("#toolModeRepair")) $("#toolModeRepair").onclick = () => { eraserToolMode = "repair"; updateToolModeUI(); toast("お直しペン：いらない部分を周りの色になじませて消せます"); };
 
   function updateEraserUI() {
     setEraserMode(isEraserActive);
@@ -1143,6 +1154,57 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
+  // ==========================================
+  // 🩹 お直しペン：周囲8方向の色をサンプリングして、はみだした線などを周りの色になじませる
+  // ==========================================
+  function sampleSurroundingColor(sctx, cx, cy, sampleRadius, imgW, imgH) {
+    const dirs = 8;
+    let rSum = 0, gSum = 0, bSum = 0, count = 0;
+    for (let i = 0; i < dirs; i++) {
+      const angle = (i / dirs) * Math.PI * 2;
+      const sx = Math.round(cx + Math.cos(angle) * sampleRadius);
+      const sy = Math.round(cy + Math.sin(angle) * sampleRadius);
+      if (sx < 0 || sy < 0 || sx >= imgW || sy >= imgH) continue;
+      let d;
+      try { d = sctx.getImageData(sx, sy, 1, 1).data; } catch (e) { continue; }
+      if (d[3] < 15) continue; // 透明な部分はサンプル対象にしない
+      rSum += d[0]; gSum += d[1]; bSum += d[2]; count++;
+    }
+    if (count === 0) return null;
+    return { r: Math.round(rSum / count), g: Math.round(gSum / count), b: Math.round(bSum / count) };
+  }
+
+  function paintRepairDab(sctx, sx, sy, rInSrc, imgW, imgH) {
+    const sampleR = Math.max(rInSrc * 1.4, rInSrc + 6);
+    const col = sampleSurroundingColor(sctx, sx, sy, sampleR, imgW, imgH);
+    if (!col) return;
+    const grad = sctx.createRadialGradient(sx, sy, 0, sx, sy, Math.max(1, rInSrc));
+    grad.addColorStop(0, `rgba(${col.r},${col.g},${col.b},1)`);
+    grad.addColorStop(0.75, `rgba(${col.r},${col.g},${col.b},0.9)`);
+    grad.addColorStop(1, `rgba(${col.r},${col.g},${col.b},0)`);
+    sctx.globalCompositeOperation = "source-over";
+    sctx.fillStyle = grad;
+    sctx.beginPath();
+    sctx.arc(sx, sy, Math.max(1, rInSrc), 0, Math.PI * 2);
+    sctx.fill();
+  }
+
+  function paintRepairStroke(sctx, pt1, pt2, rInSrc, imgW, imgH) {
+    if (!pt2) {
+      paintRepairDab(sctx, pt1.sx, pt1.sy, rInSrc, imgW, imgH);
+      return;
+    }
+    const dist = Math.hypot(pt2.sx - pt1.sx, pt2.sy - pt1.sy);
+    const step = Math.max(2, rInSrc / 3);
+    const steps = Math.max(1, Math.ceil(dist / step));
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const sx = pt1.sx + (pt2.sx - pt1.sx) * t;
+      const sy = pt1.sy + (pt2.sy - pt1.sy) * t;
+      paintRepairDab(sctx, sx, sy, rInSrc, imgW, imgH);
+    }
+  }
+
   function eraseAtCoords(p1, p2) {
     if (!adjust.src) return;
     const sctx = adjust.src.getContext("2d");
@@ -1170,6 +1232,9 @@ document.addEventListener("DOMContentLoaded", () => {
         sctx.drawImage(adjust.rawSrc, 0, 0);
         sctx.restore();
       }
+    } else if (eraserToolMode === "repair") {
+      const pt2 = (p2 && !(p1.x === p2.x && p1.y === p2.y)) ? previewToSrcCoords(p2.x, p2.y) : null;
+      paintRepairStroke(sctx, pt1, pt2, Math.max(1, rInSrc), adjust.src.width, adjust.src.height);
     } else {
       sctx.globalCompositeOperation = "destination-out";
       if (!p2 || (p1.x === p2.x && p1.y === p2.y)) {
