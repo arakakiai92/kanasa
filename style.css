@@ -222,3 +222,14 @@ html,body{margin:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFo
 .modal.show {
   display: flex !important;
 }
+
+.repairPanel{margin-top:9px;padding:10px;border:1px solid #ddd;border-radius:11px;background:#fafafa}
+.repairTitle{font-size:13px;font-weight:800;margin-bottom:7px}
+.repairTools{display:grid;grid-template-columns:1.7fr 1fr .8fr;gap:6px}
+.repairTools button{padding:10px 5px;border:1px solid #aaa;border-radius:9px;background:#fff;font-size:12px;font-weight:800}
+.repairTools .active{background:#222;color:#fff;border-color:#222}
+.repairSize{display:flex;align-items:center;gap:7px;margin-top:8px;font-size:11px;color:#555}
+.repairSize input{flex:1}
+.repairSize b{min-width:38px;text-align:right}
+.repairHint{font-size:11px!important;margin:6px 0 0!important;color:#777!important}
+#repairCanvas{position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none;z-index:3}

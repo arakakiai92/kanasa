@@ -8,9 +8,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let mode = "sticker";
   let userInteractedMode = false;
   let img = null;
-  // 画像の入り口："sheet"=AIシート、"single"=単体イラスト
-  let sourceType = "sheet";
-  let uploadIntent = "sheet";
 
   let selectionRect = null;
   let selection = null;
@@ -160,7 +157,6 @@ document.addEventListener("DOMContentLoaded", () => {
         mode,
         count: $("#count") ? $("#count").value : "16",
         imgSrc: img ? img.src : null,
-        sourceType,
         selectionRect,
         results: serializedResults,
         editingIndex,
@@ -242,13 +238,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (data.imgSrc) {
-        sourceType = data.sourceType || "sheet";
         const im = await loadImageAsync(data.imgSrc);
         img = im;
         setupCanvas();
         renderSheet();
 
-        if (sourceType === "sheet" && data.selectionRect) {
+        if (data.selectionRect) {
           selectionRect = data.selectionRect;
           renderCropBox();
         }
@@ -275,10 +270,6 @@ document.addEventListener("DOMContentLoaded", () => {
             illustBorderColor: cur.illustBorderColor,
             borderWidth: cur.borderWidth || 6
           });
-        } else if (sourceType === "single" && (!data.results || data.results.length === 0)) {
-          selectionRect = null;
-          selection = { x: 0, y: 0, w: img.naturalWidth || img.width, h: img.naturalHeight || img.height };
-          openAdjustNew();
         } else {
           if ($("#sheetStep")) $("#sheetStep").classList.remove("hidden");
           if ($("#adjustStep")) $("#adjustStep").classList.add("hidden");
@@ -360,7 +351,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     syncAdjustAreaRatio();
-    if (img && sourceType === "sheet") initOrAdjustSelection();
+    if (img) initOrAdjustSelection();
     scheduleAutoSave();
   }
 
@@ -394,67 +385,35 @@ document.addEventListener("DOMContentLoaded", () => {
     if ($("#startSelect")) $("#startSelect").classList.remove("hidden");
   }
 
-  // ==========================================
-  // 画像読み込み：AIシート / 単体イラスト
-  // ==========================================
+  // ファイル読み込み処理
   const fileInput = $("#file");
-
-  function chooseUpload(type) {
-    uploadIntent = type;
-    if (fileInput) {
-      // 同じ画像を連続して選び直せるようにリセット
-      fileInput.value = "";
-      fileInput.click();
-    }
-  }
-
-  if ($("#uploadSheetBtn")) $("#uploadSheetBtn").onclick = () => chooseUpload("sheet");
-  if ($("#uploadSingleBtn")) $("#uploadSingleBtn").onclick = () => chooseUpload("single");
-
   if (fileInput) {
     fileInput.onchange = e => {
       const f = e.target.files[0];
       if (!f) return;
-      toast(uploadIntent === "single" ? "イラストを読み込んでいます..." : "シートを読み込んでいます...");
+      toast("画像を読み込んでいます...");
       const reader = new FileReader();
       reader.onload = event => {
         const im = new Image();
         im.onload = () => {
           img = im;
-          sourceType = uploadIntent;
           results = [];
           editingIndex = null;
-          selectionRect = null;
-          selection = null;
-
+          if ($("#sheetStep")) $("#sheetStep").classList.remove("hidden");
+          if ($("#adjustStep")) $("#adjustStep").classList.add("hidden");
           setupCanvas();
           renderSheet();
 
-          if (sourceType === "single") {
-            // 単体イラストは切り出し画面を飛ばして、直接レイヤー編集へ
-            selection = {
-              x: 0,
-              y: 0,
-              w: img.naturalWidth || img.width,
-              h: img.naturalHeight || img.height
-            };
-            if ($("#sheetStep")) $("#sheetStep").classList.add("hidden");
-            openAdjustNew();
-            toast("単体イラストをレイヤー編集に開きました！");
-          } else {
-            // AIシートは従来どおり切り出し画面へ
-            if ($("#sheetStep")) $("#sheetStep").classList.remove("hidden");
-            if ($("#adjustStep")) $("#adjustStep").classList.add("hidden");
-            initOrAdjustSelection();
-            refresh();
-            setTimeout(() => {
-              const step = $("#sheetStep");
-              if (step) step.scrollIntoView({ behavior: "smooth", block: "start" });
-            }, 100);
-            toast("シートを読み込みました！枠を合わせて「次へ」を押してね");
-          }
-
+          // 即座に初期枠を生成して「次へ」ボタンを表示
+          initOrAdjustSelection();
           refresh();
+
+          setTimeout(() => {
+            const step = $("#sheetStep");
+            if (step) step.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 100);
+
+          toast("シートを読み込みました！枠を合わせて「次へ」を押してね");
           triggerAutoSave();
         };
         im.onerror = () => toast("画像の読み込みに失敗しました。");
@@ -733,7 +692,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // 【最重要】次へボタンの確実な実行
   function goToAdjustStep() {
     if (!img) {
-      toast("先に画像を選んでね");
+      toast("先にシート画像を選んでね");
       return;
     }
     if (!selection) {
@@ -761,13 +720,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backBtn.onclick = () => {
       editingIndex = null;
       if ($("#adjustStep")) $("#adjustStep").classList.add("hidden");
-      if (sourceType === "sheet") {
-        if ($("#sheetStep")) $("#sheetStep").classList.remove("hidden");
-      } else {
-        // 単体イラストは切り出し工程がないので、画像選択エリアへ戻す
-        if ($("#sheetStep")) $("#sheetStep").classList.add("hidden");
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
+      if ($("#sheetStep")) $("#sheetStep").classList.remove("hidden");
       triggerAutoSave();
     };
   }
@@ -870,7 +823,6 @@ document.addEventListener("DOMContentLoaded", () => {
         else $("#saveAndDownload").textContent = "💾 アルバムに追加 ＋ 端末に保存";
       }
       if ($("#adjustStepTitle")) $("#adjustStepTitle").textContent = isEmoji ? "絵文字をととのえる" : "スタンプをととのえる";
-      if ($("#activeLayerTag")) $("#activeLayerTag").textContent = sourceType === "single" ? "🎨 単体イラストを編集中" : "🎨 イラスト編集中";
 
       // 確実に画面を切り替えてスクロール
       if ($("#adjustStep")) $("#adjustStep").classList.remove("hidden");
