@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let selectionRect = null;
   let selection = null;
+  let loadMethod = "sheet"; // "sheet"（AIシートから作る） or "single"（1枚のイラストから作る）
   let layerOrder = ["illust", "text", "bg"];
 
   let bgConfig = {
@@ -155,6 +156,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const isAdjustOpen = $("#adjustStep") && !$("#adjustStep").classList.contains("hidden");
       const currentState = {
         mode,
+        loadMethod,
         count: $("#count") ? $("#count").value : "16",
         imgSrc: img ? img.src : null,
         selectionRect,
@@ -204,6 +206,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!userInteractedMode) {
         mode = data.mode || "sticker";
       }
+      loadMethod = data.loadMethod || "sheet";
       if ($("#count")) $("#count").value = data.count || "16";
       updateMode();
 
@@ -271,7 +274,7 @@ document.addEventListener("DOMContentLoaded", () => {
             borderWidth: cur.borderWidth || 6
           });
         } else {
-          if ($("#sheetStep")) $("#sheetStep").classList.remove("hidden");
+          if ($("#sheetStep")) $("#sheetStep").classList.toggle("hidden", loadMethod === "single");
           if ($("#adjustStep")) $("#adjustStep").classList.add("hidden");
         }
         toast("前回の作業状態を復元しました！");
@@ -385,6 +388,23 @@ document.addEventListener("DOMContentLoaded", () => {
     if ($("#startSelect")) $("#startSelect").classList.remove("hidden");
   }
 
+  // 画像の読み込み方法（📋シート／🎨単体）選択ボタン
+  // ※ #file は非表示の input なので、ここでクリックして代わりにファイル選択を開く
+  if ($("#uploadSheetBtn")) {
+    $("#uploadSheetBtn").onclick = (e) => {
+      e.preventDefault();
+      loadMethod = "sheet";
+      if ($("#file")) $("#file").click();
+    };
+  }
+  if ($("#uploadSingleBtn")) {
+    $("#uploadSingleBtn").onclick = (e) => {
+      e.preventDefault();
+      loadMethod = "single";
+      if ($("#file")) $("#file").click();
+    };
+  }
+
   // ファイル読み込み処理
   const fileInput = $("#file");
   if (fileInput) {
@@ -399,6 +419,21 @@ document.addEventListener("DOMContentLoaded", () => {
           img = im;
           results = [];
           editingIndex = null;
+
+          if (loadMethod === "single") {
+            // 🎨 1枚のイラストから作る：切り出し画面をスキップして、画像全体をそのままレイヤー編集へ
+            selectionRect = null;
+            selection = { x: 0, y: 0, w: im.naturalWidth || im.width, h: im.naturalHeight || im.height };
+            if ($("#sheetStep")) $("#sheetStep").classList.add("hidden");
+            openAdjustNew();
+            fitIllustToCanvas();
+            toast("イラストを読み込みました！このまま編集できます");
+            triggerAutoSave();
+            // 選択後にもう一度同じファイルを選べるようにリセット
+            fileInput.value = "";
+            return;
+          }
+
           if ($("#sheetStep")) $("#sheetStep").classList.remove("hidden");
           if ($("#adjustStep")) $("#adjustStep").classList.add("hidden");
           setupCanvas();
@@ -415,6 +450,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           toast("シートを読み込みました！枠を合わせて「次へ」を押してね");
           triggerAutoSave();
+          fileInput.value = "";
         };
         im.onerror = () => toast("画像の読み込みに失敗しました。");
         im.src = event.target.result;
@@ -720,7 +756,18 @@ document.addEventListener("DOMContentLoaded", () => {
     backBtn.onclick = () => {
       editingIndex = null;
       if ($("#adjustStep")) $("#adjustStep").classList.add("hidden");
-      if ($("#sheetStep")) $("#sheetStep").classList.remove("hidden");
+      if (loadMethod === "single") {
+        // 単体イラストモードには切り出し画面が無いので、画像選択エリアへ戻る
+        img = null;
+        selection = null;
+        selectionRect = null;
+        if ($("#sheetStep")) $("#sheetStep").classList.add("hidden");
+        toast("画像をえらぶところに戻りました");
+        const mainEl = document.querySelector("main");
+        if (mainEl) mainEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        if ($("#sheetStep")) $("#sheetStep").classList.remove("hidden");
+      }
       triggerAutoSave();
     };
   }
@@ -936,6 +983,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const ih = (preview.width * adjust.scale / adjust.src.width) * adjust.src.height;
     adjust.ox = (preview.width - iw) / 2;
     adjust.oy = (preview.height - ih) / 2;
+  }
+
+  // 単体イラスト（切り出し無し）用：縦横どちらもキャンバスに収まるよう最初の大きさを合わせる
+  function fitIllustToCanvas() {
+    if (!adjust.src) return;
+    const fitScale = Math.min(preview.width / adjust.src.width, preview.height / adjust.src.height);
+    adjust.scale = Math.max(0.4, Math.min(3.0, fitScale || 1));
+    centerIllust();
+    syncCommonScaleSlider();
+    renderPreview();
   }
 
   // ==========================================
