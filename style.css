@@ -142,7 +142,7 @@ html,body{margin:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFo
 
 /* ==========================================
    ② プレビュー & レイヤー編集
-   ========================================== */
+   ========================================= */
 .hidden{display:none!important}
 
 .adjustArea{
@@ -164,7 +164,6 @@ html,body{margin:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFo
   object-fit:contain;
 }
 
-/* 消しゴム＆復元ペン カーソル */
 .eraserCursor{
   position:absolute;
   border:2px solid rgba(249,115,22,0.9);
