@@ -460,7 +460,6 @@ document.addEventListener("DOMContentLoaded", () => {
     stage.width = img.naturalWidth;
     stage.height = img.naturalHeight;
 
-    // CSSのレターボックスによるズレを完全に防ぐためスタイルを直接制御
     stage.style.display = "block";
     stage.style.maxWidth = "100%";
     stage.style.maxHeight = "56vh";
@@ -468,7 +467,6 @@ document.addEventListener("DOMContentLoaded", () => {
     stage.style.height = "auto";
     stage.style.margin = "0 auto";
 
-    // 親のwrapもCanvasの描画矩形に強制同期
     if (wrap) {
       wrap.style.display = "inline-block";
       wrap.style.position = "relative";
@@ -512,7 +510,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const m = getStageDisplayMetrics();
 
-    // Canvas要素と同じ表示サイズになるようwrapのサイズを完全固定
     if (wrap) {
       wrap.style.width = `${Math.round(m.width)}px`;
       wrap.style.height = `${Math.round(m.height)}px`;
@@ -530,7 +527,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if ($("#adjustBtn")) $("#adjustBtn").classList.remove("hidden");
     if ($("#startSelect")) $("#startSelect").classList.add("hidden");
 
-    // 画面上の枠ピクセルから、元画像ピクセルへの1対1完全マッピング
     selection = {
       x: Math.max(0, selectionRect.x * m.scaleX),
       y: Math.max(0, selectionRect.y * m.scaleY),
@@ -546,7 +542,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const w = m.width;
     const h = m.height;
 
-    // 4列シートに合わせた1コマサイズ
     let boxW = w * 0.235;
     let boxH = boxW / r;
 
@@ -1719,7 +1714,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================
-  // 背景透過 & 白ぬけ防止（超高精度 Flood-Fill）
+  // 背景透過 & 白ぬけ防止（高精度 Flood-Fill）
   // ==========================================
   function updateIllustCache() {
     if (!adjust.src) return;
@@ -1749,7 +1744,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const imgData = x.getImageData(0, 0, c.width, c.height);
     const a = imgData.data, w = c.width, h = c.height, total = w * h;
 
-    // 1. 純粋な背景の白を外周から高精度サンプリング（暗い線は除外）
     let sumR = 0, sumG = 0, sumB = 0, count = 0;
     const step = Math.max(1, Math.floor((w + h) / 80));
 
@@ -1757,7 +1751,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (a[idx + 3] < 15) return;
       const r = a[idx], g = a[idx + 1], b = a[idx + 2];
       const lum = (r * 299 + g * 587 + b * 114) / 1000;
-      if (lum >= 190) { // 明るい白背景のみ拾う
+      if (lum >= 190) {
         sumR += r; sumG += g; sumB += b; count++;
       }
     }
@@ -1775,7 +1769,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const bgG = count > 0 ? Math.round(sumG / count) : 255;
     const bgB = count > 0 ? Math.round(sumB / count) : 255;
 
-    // 2. 線（文字・輪郭）と背景の識別
     const isLine = new Uint8Array(total);
     for (let p = 0; p < total; p++) {
       const idx = p * 4;
@@ -1788,7 +1781,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 3. 白ぬけ防止壁（手足や顔の輪郭の隙間を閉じる）
     const wall = new Uint8Array(total);
     if (protect) {
       const rad = Math.max(1, Math.min(3, gapRadius));
@@ -1811,12 +1803,10 @@ document.addEventListener("DOMContentLoaded", () => {
       wall.set(isLine);
     }
 
-    // 4. 外周からの洪水浸透（キャラクターの内部へは壁を越えて浸入させない）
     const visited = new Uint8Array(total);
     const q = new Int32Array(total);
     let head = 0, tail = 0;
 
-    // 四辺の外周ピクセルで、かつ壁でない部分を浸透開始点（シード）にする
     for (let xx = 0; xx < w; xx++) {
       const topP = xx;
       if (!wall[topP] && !visited[topP]) { visited[topP] = 1; q[tail++] = topP; }
@@ -1830,8 +1820,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!wall[rightP] && !visited[rightP]) { visited[rightP] = 1; q[tail++] = rightP; }
     }
 
-    // 文字が左右いっぱいに広がって上下を分断している場合へのバイパス救済
-    // （両端の2列は文字の隙間を潜り抜けて下へ回り込ませる）
     for (let yy = 1; yy < h - 1; yy++) {
       const lp = yy * w;
       const rp = yy * w + (w - 1);
@@ -1849,7 +1837,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (yy < h - 1 && !visited[p + w] && !wall[p + w]) { visited[p + w] = 1; q[tail++] = p + w; }
     }
 
-    // 5. 外側から到達できた背景ピクセルのみを透明化（キャラ内部の白は完全保持）
     for (let p = 0; p < total; p++) {
       if (visited[p]) {
         const idx = p * 4;
@@ -1861,7 +1848,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (maxDiff <= tolerance) {
           a[idx + 3] = 0;
         } else {
-          // 輪郭境界のアンチエイリアス処理
           const alpha = Math.min(a[idx + 3], Math.max(0, Math.round(((maxDiff - tolerance) / tolerance) * 255)));
           a[idx + 3] = alpha;
         }
@@ -2399,11 +2385,28 @@ document.addEventListener("DOMContentLoaded", () => {
     toast.t = setTimeout(() => x.classList.remove("show"), 1800);
   }
 
+  // ==========================================
+  // プレビュー台紙の切り替え（格子 / 黒 / 白）
+  // ==========================================
+  document.querySelectorAll(".previewBgBtn").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll(".previewBgBtn").forEach(b => {
+        b.classList.remove("active", "bg-white", "text-gray-800", "shadow-xs");
+        b.classList.add("text-gray-500");
+      });
+      btn.classList.add("active", "bg-white", "text-gray-800", "shadow-xs");
+      btn.classList.remove("text-gray-500");
+
+      if (adjustArea) {
+        adjustArea.dataset.pbg = btn.dataset.pbg;
+      }
+    };
+  });
+
   document.fonts.ready.then(() => {
     if ($("#adjustStep") && !$("#adjustStep").classList.contains("hidden")) renderPreview();
   });
 
-  // 画面リサイズ時にもCanvasと枠を完全同期
   window.addEventListener("resize", () => {
     if (img && $("#sheetStep") && !$("#sheetStep").classList.contains("hidden")) {
       renderCropBox();
