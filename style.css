@@ -4,140 +4,159 @@ html,body{margin:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFo
 /* ==========================================
    ① 切り出し画面（ステップ①）
    ========================================== */
-#stageWrap{
-  position:relative;
-  overflow:hidden;
-  border-radius:12px;
-  background:#cbd5e1;
-  touch-action:none;
-  user-select:none;
-  -webkit-user-select:none;
-  text-align:center;
-}
-#stage{
-  display:block;
-  margin:0 auto;
-  width:100%;
-  height:auto;
-  max-height:55vh;
-  object-fit:contain;
+.stageOuterContainer {
+  position: relative;
+  background: #cbd5e1;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  padding: 8px;
 }
 
-.cropBox{
-  position:absolute;
-  border:3px solid #0f172a;
-  background:rgba(255,255,255,0.2);
-  touch-action:none;
-  pointer-events:auto;
-  cursor:move;
-}
-.cropBox:after{
-  content:"";
-  position:absolute;
-  inset:3px;
-  border:1px dashed rgba(255,255,255,0.9);
-  pointer-events:none;
-}
-.cropCenterIcon{
-  position:absolute;
-  left:50%;top:50%;
-  transform:translate(-50%,-50%);
-  width:36px;height:36px;
-  background:#fff;
-  border:2px solid #0f172a;
-  border-radius:50%;
-  display:flex;align-items:center;justify-content:center;
-  font-size:18px;
-  pointer-events:none;
-  box-shadow:0 2px 6px rgba(0,0,0,0.25);
-  z-index:4;
+#stageWrap {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  border-radius: 8px;
 }
 
-.handle{
-  position:absolute;
-  width:44px;
-  height:44px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index:15;
-  touch-action:none;
+#stage {
+  display: block;
+  max-width: 100%;
+  max-height: 58vh;
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
-.handle:after{
-  content:"";
-  width:30px;
-  height:30px;
-  background:#fff;
-  border:3px solid #0f172a;
-  border-radius:50%;
-  box-shadow:0 2px 5px rgba(0,0,0,0.3);
-  pointer-events:none;
-}
-.handle-nw{left:-22px;top:-22px;cursor:nwse-resize}
-.handle-ne{right:-22px;top:-22px;cursor:nesw-resize}
-.handle-sw{left:-22px;bottom:-22px;cursor:nesw-resize}
-.handle-se{right:-22px;bottom:-22px;cursor:nwse-resize}
 
-.fineTunePanel{
-  background:#f8fafc;
-  border:1px solid #e2e8f0;
-  border-radius:12px;
-  padding:12px;
-  margin-top:12px;
+.cropBox {
+  position: absolute;
+  border: 3px solid #0f172a;
+  background: rgba(255, 255, 255, 0.2);
+  touch-action: none;
+  pointer-events: auto;
+  cursor: move;
+  box-sizing: border-box;
 }
-.fineTuneLabel{
-  font-size:12px;
-  font-weight:700;
-  color:#64748b;
-  margin-bottom:8px;
-  text-align:center;
+.cropBox:after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1px dashed rgba(255, 255, 255, 0.9);
+  pointer-events: none;
 }
-.fineTuneControls{
-  display:flex;
-  gap:16px;
-  align-items:center;
-  justify-content:center;
+.cropCenterIcon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 34px;
+  height: 34px;
+  background: #fff;
+  border: 2px solid #0f172a;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  z-index: 4;
 }
-.dpad{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:4px;
+
+.handle {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 15;
+  touch-action: none;
 }
-.dpadMiddle{
-  display:flex;
-  gap:4px;
+.handle:after {
+  content: "";
+  width: 26px;
+  height: 26px;
+  background: #fff;
+  border: 3px solid #0f172a;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
 }
-.dpadBtn{
-  width:38px;
-  height:34px;
-  border:1.5px solid #cbd5e1;
-  background:#fff;
-  border-radius:8px;
-  font-weight:800;
-  cursor:pointer;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+.handle-nw { left: -20px; top: -20px; cursor: nwse-resize; }
+.handle-ne { right: -20px; top: -20px; cursor: nesw-resize; }
+.handle-sw { left: -20px; bottom: -20px; cursor: nesw-resize; }
+.handle-se { right: -20px; bottom: -20px; cursor: nwse-resize; }
+
+.fineTunePanel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  margin-top: 12px;
 }
-.dpadBtn:active{
-  background:#0f172a;
-  color:#fff;
+.fineTuneLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 8px;
+  text-align: center;
 }
-.sizeTune{
-  display:flex;
-  flex-direction:column;
-  gap:6px;
+.fineTuneControls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
 }
-.tuneBtn{
-  padding:8px 12px;
-  border:1.5px solid #cbd5e1;
-  background:#fff;
-  border-radius:8px;
-  font-size:12px;
-  font-weight:700;
-  cursor:pointer;
-  white-space:nowrap;
+.dpad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.dpadMiddle {
+  display: flex;
+  gap: 3px;
+}
+.dpadBtn {
+  width: 36px;
+  height: 32px;
+  border: 1.5px solid #cbd5e1;
+  background: #fff;
+  border-radius: 8px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dpadBtn:active {
+  background: #0f172a;
+  color: #fff;
+}
+.sizeTune {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.tuneBtn {
+  padding: 6px 10px;
+  border: 1.5px solid #cbd5e1;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 /* ==========================================
@@ -145,7 +164,6 @@ html,body{margin:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFo
    ========================================== */
 .hidden{display:none!important}
 
-/* プレビュー枠：モード別に比率を厳密制御 */
 .adjustArea{
   position:relative;
   margin:0 auto;
@@ -161,13 +179,11 @@ html,body{margin:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFo
   box-shadow:0 1px 3px rgba(0,0,0,0.08);
 }
 
-/* スタンプモード：370:320 */
 .adjustArea[data-mode="sticker"]{
   aspect-ratio:370 / 320;
   max-width:min(100%, calc(40vh * (370 / 320)));
 }
 
-/* 絵文字モード：1:1（真四角） */
 .adjustArea[data-mode="emoji"]{
   aspect-ratio:1 / 1;
   max-width:min(100%, 40vh);
