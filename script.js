@@ -202,7 +202,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!data || (!data.imgSrc && (!data.results || data.results.length === 0))) return;
 
     try {
-      // ユーザーが手動でモードを選んでいる場合は上書きしない
       if (!userInteractedMode) {
         mode = data.mode || "sticker";
       }
@@ -320,7 +319,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================
-  // モード & シート管理（確実な切替）
+  // モード & シート管理
   // ==========================================
   function syncAdjustAreaRatio() {
     const area = $("#adjustArea");
@@ -388,8 +387,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if ($("#startSelect")) $("#startSelect").classList.remove("hidden");
   }
 
-  // 画像の読み込み方法（📋シート／🎨単体）選択ボタン
-  // ※ #file は非表示の input なので、ここでクリックして代わりにファイル選択を開く
   if ($("#uploadSheetBtn")) {
     $("#uploadSheetBtn").onclick = (e) => {
       e.preventDefault();
@@ -405,7 +402,6 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
-  // ファイル読み込み処理
   const fileInput = $("#file");
   if (fileInput) {
     fileInput.onchange = e => {
@@ -421,7 +417,6 @@ document.addEventListener("DOMContentLoaded", () => {
           editingIndex = null;
 
           if (loadMethod === "single") {
-            // 🎨 1枚のイラストから作る：切り出し画面をスキップして、画像全体をそのままレイヤー編集へ
             selectionRect = null;
             selection = { x: 0, y: 0, w: im.naturalWidth || im.width, h: im.naturalHeight || im.height };
             if ($("#sheetStep")) $("#sheetStep").classList.add("hidden");
@@ -429,7 +424,6 @@ document.addEventListener("DOMContentLoaded", () => {
             fitIllustToCanvas();
             toast("イラストを読み込みました！このまま編集できます");
             triggerAutoSave();
-            // 選択後にもう一度同じファイルを選べるようにリセット
             fileInput.value = "";
             return;
           }
@@ -439,7 +433,6 @@ document.addEventListener("DOMContentLoaded", () => {
           setupCanvas();
           renderSheet();
 
-          // 即座に初期枠を生成して「次へ」ボタンを表示
           initOrAdjustSelection();
           refresh();
 
@@ -461,11 +454,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function setupCanvas() {
     if (!stage || !img) return;
-    const containerW = wrap ? wrap.clientWidth : (window.innerWidth - 40);
-    const maxW = Math.min(containerW > 0 ? containerW : 600, 900);
-    const scale = Math.min(1, maxW / img.naturalWidth);
-    stage.width = Math.round(img.naturalWidth * scale);
-    stage.height = Math.round(img.naturalHeight * scale);
+    stage.width = img.naturalWidth;
+    stage.height = img.naturalHeight;
   }
 
   function renderSheet() {
@@ -484,13 +474,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const sr = stage.getBoundingClientRect();
-    const srW = (sr && sr.width > 0) ? sr.width : (stage.clientWidth || stage.width || 300);
-    const srH = (sr && sr.height > 0) ? sr.height : (stage.clientHeight || stage.height || 300);
+    const srW = (sr && sr.width > 0) ? sr.width : (stage.clientWidth || 300);
+    const srH = (sr && sr.height > 0) ? sr.height : (stage.clientHeight || 300);
 
-    crop.style.left = `${(selectionRect.x / srW) * 100}%`;
-    crop.style.top = `${(selectionRect.y / srH) * 100}%`;
-    crop.style.width = `${(selectionRect.w / srW) * 100}%`;
-    crop.style.height = `${(selectionRect.h / srH) * 100}%`;
+    crop.style.left = `${Math.round(selectionRect.x)}px`;
+    crop.style.top = `${Math.round(selectionRect.y)}px`;
+    crop.style.width = `${Math.round(selectionRect.w)}px`;
+    crop.style.height = `${Math.round(selectionRect.h)}px`;
     crop.classList.remove("hidden");
 
     if ($("#cropFineTune")) $("#cropFineTune").classList.remove("hidden");
@@ -516,38 +506,89 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!img || !stage) return;
     const r = SPEC[mode].ratio;
     const sr = stage.getBoundingClientRect();
-    const w = (sr && sr.width > 0) ? sr.width : (stage.clientWidth || stage.width || 300);
-    const h = (sr && sr.height > 0) ? sr.height : (stage.clientHeight || stage.height || 300);
+    const w = (sr && sr.width > 0) ? sr.width : (stage.clientWidth || 300);
+    const h = (sr && sr.height > 0) ? sr.height : (stage.clientHeight || 300);
 
-    let boxW = w * 0.55;
+    let boxW = w * 0.235;
     let boxH = boxW / r;
-    if (boxH > h * 0.75) {
-      boxH = h * 0.75;
+
+    if (boxW < 36) {
+      boxW = 36;
+      boxH = boxW / r;
+    }
+    if (boxH > h * 0.4) {
+      boxH = h * 0.4;
       boxW = boxH * r;
     }
-    const x = (w - boxW) / 2;
-    const y = (h - boxH) / 2;
 
-    selectionRect = { x, y, w: boxW, h: boxH };
+    const marginX = w * 0.01;
+    const marginY = h * 0.01;
+
+    selectionRect = { x: marginX, y: marginY, w: boxW, h: boxH };
     renderCropBox();
     scheduleAutoSave();
   }
 
-  if ($("#resetCrop")) $("#resetCrop").onclick = () => { initOrAdjustSelection(); toast("枠を中央に戻しました"); };
+  function advanceSelectionSlot(direction = 1) {
+    if (!selectionRect || !stage) {
+      initOrAdjustSelection();
+      return;
+    }
+    const sr = stage.getBoundingClientRect();
+    const w = (sr && sr.width > 0) ? sr.width : 300;
+    const h = (sr && sr.height > 0) ? sr.height : 300;
+
+    const stepX = selectionRect.w * 1.065;
+    const stepY = selectionRect.h * 1.135;
+
+    let col = Math.round((selectionRect.x - (w * 0.01)) / stepX);
+    let row = Math.round((selectionRect.y - (h * 0.01)) / stepY);
+
+    if (direction > 0) {
+      col++;
+      if (col >= 4 || (selectionRect.x + stepX + selectionRect.w * 0.8 > w)) {
+        col = 0;
+        row++;
+      }
+    } else {
+      col--;
+      if (col < 0) {
+        col = 3;
+        row = Math.max(0, row - 1);
+      }
+    }
+
+    let nx = col * stepX + (w * 0.01);
+    let ny = row * stepY + (h * 0.01);
+
+    if (ny + selectionRect.h > h) {
+      nx = w * 0.01;
+      ny = h * 0.01;
+    }
+
+    selectionRect.x = Math.max(0, Math.min(w - selectionRect.w, nx));
+    selectionRect.y = Math.max(0, Math.min(h - selectionRect.h, ny));
+    renderCropBox();
+    scheduleAutoSave();
+  }
+
+  if ($("#cropNextSlot")) $("#cropNextSlot").onclick = () => advanceSelectionSlot(1);
+  if ($("#cropPrevSlot")) $("#cropPrevSlot").onclick = () => advanceSelectionSlot(-1);
+
+  if ($("#resetCrop")) $("#resetCrop").onclick = () => { initOrAdjustSelection(); toast("枠をコマ1に戻しました"); };
   if ($("#reDrawBtn")) $("#reDrawBtn").onclick = () => { resetSelection(); toast("切り出したい絵を指で囲んでね"); };
   if ($("#startSelect")) $("#startSelect").onclick = () => { initOrAdjustSelection(); toast("切り出し枠を表示しました！"); };
 
   function getTouchPos(clientX, clientY) {
     const r = stage.getBoundingClientRect();
-    const w = r.width > 0 ? r.width : (stage.clientWidth || stage.width || 300);
-    const h = r.height > 0 ? r.height : (stage.clientHeight || stage.height || 300);
+    const w = r.width > 0 ? r.width : (stage.clientWidth || 300);
+    const h = r.height > 0 ? r.height : (stage.clientHeight || 300);
     return {
       x: Math.max(0, Math.min(w, clientX - r.left)),
       y: Math.max(0, Math.min(h, clientY - r.top))
     };
   }
 
-  // 枠外の誤タップ防止ガード
   let cropDrag = null;
   if (wrap) {
     wrap.addEventListener("touchstart", e => {
@@ -578,8 +619,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const p = getTouchPos(touch.clientX, touch.clientY);
       const r = SPEC[mode].ratio;
       const sr = stage.getBoundingClientRect();
-      const srW = sr.width > 0 ? sr.width : (stage.clientWidth || stage.width || 300);
-      const srH = sr.height > 0 ? sr.height : (stage.clientHeight || stage.height || 300);
+      const srW = sr.width > 0 ? sr.width : 300;
+      const srH = sr.height > 0 ? sr.height : 300;
 
       if (cropDrag.type === "move") {
         const dx = p.x - cropDrag.startP.x;
@@ -725,7 +766,6 @@ document.addEventListener("DOMContentLoaded", () => {
   if ($("#cropZoomIn")) $("#cropZoomIn").onclick = () => scaleCrop(1.08);
   if ($("#cropZoomOut")) $("#cropZoomOut").onclick = () => scaleCrop(0.92);
 
-  // 【最重要】次へボタンの確実な実行
   function goToAdjustStep() {
     if (!img) {
       toast("先にシート画像を選んでね");
@@ -757,7 +797,6 @@ document.addEventListener("DOMContentLoaded", () => {
       editingIndex = null;
       if ($("#adjustStep")) $("#adjustStep").classList.add("hidden");
       if (loadMethod === "single") {
-        // 単体イラストモードには切り出し画面が無いので、画像選択エリアへ戻る
         img = null;
         selection = null;
         selectionRect = null;
@@ -772,7 +811,6 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
-  // 高画質を保ちつつメモリを軽量化（最大長辺740px / 360px）して高速化
   function cropFromOriginal(sel) {
     if (!sel || !img) {
       const c = document.createElement("canvas");
@@ -871,7 +909,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if ($("#adjustStepTitle")) $("#adjustStepTitle").textContent = isEmoji ? "絵文字をととのえる" : "スタンプをととのえる";
 
-      // 確実に画面を切り替えてスクロール
       if ($("#adjustStep")) $("#adjustStep").classList.remove("hidden");
       if ($("#sheetStep")) $("#sheetStep").classList.add("hidden");
 
@@ -985,7 +1022,6 @@ document.addEventListener("DOMContentLoaded", () => {
     adjust.oy = (preview.height - ih) / 2;
   }
 
-  // 単体イラスト（切り出し無し）用：縦横どちらもキャンバスに収まるよう最初の大きさを合わせる
   function fitIllustToCanvas() {
     if (!adjust.src) return;
     const fitScale = Math.min(preview.width / adjust.src.width, preview.height / adjust.src.height);
@@ -1155,7 +1191,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================
-  // 🩹 お直しペン：周囲8方向の色をサンプリングして、はみだした線などを周りの色になじませる
+  // お直しペン
   // ==========================================
   function sampleSurroundingColor(sctx, cx, cy, sampleRadius, imgW, imgH) {
     const dirs = 8;
@@ -1167,7 +1203,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (sx < 0 || sy < 0 || sx >= imgW || sy >= imgH) continue;
       let d;
       try { d = sctx.getImageData(sx, sy, 1, 1).data; } catch (e) { continue; }
-      if (d[3] < 15) continue; // 透明な部分はサンプル対象にしない
+      if (d[3] < 15) continue;
       rSum += d[0]; gSum += d[1]; bSum += d[2]; count++;
     }
     if (count === 0) return null;
@@ -1668,7 +1704,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================
-  // 背景透過 & 白ぬけ防止（高速・軽量化）
+  // 背景透過 & 白ぬけ防止
   // ==========================================
   function updateIllustCache() {
     if (!adjust.src) return;
@@ -1747,20 +1783,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const q = new Int32Array(total);
     let head = 0, tail = 0;
 
-    const cornerPoints = [0, w - 1, (h - 1) * w, total - 1];
-    for (let cp of cornerPoints) {
-      if (!wall[cp] && !visited[cp]) {
-        visited[cp] = 1;
-        q[tail++] = cp;
-      }
+    for (let xx = 0; xx < w; xx++) {
+      const topP = xx;
+      if (!wall[topP] && !visited[topP]) { visited[topP] = 1; q[tail++] = topP; }
+      const botP = (h - 1) * w + xx;
+      if (!wall[botP] && !visited[botP]) { visited[botP] = 1; q[tail++] = botP; }
     }
-
-    if (tail === 0) {
-      for (let xx = 0; xx < w; xx += 5) {
-        if (!wall[xx] && !visited[xx]) { visited[xx] = 1; q[tail++] = xx; }
-        const b = (h - 1) * w + xx;
-        if (!wall[b] && !visited[b]) { visited[b] = 1; q[tail++] = b; }
-      }
+    for (let yy = 0; yy < h; yy++) {
+      const leftP = yy * w;
+      if (!wall[leftP] && !visited[leftP]) { visited[leftP] = 1; q[tail++] = leftP; }
+      const rightP = yy * w + (w - 1);
+      if (!wall[rightP] && !visited[rightP]) { visited[rightP] = 1; q[tail++] = rightP; }
     }
 
     while (head < tail) {
@@ -2154,8 +2187,16 @@ document.addEventListener("DOMContentLoaded", () => {
       editingIndex = null;
       refresh();
       if ($("#adjustStep")) $("#adjustStep").classList.add("hidden");
-      if ($("#sheetStep")) $("#sheetStep").classList.remove("hidden");
-      resetSelection();
+
+      if (loadMethod === "single") {
+        if ($("#sheetStep")) $("#sheetStep").classList.add("hidden");
+        const mainEl = document.querySelector("main");
+        if (mainEl) mainEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        if ($("#sheetStep")) $("#sheetStep").classList.remove("hidden");
+        advanceSelectionSlot(1);
+      }
+
       triggerAutoSave();
     }, "image/png");
   }
