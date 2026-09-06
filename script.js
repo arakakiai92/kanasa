@@ -1704,7 +1704,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================
-  // 背景透過 & 白ぬけ防止
+  // 背景透過 & 白ぬけ防止（仮想外枠バイパス付き）
   // ==========================================
   function updateIllustCache() {
     if (!adjust.src) return;
@@ -1734,17 +1734,33 @@ document.addEventListener("DOMContentLoaded", () => {
     const imgData = x.getImageData(0, 0, c.width, c.height);
     const a = imgData.data, w = c.width, h = c.height, total = w * h;
 
-    const sampleCorners = [0, w - 1, (h - 1) * w, total - 1];
-    let sumR = 0, sumG = 0, sumB = 0, count = 0;
-    for (let cp of sampleCorners) {
-      if (a[cp * 4 + 3] > 10) {
-        sumR += a[cp * 4]; sumG += a[cp * 4 + 1]; sumB += a[cp * 4 + 2]; count++;
+    // ①【背景色の高精度判定】外周から黒線や文字（暗い色）を除外して純粋な背景色を算出
+    let sumR = 0, sumG = 0, sumB = 0, validBgCount = 0;
+    const sampleStep = Math.max(1, Math.floor((w + h) / 100));
+
+    function checkAndAddSample(idx) {
+      if (a[idx + 3] < 10) return;
+      const r = a[idx], g = a[idx + 1], b = a[idx + 2];
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      if (brightness >= 180) {
+        sumR += r; sumG += g; sumB += b; validBgCount++;
       }
     }
-    const bgR = count ? Math.round(sumR / count) : 255;
-    const bgG = count ? Math.round(sumG / count) : 255;
-    const bgB = count ? Math.round(sumB / count) : 255;
 
+    for (let xx = 0; xx < w; xx += sampleStep) {
+      checkAndAddSample(xx * 4);
+      checkAndAddSample(((h - 1) * w + xx) * 4);
+    }
+    for (let yy = 0; yy < h; yy += sampleStep) {
+      checkAndAddSample((yy * w) * 4);
+      checkAndAddSample((yy * w + (w - 1)) * 4);
+    }
+
+    const bgR = validBgCount > 0 ? Math.round(sumR / validBgCount) : 255;
+    const bgG = validBgCount > 0 ? Math.round(sumG / validBgCount) : 255;
+    const bgB = validBgCount > 0 ? Math.round(sumB / validBgCount) : 255;
+
+    // ② 線（文字・キャラ輪郭）と背景の判定
     const isLine = new Uint8Array(total);
     for (let p = 0; p < total; p++) {
       const idx = p * 4;
@@ -1757,6 +1773,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // ③ 白ぬけ防止用の壁（手足や体の白を守る）
     const wall = new Uint8Array(total);
     if (protect) {
       const rad = Math.max(1, Math.min(3, gapRadius));
@@ -1779,36 +1796,74 @@ document.addEventListener("DOMContentLoaded", () => {
       wall.set(isLine);
     }
 
-    const visited = new Uint8Array(total);
-    const q = new Int32Array(total);
+    // ④【分断解消】外周に厚さ1pxの仮想バイパスを設けた (w+2)×(h+2) 空間で探索
+    const extW = w + 2;
+    const extH = h + 2;
+    const extTotal = extW * extH;
+    const extVisited = new Uint8Array(extTotal);
+    const q = new Int32Array(extTotal);
     let head = 0, tail = 0;
 
-    for (let xx = 0; xx < w; xx++) {
-      const topP = xx;
-      if (!wall[topP] && !visited[topP]) { visited[topP] = 1; q[tail++] = topP; }
-      const botP = (h - 1) * w + xx;
-      if (!wall[botP] && !visited[botP]) { visited[botP] = 1; q[tail++] = botP; }
-    }
-    for (let yy = 0; yy < h; yy++) {
-      const leftP = yy * w;
-      if (!wall[leftP] && !visited[leftP]) { visited[leftP] = 1; q[tail++] = leftP; }
-      const rightP = yy * w + (w - 1);
-      if (!wall[rightP] && !visited[rightP]) { visited[rightP] = 1; q[tail++] = rightP; }
-    }
+    extVisited[0] = 1;
+    q[tail++] = 0;
 
     while (head < tail) {
-      const p = q[head++];
-      const xx = p % w, yy = (p / w) | 0;
+      const curr = q[head++];
+      const cx = curr % extW;
+      const cy = (curr / extW) | 0;
 
-      if (xx > 0 && !visited[p - 1] && !wall[p - 1]) { visited[p - 1] = 1; q[tail++] = p - 1; }
-      if (xx < w - 1 && !visited[p + 1] && !wall[p + 1]) { visited[p + 1] = 1; q[tail++] = p + 1; }
-      if (yy > 0 && !visited[p - w] && !wall[p - w]) { visited[p - w] = 1; q[tail++] = p - w; }
-      if (yy < h - 1 && !visited[p + w] && !wall[p + w]) { visited[p + w] = 1; q[tail++] = p + w; }
+      const neighbors = [];
+      if (cx > 0) neighbors.push(curr - 1);
+      if (cx < extW - 1) neighbors.push(curr + 1);
+      if (cy > 0) neighbors.push(curr - extW);
+      if (cy < extH - 1) neighbors.push(curr + extW);
+
+      for (let i = 0; i < neighbors.length; i++) {
+        const np = neighbors[i];
+        if (extVisited[np]) continue;
+
+        const nx = np % extW;
+        const ny = (np / extW) | 0;
+
+        if (nx === 0 || nx === extW - 1 || ny === 0 || ny === extH - 1) {
+          extVisited[np] = 1;
+          q[tail++] = np;
+        } else {
+          const imgX = nx - 1;
+          const imgY = ny - 1;
+          const origP = imgY * w + imgX;
+
+          if (!wall[origP]) {
+            extVisited[np] = 1;
+            q[tail++] = np;
+          }
+        }
+      }
     }
 
-    for (let p = 0; p < total; p++) {
-      if (visited[p]) a[p * 4 + 3] = 0;
+    // ⑤ 背景ピクセルを透明化
+    for (let y = 0; y < h; y++) {
+      for (let xx = 0; xx < w; xx++) {
+        const extP = (y + 1) * extW + (xx + 1);
+        const origP = y * w + xx;
+        const idx = origP * 4;
+
+        if (extVisited[extP]) {
+          const dr = Math.abs(a[idx] - bgR);
+          const dg = Math.abs(a[idx + 1] - bgG);
+          const db = Math.abs(a[idx + 2] - bgB);
+          const maxDiff = Math.max(dr, dg, db);
+
+          if (maxDiff <= tolerance) {
+            a[idx + 3] = 0;
+          } else {
+            const alpha = Math.min(a[idx + 3], Math.max(0, Math.round(((maxDiff - tolerance) / tolerance) * 255)));
+            a[idx + 3] = alpha;
+          }
+        }
+      }
     }
+
     x.putImageData(imgData, 0, 0);
     return c;
   }
