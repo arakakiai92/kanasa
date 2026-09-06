@@ -47,6 +47,7 @@
                         <option>8</option>
                         <option selected>16</option>
                         <option>24</option>
+                        <option>28</option>
                         <option>32</option>
                         <option>40</option>
                     </select>
@@ -80,40 +81,46 @@
             </div>
             <p class="text-xs text-gray-500 mb-4">絵を指で囲むか、枠を動かして位置・大きさを合わせてね。</p>
             
-            <div id="stageWrap" class="relative overflow-hidden rounded-xl bg-gray-200 text-center touch-none select-none">
-                <canvas id="stage" class="block mx-auto w-full h-auto max-h-[55vh] object-contain"></canvas>
-                <div id="cropBox" class="cropBox hidden absolute border-3 border-gray-900 bg-white/20 touch-none cursor-move">
-                    <div class="cropCenterIcon absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 bg-white border-2 border-gray-900 rounded-full flex items-center justify-center text-lg shadow-md pointer-events-none">✥</div>
-                    <div class="handle handle-nw absolute w-11 h-11 -left-5 -top-5 cursor-nwse-resize" data-h="nw"></div>
-                    <div class="handle handle-ne absolute w-11 h-11 -right-5 -top-5 cursor-nesw-resize" data-h="ne"></div>
-                    <div class="handle handle-sw absolute w-11 h-11 -left-5 -bottom-5 cursor-nesw-resize" data-h="sw"></div>
-                    <div class="handle handle-se absolute w-11 h-11 -right-5 -bottom-5 cursor-nwse-resize" data-h="se"></div>
+            <div class="stageOuterContainer">
+                <div id="stageWrap">
+                    <canvas id="stage"></canvas>
+                    <div id="cropBox" class="cropBox hidden">
+                        <div class="cropCenterIcon">✥</div>
+                        <div class="handle handle-nw" data-h="nw"></div>
+                        <div class="handle handle-ne" data-h="ne"></div>
+                        <div class="handle handle-sw" data-h="sw"></div>
+                        <div class="handle handle-se" data-h="se"></div>
+                    </div>
                 </div>
             </div>
 
             <!-- 切り出し枠の微調整コントローラー -->
-            <div id="cropFineTune" class="fineTunePanel bg-gray-50 border border-gray-200 rounded-xl p-3 mt-4 hidden">
-                <div class="fineTuneLabel text-xs font-bold text-gray-600 mb-2 text-center">枠の微調整（タップで少しずつ動かせます）</div>
-                <div class="fineTuneControls flex gap-4 items-center justify-center">
-                    <div class="dpad flex flex-col items-center gap-1">
-                        <button type="button" id="cropUp" class="dpadBtn w-10 h-8 bg-white border border-gray-300 rounded font-bold text-xs">▲</button>
-                        <div class="dpadMiddle flex gap-1">
-                            <button type="button" id="cropLeft" class="dpadBtn w-10 h-8 bg-white border border-gray-300 rounded font-bold text-xs">◀</button>
-                            <button type="button" id="cropCenter" class="dpadBtn w-10 h-8 bg-white border border-gray-300 rounded font-bold text-sm">◎</button>
-                            <button type="button" id="cropRight" class="dpadBtn w-10 h-8 bg-white border border-gray-300 rounded font-bold text-xs">▶</button>
+            <div id="cropFineTune" class="fineTunePanel hidden">
+                <div class="fineTuneLabel">枠の微調整（タップで少しずつ動かせます）</div>
+                <div class="fineTuneControls">
+                    <div class="dpad">
+                        <button type="button" id="cropUp" class="dpadBtn">▲</button>
+                        <div class="dpadMiddle">
+                            <button type="button" id="cropLeft" class="dpadBtn">◀</button>
+                            <button type="button" id="cropCenter" class="dpadBtn">◎</button>
+                            <button type="button" id="cropRight" class="dpadBtn">▶</button>
                         </div>
-                        <button type="button" id="cropDown" class="dpadBtn w-10 h-8 bg-white border border-gray-300 rounded font-bold text-xs">▼</button>
+                        <button type="button" id="cropDown" class="dpadBtn">▼</button>
                     </div>
-                    <div class="sizeTune flex flex-col gap-2">
-                        <button type="button" id="cropZoomOut" class="tuneBtn px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold">− 枠を小さく</button>
-                        <button type="button" id="cropZoomIn" class="tuneBtn px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold">＋ 枠を大きく</button>
+                    <div class="sizeTune">
+                        <button type="button" id="cropZoomOut" class="tuneBtn">− 枠を小さく</button>
+                        <button type="button" id="cropZoomIn" class="tuneBtn">＋ 枠を大きく</button>
+                    </div>
+                    <div class="sizeTune">
+                        <button type="button" id="cropNextSlot" class="tuneBtn bg-green-50 text-[#00C300] border-green-300">⏭ 次のコマへ移動</button>
+                        <button type="button" id="cropPrevSlot" class="tuneBtn">⏮ 前のコマへ移動</button>
                     </div>
                 </div>
             </div>
 
-            <!-- 切り出しアクション（誤タップ保護＆囲み直し対応） -->
+            <!-- 切り出しアクション -->
             <div class="sheetActions flex flex-wrap gap-2 mt-4">
-                <button type="button" id="resetCrop" class="subBtn px-3.5 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-bold text-xs text-gray-700 hidden">↺ 中央に戻す</button>
+                <button type="button" id="resetCrop" class="subBtn px-3.5 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-bold text-xs text-gray-700 hidden">↺ コマ1に戻す</button>
                 <button type="button" id="reDrawBtn" class="subBtn px-3.5 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-bold text-xs text-gray-700 hidden">✂️ 囲み直す</button>
                 <button type="button" id="startSelect" class="primary bigBtn flex-1 py-3.5 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-base shadow-sm transition">✂️ この絵を囲む</button>
                 <button type="button" id="adjustBtn" class="primary bigBtn flex-1 py-3.5 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-base shadow-sm transition hidden">次へ：レイヤー編集 →</button>
@@ -142,7 +149,7 @@
                             <span class="text-[11px] text-gray-400">💡 プレビュー内をなぞって移動できます</span>
                         </div>
 
-                        <!-- プレビューエリア（真四角・スタンプ比率で中央配置） -->
+                        <!-- プレビューエリア -->
                         <div class="adjustArea relative mx-auto rounded-xl overflow-hidden touch-none select-none border border-gray-200 shadow-sm" id="adjustArea" data-mode="sticker">
                             <canvas id="preview" class="block mx-auto w-full h-full object-contain"></canvas>
                             <div class="safeMarginGuide absolute inset-2 border border-dashed border-gray-400/40 rounded pointer-events-none"></div>
@@ -279,7 +286,7 @@
                                 </div>
                             </div>
 
-                            <!-- 背景透過微調整（白ぬけ防止強化・自動透過スイッチ付き） -->
+                            <!-- 背景透過微調整 -->
                             <div class="transOptionsCard bg-white border border-gray-200 rounded-xl p-3 space-y-2.5">
                                 <div class="flex items-center justify-between">
                                     <div class="text-xs font-bold text-gray-800">✨ 背景透過の微調整</div>
@@ -467,7 +474,7 @@
                         </div>
                     </div>
 
-                    <!-- 保存ボタン群（都度ダウンロード対応） -->
+                    <!-- 保存ボタン群 -->
                     <div class="saveButtonGroup space-y-2">
                         <button type="button" id="saveAndDownload" class="primary bigBtn w-full py-3.5 bg-[#00C300] hover:bg-[#00b300] text-white rounded-xl font-bold text-base shadow-sm transition flex items-center justify-center gap-2">
                             <span>💾 アルバムに追加 ＋ 端末に保存</span>
