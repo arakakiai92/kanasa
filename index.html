@@ -142,15 +142,21 @@
                 <!-- 左カラム：プレビュー・タブ・クイック調整 -->
                 <div class="workspaceLeft space-y-4">
                     <div class="previewContainer space-y-2">
-                        <div class="flex items-center justify-between px-1">
+                        <div class="flex items-center justify-between px-1 flex-wrap gap-2">
                             <div id="activeLayerTag" class="text-xs font-bold text-gray-800 bg-gray-100 px-3 py-1 rounded-lg border border-gray-200 shadow-2xs flex items-center gap-1.5">
                                 🎨 イラスト編集中
                             </div>
-                            <span class="text-[11px] text-gray-400">💡 プレビュー内をなぞって移動できます</span>
+                            <!-- プレビュー台紙（背景）の切り替えボタン -->
+                            <div class="flex items-center gap-1 text-xs font-bold text-gray-600 bg-gray-100 p-1 rounded-lg border border-gray-200">
+                                <span class="text-[10px] text-gray-400 px-1">台紙:</span>
+                                <button type="button" class="previewBgBtn active px-2 py-0.5 rounded text-[11px] font-bold bg-white text-gray-800 shadow-xs transition" data-pbg="checker" title="透明(格子)">🏁 格子</button>
+                                <button type="button" class="previewBgBtn px-2 py-0.5 rounded text-[11px] font-bold text-gray-500 hover:text-gray-900 transition" data-pbg="black" title="黒背景(白フチ・透過確認)">⬛ 黒</button>
+                                <button type="button" class="previewBgBtn px-2 py-0.5 rounded text-[11px] font-bold text-gray-500 hover:text-gray-900 transition" data-pbg="white" title="白背景">⬜ 白</button>
+                            </div>
                         </div>
 
                         <!-- プレビューエリア -->
-                        <div class="adjustArea relative mx-auto rounded-xl overflow-hidden touch-none select-none border border-gray-200 shadow-sm" id="adjustArea" data-mode="sticker">
+                        <div class="adjustArea relative mx-auto rounded-xl overflow-hidden touch-none select-none border border-gray-200 shadow-sm" id="adjustArea" data-mode="sticker" data-pbg="checker">
                             <canvas id="preview" class="block mx-auto w-full h-full object-contain"></canvas>
                             <div class="safeMarginGuide absolute inset-2 border border-dashed border-gray-400/40 rounded pointer-events-none"></div>
                             <div id="eraserCursor" class="eraserCursor hidden absolute pointer-events-none rounded-full"></div>
