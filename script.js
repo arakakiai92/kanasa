@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let selectionRect = null;
   let selection = null;
-  let loadMethod = "sheet"; // "sheet"（AIシートから作る） or "single"（1枚のイラストから作る）
+  let loadMethod = "sheet";
   let layerOrder = ["illust", "text", "bg"];
 
   let bgConfig = {
@@ -45,7 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   let isEraserActive = false;
-  let eraserToolMode = "repair"; // "repair"(なじませる) / "erase"(消す) / "restore"(復元)
+  let eraserToolMode = "repair";
   let eraserRadius = 14;
   let eraserUndoStack = [];
   let lastErasePoint = null;
@@ -61,7 +61,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ==========================================
-  // IndexedDB 自動保存・復元（安全ガード付き）
+  // IndexedDB 自動保存・復元
   // ==========================================
   const DB_NAME = "StampEmojiMaker_DB";
   const STORE_NAME = "autoSaveStore";
@@ -319,7 +319,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================
-  // モード & シート管理
+  // モード管理
   // ==========================================
   function syncAdjustAreaRatio() {
     const area = $("#adjustArea");
@@ -452,16 +452,53 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
+  // ==========================================
+  // 切り出し画面：Canvasと枠の絶対一致制御
+  // ==========================================
   function setupCanvas() {
     if (!stage || !img) return;
     stage.width = img.naturalWidth;
     stage.height = img.naturalHeight;
+
+    // CSSのレターボックスによるズレを完全に防ぐためスタイルを直接制御
+    stage.style.display = "block";
+    stage.style.maxWidth = "100%";
+    stage.style.maxHeight = "56vh";
+    stage.style.width = "auto";
+    stage.style.height = "auto";
+    stage.style.margin = "0 auto";
+
+    // 親のwrapもCanvasの描画矩形に強制同期
+    if (wrap) {
+      wrap.style.display = "inline-block";
+      wrap.style.position = "relative";
+      wrap.style.lineHeight = "0";
+      const outer = wrap.parentElement;
+      if (outer) {
+        outer.style.textAlign = "center";
+      }
+    }
   }
 
   function renderSheet() {
     if (!sctx || !img) return;
     sctx.clearRect(0, 0, stage.width, stage.height);
     sctx.drawImage(img, 0, 0, stage.width, stage.height);
+  }
+
+  function getStageDisplayMetrics() {
+    if (!stage) return { width: 300, height: 300, scaleX: 1, scaleY: 1 };
+    const rect = stage.getBoundingClientRect();
+    const w = rect.width > 0 ? rect.width : (stage.clientWidth || 300);
+    const h = rect.height > 0 ? rect.height : (stage.clientHeight || 300);
+    const natW = img ? (img.naturalWidth || stage.width) : stage.width;
+    const natH = img ? (img.naturalHeight || stage.height) : stage.height;
+    return {
+      width: w,
+      height: h,
+      scaleX: natW / w,
+      scaleY: natH / h
+    };
   }
 
   function renderCropBox() {
@@ -473,9 +510,13 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const sr = stage.getBoundingClientRect();
-    const srW = (sr && sr.width > 0) ? sr.width : (stage.clientWidth || 300);
-    const srH = (sr && sr.height > 0) ? sr.height : (stage.clientHeight || 300);
+    const m = getStageDisplayMetrics();
+
+    // Canvas要素と同じ表示サイズになるようwrapのサイズを完全固定
+    if (wrap) {
+      wrap.style.width = `${Math.round(m.width)}px`;
+      wrap.style.height = `${Math.round(m.height)}px`;
+    }
 
     crop.style.left = `${Math.round(selectionRect.x)}px`;
     crop.style.top = `${Math.round(selectionRect.y)}px`;
@@ -489,37 +530,28 @@ document.addEventListener("DOMContentLoaded", () => {
     if ($("#adjustBtn")) $("#adjustBtn").classList.remove("hidden");
     if ($("#startSelect")) $("#startSelect").classList.add("hidden");
 
-    const natW = img.naturalWidth || img.width || stage.width;
-    const natH = img.naturalHeight || img.height || stage.height;
-    const scaleX = natW / srW;
-    const scaleY = natH / srH;
-
+    // 画面上の枠ピクセルから、元画像ピクセルへの1対1完全マッピング
     selection = {
-      x: Math.max(0, selectionRect.x * scaleX),
-      y: Math.max(0, selectionRect.y * scaleY),
-      w: Math.max(10, selectionRect.w * scaleX),
-      h: Math.max(10, selectionRect.h * scaleY)
+      x: Math.max(0, selectionRect.x * m.scaleX),
+      y: Math.max(0, selectionRect.y * m.scaleY),
+      w: Math.max(10, selectionRect.w * m.scaleX),
+      h: Math.max(10, selectionRect.h * m.scaleY)
     };
   }
 
   function initOrAdjustSelection() {
     if (!img || !stage) return;
     const r = SPEC[mode].ratio;
-    const sr = stage.getBoundingClientRect();
-    const w = (sr && sr.width > 0) ? sr.width : (stage.clientWidth || 300);
-    const h = (sr && sr.height > 0) ? sr.height : (stage.clientHeight || 300);
+    const m = getStageDisplayMetrics();
+    const w = m.width;
+    const h = m.height;
 
+    // 4列シートに合わせた1コマサイズ
     let boxW = w * 0.235;
     let boxH = boxW / r;
 
-    if (boxW < 36) {
-      boxW = 36;
-      boxH = boxW / r;
-    }
-    if (boxH > h * 0.4) {
-      boxH = h * 0.4;
-      boxW = boxH * r;
-    }
+    if (boxW < 36) { boxW = 36; boxH = boxW / r; }
+    if (boxH > h * 0.4) { boxH = h * 0.4; boxW = boxH * r; }
 
     const marginX = w * 0.01;
     const marginY = h * 0.01;
@@ -534,9 +566,8 @@ document.addEventListener("DOMContentLoaded", () => {
       initOrAdjustSelection();
       return;
     }
-    const sr = stage.getBoundingClientRect();
-    const w = (sr && sr.width > 0) ? sr.width : 300;
-    const h = (sr && sr.height > 0) ? sr.height : 300;
+    const m = getStageDisplayMetrics();
+    const w = m.width, h = m.height;
 
     const stepX = selectionRect.w * 1.065;
     const stepY = selectionRect.h * 1.135;
@@ -581,8 +612,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function getTouchPos(clientX, clientY) {
     const r = stage.getBoundingClientRect();
-    const w = r.width > 0 ? r.width : (stage.clientWidth || 300);
-    const h = r.height > 0 ? r.height : (stage.clientHeight || 300);
+    const w = r.width > 0 ? r.width : 300;
+    const h = r.height > 0 ? r.height : 300;
     return {
       x: Math.max(0, Math.min(w, clientX - r.left)),
       y: Math.max(0, Math.min(h, clientY - r.top))
@@ -618,9 +649,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const touch = e.touches[0];
       const p = getTouchPos(touch.clientX, touch.clientY);
       const r = SPEC[mode].ratio;
-      const sr = stage.getBoundingClientRect();
-      const srW = sr.width > 0 ? sr.width : 300;
-      const srH = sr.height > 0 ? sr.height : 300;
+      const m = getStageDisplayMetrics();
+      const srW = m.width, srH = m.height;
 
       if (cropDrag.type === "move") {
         const dx = p.x - cropDrag.startP.x;
@@ -679,9 +709,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!cropDrag) return;
       const p = getTouchPos(e.clientX, e.clientY);
       const r = SPEC[mode].ratio;
-      const sr = stage.getBoundingClientRect();
-      const srW = sr.width > 0 ? sr.width : 300;
-      const srH = sr.height > 0 ? sr.height : 300;
+      const m = getStageDisplayMetrics();
+      const srW = m.width, srH = m.height;
 
       if (cropDrag.type === "move") {
         const dx = p.x - cropDrag.startP.x;
@@ -722,11 +751,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function nudgeCrop(dx, dy) {
     if (!selectionRect || !stage) return;
-    const sr = stage.getBoundingClientRect();
-    const srW = sr.width > 0 ? sr.width : 300;
-    const srH = sr.height > 0 ? sr.height : 300;
-    selectionRect.x = Math.max(0, Math.min(srW - selectionRect.w, selectionRect.x + dx));
-    selectionRect.y = Math.max(0, Math.min(srH - selectionRect.h, selectionRect.y + dy));
+    const m = getStageDisplayMetrics();
+    selectionRect.x = Math.max(0, Math.min(m.width - selectionRect.w, selectionRect.x + dx));
+    selectionRect.y = Math.max(0, Math.min(m.height - selectionRect.h, selectionRect.y + dy));
     renderCropBox();
     scheduleAutoSave();
   }
@@ -734,16 +761,14 @@ document.addEventListener("DOMContentLoaded", () => {
   function scaleCrop(factor) {
     if (!selectionRect || !stage) return;
     const r = SPEC[mode].ratio;
-    const sr = stage.getBoundingClientRect();
-    const srW = sr.width > 0 ? sr.width : 300;
-    const srH = sr.height > 0 ? sr.height : 300;
+    const m = getStageDisplayMetrics();
     const cx = selectionRect.x + selectionRect.w / 2;
     const cy = selectionRect.y + selectionRect.h / 2;
     let newW = selectionRect.w * factor;
     let newH = newW / r;
     if (newW < 36) { newW = 36; newH = newW / r; }
-    let nx = Math.max(0, Math.min(srW - newW, cx - newW / 2));
-    let ny = Math.max(0, Math.min(srH - newH, cy - newH / 2));
+    let nx = Math.max(0, Math.min(m.width - newW, cx - newW / 2));
+    let ny = Math.max(0, Math.min(m.height - newH, cy - newH / 2));
     selectionRect = { x: nx, y: ny, w: newW, h: newH };
     renderCropBox();
     scheduleAutoSave();
@@ -755,11 +780,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if ($("#cropRight")) $("#cropRight").onclick = () => nudgeCrop(6, 0);
   if ($("#cropCenter")) $("#cropCenter").onclick = () => {
     if (!selectionRect || !stage) return;
-    const sr = stage.getBoundingClientRect();
-    const srW = sr.width > 0 ? sr.width : 300;
-    const srH = sr.height > 0 ? sr.height : 300;
-    selectionRect.x = (srW - selectionRect.w) / 2;
-    selectionRect.y = (srH - selectionRect.h) / 2;
+    const m = getStageDisplayMetrics();
+    selectionRect.x = (m.width - selectionRect.w) / 2;
+    selectionRect.y = (m.height - selectionRect.h) / 2;
     renderCropBox();
     scheduleAutoSave();
   };
@@ -771,12 +794,9 @@ document.addEventListener("DOMContentLoaded", () => {
       toast("先にシート画像を選んでね");
       return;
     }
+    renderCropBox();
     if (!selection) {
       initOrAdjustSelection();
-    }
-    if (!selection) {
-      toast("絵を指で囲んでね");
-      return;
     }
     editingIndex = null;
     openAdjustNew();
@@ -850,9 +870,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function openAdjustNew() {
     try {
-      if (!selection && selectionRect) {
-        renderCropBox();
-      }
+      renderCropBox();
       syncAdjustAreaRatio();
       const raw = cropFromOriginal(selection);
       const src = cloneCanvas(raw);
@@ -1032,7 +1050,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================
-  // 消しゴム & 復元ペン 精密座標計算
+  // 消しゴム & 復元ペン
   // ==========================================
   function getPreviewPoint(clientX, clientY) {
     const rect = preview.getBoundingClientRect();
@@ -1190,9 +1208,6 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
-  // ==========================================
-  // お直しペン
-  // ==========================================
   function sampleSurroundingColor(sctx, cx, cy, sampleRadius, imgW, imgH) {
     const dirs = 8;
     let rSum = 0, gSum = 0, bSum = 0, count = 0;
@@ -1704,7 +1719,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================
-  // 背景透過 & 白ぬけ防止（仮想外枠バイパス付き）
+  // 背景透過 & 白ぬけ防止（超高精度 Flood-Fill）
   // ==========================================
   function updateIllustCache() {
     if (!adjust.src) return;
@@ -1734,37 +1749,37 @@ document.addEventListener("DOMContentLoaded", () => {
     const imgData = x.getImageData(0, 0, c.width, c.height);
     const a = imgData.data, w = c.width, h = c.height, total = w * h;
 
-    // ①【背景色の高精度判定】外周から黒線や文字（暗い色）を除外して純粋な背景色を算出
-    let sumR = 0, sumG = 0, sumB = 0, validBgCount = 0;
-    const sampleStep = Math.max(1, Math.floor((w + h) / 100));
+    // 1. 純粋な背景の白を外周から高精度サンプリング（暗い線は除外）
+    let sumR = 0, sumG = 0, sumB = 0, count = 0;
+    const step = Math.max(1, Math.floor((w + h) / 80));
 
-    function checkAndAddSample(idx) {
-      if (a[idx + 3] < 10) return;
+    function addSample(idx) {
+      if (a[idx + 3] < 15) return;
       const r = a[idx], g = a[idx + 1], b = a[idx + 2];
-      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-      if (brightness >= 180) {
-        sumR += r; sumG += g; sumB += b; validBgCount++;
+      const lum = (r * 299 + g * 587 + b * 114) / 1000;
+      if (lum >= 190) { // 明るい白背景のみ拾う
+        sumR += r; sumG += g; sumB += b; count++;
       }
     }
 
-    for (let xx = 0; xx < w; xx += sampleStep) {
-      checkAndAddSample(xx * 4);
-      checkAndAddSample(((h - 1) * w + xx) * 4);
+    for (let xx = 0; xx < w; xx += step) {
+      addSample(xx * 4);
+      addSample(((h - 1) * w + xx) * 4);
     }
-    for (let yy = 0; yy < h; yy += sampleStep) {
-      checkAndAddSample((yy * w) * 4);
-      checkAndAddSample((yy * w + (w - 1)) * 4);
+    for (let yy = 0; yy < h; yy += step) {
+      addSample((yy * w) * 4);
+      addSample((yy * w + (w - 1)) * 4);
     }
 
-    const bgR = validBgCount > 0 ? Math.round(sumR / validBgCount) : 255;
-    const bgG = validBgCount > 0 ? Math.round(sumG / validBgCount) : 255;
-    const bgB = validBgCount > 0 ? Math.round(sumB / validBgCount) : 255;
+    const bgR = count > 0 ? Math.round(sumR / count) : 255;
+    const bgG = count > 0 ? Math.round(sumG / count) : 255;
+    const bgB = count > 0 ? Math.round(sumB / count) : 255;
 
-    // ② 線（文字・キャラ輪郭）と背景の判定
+    // 2. 線（文字・輪郭）と背景の識別
     const isLine = new Uint8Array(total);
     for (let p = 0; p < total; p++) {
       const idx = p * 4;
-      if (a[idx + 3] < 10) continue;
+      if (a[idx + 3] < 15) continue;
       const dr = Math.abs(a[idx] - bgR);
       const dg = Math.abs(a[idx + 1] - bgG);
       const db = Math.abs(a[idx + 2] - bgB);
@@ -1773,7 +1788,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // ③ 白ぬけ防止用の壁（手足や体の白を守る）
+    // 3. 白ぬけ防止壁（手足や顔の輪郭の隙間を閉じる）
     const wall = new Uint8Array(total);
     if (protect) {
       const rad = Math.max(1, Math.min(3, gapRadius));
@@ -1796,70 +1811,59 @@ document.addEventListener("DOMContentLoaded", () => {
       wall.set(isLine);
     }
 
-    // ④【分断解消】外周に厚さ1pxの仮想バイパスを設けた (w+2)×(h+2) 空間で探索
-    const extW = w + 2;
-    const extH = h + 2;
-    const extTotal = extW * extH;
-    const extVisited = new Uint8Array(extTotal);
-    const q = new Int32Array(extTotal);
+    // 4. 外周からの洪水浸透（キャラクターの内部へは壁を越えて浸入させない）
+    const visited = new Uint8Array(total);
+    const q = new Int32Array(total);
     let head = 0, tail = 0;
 
-    extVisited[0] = 1;
-    q[tail++] = 0;
-
-    while (head < tail) {
-      const curr = q[head++];
-      const cx = curr % extW;
-      const cy = (curr / extW) | 0;
-
-      const neighbors = [];
-      if (cx > 0) neighbors.push(curr - 1);
-      if (cx < extW - 1) neighbors.push(curr + 1);
-      if (cy > 0) neighbors.push(curr - extW);
-      if (cy < extH - 1) neighbors.push(curr + extW);
-
-      for (let i = 0; i < neighbors.length; i++) {
-        const np = neighbors[i];
-        if (extVisited[np]) continue;
-
-        const nx = np % extW;
-        const ny = (np / extW) | 0;
-
-        if (nx === 0 || nx === extW - 1 || ny === 0 || ny === extH - 1) {
-          extVisited[np] = 1;
-          q[tail++] = np;
-        } else {
-          const imgX = nx - 1;
-          const imgY = ny - 1;
-          const origP = imgY * w + imgX;
-
-          if (!wall[origP]) {
-            extVisited[np] = 1;
-            q[tail++] = np;
-          }
-        }
-      }
+    // 四辺の外周ピクセルで、かつ壁でない部分を浸透開始点（シード）にする
+    for (let xx = 0; xx < w; xx++) {
+      const topP = xx;
+      if (!wall[topP] && !visited[topP]) { visited[topP] = 1; q[tail++] = topP; }
+      const botP = (h - 1) * w + xx;
+      if (!wall[botP] && !visited[botP]) { visited[botP] = 1; q[tail++] = botP; }
+    }
+    for (let yy = 0; yy < h; yy++) {
+      const leftP = yy * w;
+      if (!wall[leftP] && !visited[leftP]) { visited[leftP] = 1; q[tail++] = leftP; }
+      const rightP = yy * w + (w - 1);
+      if (!wall[rightP] && !visited[rightP]) { visited[rightP] = 1; q[tail++] = rightP; }
     }
 
-    // ⑤ 背景ピクセルを透明化
-    for (let y = 0; y < h; y++) {
-      for (let xx = 0; xx < w; xx++) {
-        const extP = (y + 1) * extW + (xx + 1);
-        const origP = y * w + xx;
-        const idx = origP * 4;
+    // 文字が左右いっぱいに広がって上下を分断している場合へのバイパス救済
+    // （両端の2列は文字の隙間を潜り抜けて下へ回り込ませる）
+    for (let yy = 1; yy < h - 1; yy++) {
+      const lp = yy * w;
+      const rp = yy * w + (w - 1);
+      if (!visited[lp] && !isLine[lp]) { visited[lp] = 1; q[tail++] = lp; }
+      if (!visited[rp] && !isLine[rp]) { visited[rp] = 1; q[tail++] = rp; }
+    }
 
-        if (extVisited[extP]) {
-          const dr = Math.abs(a[idx] - bgR);
-          const dg = Math.abs(a[idx + 1] - bgG);
-          const db = Math.abs(a[idx + 2] - bgB);
-          const maxDiff = Math.max(dr, dg, db);
+    while (head < tail) {
+      const p = q[head++];
+      const xx = p % w, yy = (p / w) | 0;
 
-          if (maxDiff <= tolerance) {
-            a[idx + 3] = 0;
-          } else {
-            const alpha = Math.min(a[idx + 3], Math.max(0, Math.round(((maxDiff - tolerance) / tolerance) * 255)));
-            a[idx + 3] = alpha;
-          }
+      if (xx > 0 && !visited[p - 1] && !wall[p - 1]) { visited[p - 1] = 1; q[tail++] = p - 1; }
+      if (xx < w - 1 && !visited[p + 1] && !wall[p + 1]) { visited[p + 1] = 1; q[tail++] = p + 1; }
+      if (yy > 0 && !visited[p - w] && !wall[p - w]) { visited[p - w] = 1; q[tail++] = p - w; }
+      if (yy < h - 1 && !visited[p + w] && !wall[p + w]) { visited[p + w] = 1; q[tail++] = p + w; }
+    }
+
+    // 5. 外側から到達できた背景ピクセルのみを透明化（キャラ内部の白は完全保持）
+    for (let p = 0; p < total; p++) {
+      if (visited[p]) {
+        const idx = p * 4;
+        const dr = Math.abs(a[idx] - bgR);
+        const dg = Math.abs(a[idx + 1] - bgG);
+        const db = Math.abs(a[idx + 2] - bgB);
+        const maxDiff = Math.max(dr, dg, db);
+
+        if (maxDiff <= tolerance) {
+          a[idx + 3] = 0;
+        } else {
+          // 輪郭境界のアンチエイリアス処理
+          const alpha = Math.min(a[idx + 3], Math.max(0, Math.round(((maxDiff - tolerance) / tolerance) * 255)));
+          a[idx + 3] = alpha;
         }
       }
     }
@@ -2070,7 +2074,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================
-  // レンダリング & 描画
+  // レンダリング & 保存
   // ==========================================
   function renderPreview() {
     if (!pctx) return;
@@ -2183,9 +2187,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return c;
   }
 
-  // ==========================================
-  // 保存・ダウンロードユーティリティ
-  // ==========================================
   function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -2400,6 +2401,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.fonts.ready.then(() => {
     if ($("#adjustStep") && !$("#adjustStep").classList.contains("hidden")) renderPreview();
+  });
+
+  // 画面リサイズ時にもCanvasと枠を完全同期
+  window.addEventListener("resize", () => {
+    if (img && $("#sheetStep") && !$("#sheetStep").classList.contains("hidden")) {
+      renderCropBox();
+    }
   });
 
   updateMode();
