@@ -170,7 +170,6 @@ html,body{margin:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFo
   width:100%;
   height:auto;
   max-height:40vh;
-  background:repeating-conic-gradient(#e2e8f0 0 25%,#fff 0 50%) 50%/16px 16px;
   border-radius:12px;
   overflow:hidden;
   touch-action:none;
@@ -187,6 +186,23 @@ html,body{margin:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFo
 .adjustArea[data-mode="emoji"]{
   aspect-ratio:1 / 1;
   max-width:min(100%, 40vh);
+}
+
+/* プレビュー台紙の背景切り替えスタイル */
+.adjustArea[data-pbg="checker"] {
+  background: repeating-conic-gradient(#e2e8f0 0 25%, #fff 0 50%) 50%/16px 16px !important;
+}
+
+.adjustArea[data-pbg="black"] {
+  background: #18181b !important;
+}
+
+.adjustArea[data-pbg="white"] {
+  background: #ffffff !important;
+}
+
+.adjustArea[data-pbg="black"] .safeMarginGuide {
+  border-color: rgba(255, 255, 255, 0.3) !important;
 }
 
 #preview{
